@@ -1,0 +1,241 @@
+// Meow remittance app — database schema
+// Designed for a Canada -> Pakistan remittance corridor (extensible to others).
+// Money correctness rules enforced here:
+//  - All monetary amounts use Decimal (never floats)
+//  - Balances are computed from the LedgerEntry table (double-entry), never stored
+//  - Every state-changing action is recorded in AuditLog
+//  - Transfers carry an idempotency key to prevent duplicate sends
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Users & auth
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  country      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  wallets    Wallet[]
+  recipients Recipient[]
+  transfers  Transfer[]
+  kycRecords KycRecord[]
+  auditLogs  AuditLog[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wallets — one per (user, currency). Balance is derived from LedgerEntry.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String
+  currency  String   // ISO 4217: CAD, USD, ...
+  createdAt DateTime @default(now())
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerEntries LedgerEntry[]
+
+  @@unique([userId, currency])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Recipients — people the user sends money to
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Recipient {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  email       String?
+  phone       String?
+  country     String   // ISO 3166-1 alpha-2: PK, IN, PH, ...
+  bankAccount String   // IBAN or local account number
+  bankName    String?
+  bankCode    String?  // SWIFT/BIC, IFSC, etc.
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transfers Transfer[]
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Corridors — supported send/receive currency pairs with FX + fee config
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Corridor {
+  id            String  @id @default(uuid())
+  fromCurrency  String  // CAD
+  toCurrency    String  // PKR
+  fromCountry   String  // CA
+  toCountry     String  // PK
+  baseRate      Decimal @db.Decimal(20, 8) // mock provider rate (1 fromCurrency = baseRate toCurrency)
+  marginBps     Int     @default(150)      // our spread in basis points (150 = 1.5%)
+  feeFlat       Decimal @default(0) @db.Decimal(20, 4)
+  feePercentBps Int     @default(0)
+  minSendAmount Decimal @db.Decimal(20, 4)
+  maxSendAmount Decimal @db.Decimal(20, 4)
+  active        Boolean @default(true)
+
+  @@unique([fromCurrency, toCurrency])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transfers — the core money-movement record
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TransferStatus {
+  initiated
+  payment_received
+  compliance_check
+  fx_converted
+  payout_processing
+  delivered
+  failed
+  cancelled
+}
+
+model Transfer {
+  id              String         @id @default(uuid())
+  userId          String
+  recipientId     String
+  sendAmount      Decimal        @db.Decimal(20, 4)
+  sendCurrency    String
+  receiveAmount   Decimal?       @db.Decimal(20, 4)
+  receiveCurrency String
+  fxRateApplied   Decimal?       @db.Decimal(20, 8)
+  feeAmount       Decimal        @default(0) @db.Decimal(20, 4)
+  status          TransferStatus @default(initiated)
+  idempotencyKey  String         @unique
+  providerName    String?        // e.g. "mock", "nium", "thunes"
+  providerRef     String?        // provider's transaction id
+  failureReason   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user          User            @relation(fields: [userId], references: [id])
+  recipient     Recipient       @relation(fields: [recipientId], references: [id])
+  timeline      TransferEvent[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId])
+  @@index([recipientId])
+  @@index([status])
+}
+
+model TransferEvent {
+  id         String         @id @default(uuid())
+  transferId String
+  status     TransferStatus
+  message    String?
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+
+  transfer Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  @@index([transferId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Double-entry ledger. Every transaction inserts BOTH a debit and a credit
+// row sharing the same txGroupId. Sum per wallet = balance.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum LedgerDirection {
+  debit
+  credit
+}
+
+enum LedgerEntryType {
+  wallet_fund
+  transfer_hold
+  transfer_release
+  transfer_refund
+  fee
+  fx_conversion
+}
+
+model LedgerEntry {
+  id          String          @id @default(uuid())
+  walletId    String
+  transferId  String?
+  txGroupId   String          // both legs of a double-entry pair share this
+  direction   LedgerDirection
+  type        LedgerEntryType
+  amount      Decimal         @db.Decimal(20, 4)
+  currency    String
+  description String?
+  createdAt   DateTime        @default(now())
+
+  wallet   Wallet    @relation(fields: [walletId], references: [id])
+  transfer Transfer? @relation(fields: [transferId], references: [id])
+
+  @@index([walletId])
+  @@index([transferId])
+  @@index([txGroupId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KYC records — abstracted so we can swap mock for Trulioo / Onfido / Persona
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum KycStatus {
+  pending
+  passed
+  failed
+}
+
+model KycRecord {
+  id          String    @id @default(uuid())
+  userId      String
+  status      KycStatus @default(pending)
+  provider    String?   // "mock", "trulioo", "onfido", ...
+  providerRef String?
+  reason      String?
+  verifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit log — required for FINTRAC compliance. Every state-changing action
+// must produce an entry here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String   // e.g. "auth.register", "transfer.create", "wallet.fund"
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

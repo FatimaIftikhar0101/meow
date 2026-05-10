@@ -1,98 +1,57 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Meow Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS backend for the Meow remittance app. Uses PostgreSQL via Prisma ORM.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## First-time setup
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Prerequisites: Node 20+, PostgreSQL 16+ running locally with a database named `meow_dev`.
 
 ```bash
-$ npm install
+# 1. Install dependencies
+npm install
+
+# 2. Create your local env file from the template
+cp .env.example .env
+# Edit .env and set DATABASE_URL to your local Postgres connection string.
+
+# 3. Run database migrations (creates all tables)
+npm run db:migrate
+
+# 4. Start the dev server
+npm run start:dev
 ```
 
-## Compile and run the project
+The server listens on `http://localhost:3000` by default.
 
-```bash
-# development
-$ npm run start
+## Useful scripts
 
-# watch mode
-$ npm run start:dev
+| Command              | What it does                                   |
+| -------------------- | ---------------------------------------------- |
+| `npm run start:dev`  | Start backend with hot reload                  |
+| `npm run build`      | Compile TypeScript to `dist/`                  |
+| `npm run db:migrate` | Apply pending Prisma migrations to your DB     |
+| `npm run db:reset`   | Drop and recreate the database (destroys data) |
+| `npm run db:studio`  | Open Prisma Studio (browse/edit data in a UI)  |
 
-# production mode
-$ npm run start:prod
-```
+## Database schema
 
-## Run tests
+See [`prisma/schema.prisma`](./prisma/schema.prisma). Core tables:
 
-```bash
-# unit tests
-$ npm run test
+| Table             | Purpose                                                    |
+| ----------------- | ---------------------------------------------------------- |
+| `User`            | Auth and user account                                      |
+| `Wallet`          | One per (user, currency); balance computed from ledger     |
+| `Recipient`       | People the user sends money to                             |
+| `Corridor`        | Send/receive currency pairs with FX + fee config           |
+| `Transfer`        | Money-movement records with state machine                  |
+| `TransferEvent`   | Audit timeline for each transfer status change             |
+| `LedgerEntry`     | Double-entry ledger; balances are derived, not stored      |
+| `KycRecord`       | KYC/compliance records (mock provider, swap to real later) |
+| `AuditLog`        | Required for FINTRAC compliance                            |
 
-# e2e tests
-$ npm run test:e2e
+## Architecture notes
 
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **Money fields use `Decimal`**, never `float`. Floats lose cents.
+- **Balances are derived** from `LedgerEntry` rows, not stored on `Wallet`. This makes accounting auditable and prevents drift.
+- **Every transfer carries an `idempotencyKey`** so duplicate API calls don't create duplicate sends.
+- **Provider abstraction** (Nium, Thunes, etc.) plugs in behind a single interface; current implementation is a mock.
