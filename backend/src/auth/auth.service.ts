@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,7 +31,9 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
@@ -47,7 +53,12 @@ export class AuthService {
         data: { userId: created.id, currency },
       });
       await tx.auditLog.create({
-        data: { userId: created.id, action: 'auth.register', entityType: 'user', entityId: created.id },
+        data: {
+          userId: created.id,
+          action: 'auth.register',
+          entityType: 'user',
+          entityId: created.id,
+        },
       });
       return created;
     });
@@ -56,7 +67,9 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -65,7 +78,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
     await this.prisma.auditLog.create({
-      data: { userId: user.id, action: 'auth.login', entityType: 'user', entityId: user.id },
+      data: {
+        userId: user.id,
+        action: 'auth.login',
+        entityType: 'user',
+        entityId: user.id,
+      },
     });
     return this.signToken(user.id, user.email);
   }
@@ -78,7 +96,12 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException();
     }
-    return { userId: user.id, email: user.email, country: user.country, createdAt: user.createdAt };
+    return {
+      userId: user.id,
+      email: user.email,
+      country: user.country,
+      createdAt: user.createdAt,
+    };
   }
 
   private signToken(userId: string, email: string) {

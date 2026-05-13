@@ -1,19 +1,22 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { FundWalletDto } from './dto/fund-wallet.dto';
+
+const FUND_LIMIT_PER_DAY = new Prisma.Decimal(20000);
 
 @Injectable()
 export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getBalance(userId: string) {
-    const wallet = await this.prisma.wallet.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'asc' },
-    });
-    if (!wallet) {
-      throw new NotFoundException('Wallet not found');
-    }
+    const wallet = await this.primaryWallet(userId);
     return {
       balance: (await this.computeBalance(wallet.id)).toFixed(2),
       currency: wallet.currency,
@@ -36,9 +39,120 @@ export class WalletService {
     return c.minus(d);
   }
 
-  async findUserWallet(userId: string, currency: string) {
+  findUserWallet(userId: string, currency: string) {
     return this.prisma.wallet.findUnique({
       where: { userId_currency: { userId, currency } },
     });
+  }
+
+  async fund(userId: string, dto: FundWalletDto) {
+    const primary = await this.primaryWallet(userId);
+    const currency = (dto.currency ?? primary.currency).toUpperCase();
+    const wallet = await this.findUserWallet(userId, currency);
+    if (!wallet) {
+      throw new BadRequestException(`No ${currency} wallet`);
+    }
+
+    const idempotencyKey = dto.idempotencyKey ?? randomUUID();
+
+    const existing = await this.prisma.ledgerEntry.findFirst({
+      where: {
+        walletId: wallet.id,
+        type: 'wallet_fund',
+        description: `idempotency:${idempotencyKey}`,
+      },
+    });
+    if (existing) {
+      throw new ConflictException('Funding already processed');
+    }
+
+    const amount = new Prisma.Decimal(dto.amount);
+    await this.assertWithinDailyFundLimit(wallet.id, amount);
+
+    const txGroupId = randomUUID();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ledgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          txGroupId,
+          direction: 'credit',
+          type: 'wallet_fund',
+          amount,
+          currency,
+          description: `idempotency:${idempotencyKey}`,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: 'wallet.fund',
+          entityType: 'wallet',
+          entityId: wallet.id,
+          metadata: { amount: amount.toString(), currency, idempotencyKey },
+        },
+      });
+    });
+
+    return {
+      balance: (await this.computeBalance(wallet.id)).toFixed(2),
+      currency,
+    };
+  }
+
+  async transactions(userId: string, limit = 50) {
+    const wallet = await this.primaryWallet(userId);
+    const entries = await this.prisma.ledgerEntry.findMany({
+      where: { walletId: wallet.id },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 200),
+      include: {
+        transfer: {
+          select: {
+            id: true,
+            recipient: { select: { name: true, country: true } },
+          },
+        },
+      },
+    });
+    return entries.map((e) => ({
+      id: e.id,
+      direction: e.direction,
+      type: e.type,
+      amount: e.amount.toString(),
+      currency: e.currency,
+      description: e.description,
+      createdAt: e.createdAt,
+      transfer: e.transfer
+        ? { id: e.transfer.id, recipient: e.transfer.recipient }
+        : null,
+    }));
+  }
+
+  private async assertWithinDailyFundLimit(
+    walletId: string,
+    amount: Prisma.Decimal,
+  ) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sum = await this.prisma.ledgerEntry.aggregate({
+      where: { walletId, type: 'wallet_fund', createdAt: { gte: since } },
+      _sum: { amount: true },
+    });
+    const used = sum._sum.amount ?? new Prisma.Decimal(0);
+    if (used.plus(amount).gt(FUND_LIMIT_PER_DAY)) {
+      throw new BadRequestException(
+        `Daily funding limit ${FUND_LIMIT_PER_DAY.toString()} exceeded`,
+      );
+    }
+  }
+
+  private async primaryWallet(userId: string) {
+    const wallet = await this.prisma.wallet.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!wallet) {
+      throw new NotFoundException('Wallet not found');
+    }
+    return wallet;
   }
 }

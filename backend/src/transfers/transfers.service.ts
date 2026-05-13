@@ -3,10 +3,14 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, TransferStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { ComplianceService } from '../compliance/compliance.service';
+import { CorridorsService } from '../corridors/corridors.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
@@ -19,12 +23,36 @@ const CANCELLABLE: TransferStatus[] = [
   'fx_converted',
 ];
 
+export const NON_TERMINAL: TransferStatus[] = [
+  'initiated',
+  'payment_received',
+  'compliance_check',
+  'fx_converted',
+  'payout_processing',
+];
+
+export const NEXT_STATUS: Record<TransferStatus, TransferStatus | null> = {
+  initiated: 'payment_received',
+  payment_received: 'compliance_check',
+  compliance_check: 'fx_converted',
+  fx_converted: 'payout_processing',
+  payout_processing: 'delivered',
+  delivered: null,
+  failed: null,
+  cancelled: null,
+};
+
 @Injectable()
 export class TransfersService {
+  private readonly logger = new Logger(TransfersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallets: WalletService,
+    private readonly corridors: CorridorsService,
+    private readonly compliance: ComplianceService,
     private readonly gateway: TransfersGateway,
+    private readonly config: ConfigService,
   ) {}
 
   async list(userId: string) {
@@ -57,53 +85,41 @@ export class TransfersService {
     const recipient = await this.prisma.recipient.findUnique({
       where: { id: dto.recipientId },
     });
-    if (!recipient || recipient.userId !== userId) {
+    if (!recipient || !recipient.active || recipient.userId !== userId) {
       throw new NotFoundException('Recipient not found');
     }
 
-    const corridor = await this.prisma.corridor.findUnique({
-      where: {
-        fromCurrency_toCurrency: {
-          fromCurrency: sendCurrency,
-          toCurrency: receiveCurrency,
-        },
-      },
-    });
-    if (!corridor || !corridor.active) {
+    if (!(await this.compliance.requirePassed(userId))) {
+      throw new ForbiddenException(
+        'Complete identity verification before sending money',
+      );
+    }
+
+    const corridor = await this.corridors.findActive(
+      sendCurrency,
+      receiveCurrency,
+    );
+    if (recipient.country.toUpperCase() !== corridor.toCountry.toUpperCase()) {
       throw new BadRequestException(
-        `Corridor ${sendCurrency}->${receiveCurrency} not supported`,
+        `Recipient country ${recipient.country} does not match corridor target ${corridor.toCountry}`,
       );
     }
 
     const sendAmount = new Prisma.Decimal(dto.sendAmount);
-    if (
-      sendAmount.lt(corridor.minSendAmount) ||
-      sendAmount.gt(corridor.maxSendAmount)
-    ) {
-      throw new BadRequestException(
-        `Amount must be between ${corridor.minSendAmount.toString()} and ${corridor.maxSendAmount.toString()} ${sendCurrency}`,
-      );
-    }
+    const quote = this.corridors.computeQuote(corridor, sendAmount);
+
+    await this.assertDailyVelocity(userId, sendCurrency, sendAmount);
 
     const wallet = await this.wallets.findUserWallet(userId, sendCurrency);
     if (!wallet) {
       throw new BadRequestException(`No ${sendCurrency} wallet`);
     }
 
-    const fee = new Prisma.Decimal(corridor.feeFlat).plus(
-      sendAmount.times(corridor.feePercentBps).div(10000),
-    );
-    const totalDebit = sendAmount.plus(fee);
+    const totalDebit = sendAmount.plus(quote.fee);
     const balance = await this.wallets.computeBalance(wallet.id);
     if (balance.lt(totalDebit)) {
       throw new BadRequestException('Insufficient balance');
     }
-
-    // Apply our spread to the provider's base rate.
-    const appliedRate = new Prisma.Decimal(corridor.baseRate).times(
-      new Prisma.Decimal(10000 - corridor.marginBps).div(10000),
-    );
-    const receiveAmount = sendAmount.times(appliedRate);
 
     const idempotencyKey = dto.idempotencyKey ?? randomUUID();
 
@@ -130,10 +146,10 @@ export class TransfersService {
           recipientId: recipient.id,
           sendAmount,
           sendCurrency,
-          receiveAmount,
+          receiveAmount: quote.receiveAmount,
           receiveCurrency,
-          fxRateApplied: appliedRate,
-          feeAmount: fee,
+          fxRateApplied: quote.rate,
+          feeAmount: quote.fee,
           status: 'initiated',
           idempotencyKey,
           providerName: 'mock',
@@ -158,7 +174,7 @@ export class TransfersService {
           description: `Hold for transfer ${created.id}`,
         },
       });
-      if (fee.gt(0)) {
+      if (quote.fee.gt(0)) {
         await tx.ledgerEntry.create({
           data: {
             walletId: wallet.id,
@@ -166,7 +182,7 @@ export class TransfersService {
             txGroupId,
             direction: 'debit',
             type: 'fee',
-            amount: fee,
+            amount: quote.fee,
             currency: sendCurrency,
             description: `Fee for transfer ${created.id}`,
           },
@@ -182,6 +198,7 @@ export class TransfersService {
             sendAmount: sendAmount.toString(),
             sendCurrency,
             receiveCurrency,
+            recipientId: recipient.id,
           },
         },
       });
@@ -189,7 +206,6 @@ export class TransfersService {
     });
 
     this.gateway.emitStatus(userId, transfer.id, 'initiated');
-
     return this.get(userId, transfer.id);
   }
 
@@ -203,67 +219,189 @@ export class TransfersService {
         `Cannot cancel transfer in status ${transfer.status}`,
       );
     }
+    await this.transitionWithRefund(
+      transfer.id,
+      transfer.status,
+      'cancelled',
+      'cancelled_by_user',
+      'Cancelled by user',
+    );
+    return this.get(userId, id);
+  }
+
+  async findDueForTick(olderThanMs: number) {
+    const cutoff = new Date(Date.now() - olderThanMs);
+    return this.prisma.transfer.findMany({
+      where: { status: { in: NON_TERMINAL }, updatedAt: { lt: cutoff } },
+      orderBy: { updatedAt: 'asc' },
+      take: 50,
+    });
+  }
+
+  async advance(transferId: string) {
+    const transfer = await this.prisma.transfer.findUnique({
+      where: { id: transferId },
+    });
+    if (!transfer) return;
+    const next = NEXT_STATUS[transfer.status];
+    if (!next) return;
+
+    if (transfer.status === 'payment_received') {
+      const passed = await this.compliance.requirePassed(transfer.userId);
+      if (!passed) {
+        await this.transitionWithRefund(
+          transfer.id,
+          transfer.status,
+          'failed',
+          'kyc_required',
+          'KYC verification not on file',
+        );
+        return;
+      }
+    }
+
+    const updated = await this.prisma.transfer.updateMany({
+      where: { id: transfer.id, status: transfer.status },
+      data: {
+        status: next,
+        providerRef:
+          next === 'fx_converted'
+            ? `mock-${randomUUID()}`
+            : transfer.providerRef,
+      },
+    });
+    if (updated.count === 0) return;
+
+    await this.prisma.transferEvent.create({
+      data: {
+        transferId: transfer.id,
+        status: next,
+        message: messageFor(next),
+      },
+    });
+    this.gateway.emitStatus(transfer.userId, transfer.id, next);
+    this.logger.log(`transfer ${transfer.id}: ${transfer.status} -> ${next}`);
+  }
+
+  private async transitionWithRefund(
+    transferId: string,
+    fromStatus: TransferStatus,
+    toStatus: 'failed' | 'cancelled',
+    reason: string,
+    message: string,
+  ) {
+    const transfer = await this.prisma.transfer.findUnique({
+      where: { id: transferId },
+    });
+    if (!transfer) return;
 
     const wallet = await this.wallets.findUserWallet(
-      userId,
+      transfer.userId,
       transfer.sendCurrency,
     );
     if (!wallet) {
-      throw new BadRequestException(`No ${transfer.sendCurrency} wallet`);
+      this.logger.error(`No wallet found for refund of transfer ${transferId}`);
+      return;
     }
     const txGroupId = randomUUID();
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.transfer.update({
-        where: { id },
-        data: { status: 'cancelled', failureReason: 'cancelled_by_user' },
+      const updated = await tx.transfer.updateMany({
+        where: { id: transferId, status: fromStatus },
+        data: { status: toStatus, failureReason: reason },
       });
+      if (updated.count === 0) return;
+
       await tx.transferEvent.create({
-        data: {
-          transferId: id,
-          status: 'cancelled',
-          message: 'Cancelled by user',
-        },
+        data: { transferId, status: toStatus, message },
       });
       await tx.ledgerEntry.create({
         data: {
           walletId: wallet.id,
-          transferId: id,
+          transferId,
           txGroupId,
           direction: 'credit',
           type: 'transfer_refund',
           amount: transfer.sendAmount,
           currency: transfer.sendCurrency,
-          description: `Refund cancelled transfer ${id}`,
+          description: `Refund ${toStatus} transfer ${transferId}`,
         },
       });
       if (new Prisma.Decimal(transfer.feeAmount).gt(0)) {
         await tx.ledgerEntry.create({
           data: {
             walletId: wallet.id,
-            transferId: id,
+            transferId,
             txGroupId,
             direction: 'credit',
             type: 'transfer_refund',
             amount: transfer.feeAmount,
             currency: transfer.sendCurrency,
-            description: `Refund fee for cancelled transfer ${id}`,
+            description: `Refund fee for ${toStatus} transfer ${transferId}`,
           },
         });
       }
       await tx.auditLog.create({
         data: {
-          userId,
-          action: 'transfer.cancel',
+          userId: transfer.userId,
+          action: `transfer.${toStatus}`,
           entityType: 'transfer',
-          entityId: id,
+          entityId: transferId,
+          metadata: { reason },
         },
       });
     });
+    this.gateway.emitStatus(transfer.userId, transferId, toStatus);
+    this.logger.log(
+      `transfer ${transferId}: ${fromStatus} -> ${toStatus} (${reason})`,
+    );
+  }
 
-    this.gateway.emitStatus(userId, id, 'cancelled');
+  private async assertDailyVelocity(
+    userId: string,
+    currency: string,
+    amount: Prisma.Decimal,
+  ) {
+    const limit = new Prisma.Decimal(
+      this.config.get<number>('TRANSFER_DAILY_LIMIT') ?? 10000,
+    );
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const agg = await this.prisma.transfer.aggregate({
+      where: {
+        userId,
+        sendCurrency: currency,
+        createdAt: { gte: since },
+        status: { notIn: ['failed', 'cancelled'] },
+      },
+      _sum: { sendAmount: true },
+    });
+    const used = agg._sum.sendAmount ?? new Prisma.Decimal(0);
+    if (used.plus(amount).gt(limit)) {
+      throw new ForbiddenException(
+        `Daily send limit ${limit.toString()} ${currency} exceeded`,
+      );
+    }
+  }
+}
 
-    return this.get(userId, id);
+function messageFor(status: TransferStatus): string {
+  switch (status) {
+    case 'payment_received':
+      return 'Payment received';
+    case 'compliance_check':
+      return 'Compliance check passed';
+    case 'fx_converted':
+      return 'Currency converted at applied rate';
+    case 'payout_processing':
+      return 'Payout submitted to local payout partner';
+    case 'delivered':
+      return 'Funds delivered to recipient bank';
+    case 'failed':
+      return 'Transfer failed';
+    case 'cancelled':
+      return 'Transfer cancelled';
+    default:
+      return status;
   }
 }
 
