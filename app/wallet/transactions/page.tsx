@@ -5,10 +5,35 @@ import api from '@/lib/api';
 
 interface Transaction {
   id: string;
-  amount: string;
+  direction: 'credit' | 'debit';
   type: string;
-  description: string;
+  amount: string;
+  currency: string;
+  description: string | null;
   createdAt: string;
+  transfer?: {
+    id: string;
+    recipient?: { name: string; country: string };
+  } | null;
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  wallet_fund: 'Wallet funded',
+  transfer_hold: 'Transfer hold',
+  transfer_release: 'Transfer released',
+  transfer_refund: 'Transfer refunded',
+  fee: 'Transfer fee',
+  fx_conversion: 'FX conversion',
+};
+
+function labelFor(tx: Transaction): string {
+  if (tx.type === 'transfer_hold' && tx.transfer?.recipient) {
+    return `Sent to ${tx.transfer.recipient.name}`;
+  }
+  if (tx.type === 'transfer_refund' && tx.transfer?.recipient) {
+    return `Refund from ${tx.transfer.recipient.name}`;
+  }
+  return TYPE_LABEL[tx.type] ?? tx.type;
 }
 
 export default function TransactionsPage() {
@@ -40,30 +65,31 @@ export default function TransactionsPage() {
             </Link>
           </div>
         ) : (
-          transactions.map((tx) => (
-            <div key={tx.id} className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg
-                  ${tx.type === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
-                  {tx.type === 'credit' ? '↓' : '↑'}
+          transactions.map((tx) => {
+            const isCredit = tx.direction === 'credit';
+            return (
+              <div key={tx.id} className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg
+                    ${isCredit ? 'bg-green-100' : 'bg-red-100'}`}>
+                    {isCredit ? '↓' : '↑'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{labelFor(tx)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(tx.createdAt).toLocaleDateString('en-US', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {tx.description || (tx.type === 'credit' ? 'Wallet funded' : 'Payment sent')}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(tx.createdAt).toLocaleDateString('en-US', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit'
-                    })}
-                  </p>
-                </div>
+                <p className={`font-semibold text-sm ${isCredit ? 'text-green-600' : 'text-red-500'}`}>
+                  {isCredit ? '+' : '-'}{parseFloat(tx.amount).toFixed(2)} {tx.currency}
+                </p>
               </div>
-              <p className={`font-semibold text-sm ${tx.type === 'credit' ? 'text-green-600' : 'text-red-500'}`}>
-                {tx.type === 'credit' ? '+' : '-'}{parseFloat(tx.amount).toFixed(2)}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

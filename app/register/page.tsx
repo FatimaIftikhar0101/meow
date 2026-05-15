@@ -7,7 +7,7 @@ import { setToken } from '@/lib/auth';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: '', password: '', country: '' });
+  const [form, setForm] = useState({ email: '', password: '', country: 'CA' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,8 +19,10 @@ export default function RegisterPage() {
       const res = await api.post('/auth/register', form);
       setToken(res.data.access_token);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message?.[0] || 'Registration failed');
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = e.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(', ') : msg || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -57,22 +59,24 @@ export default function RegisterPage() {
               <input
                 type="password"
                 required
-                minLength={8}
+                minLength={10}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Min 8 characters"
+                placeholder="Min 10 chars, with upper, lower, digit"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-              <input
-                type="text"
+              <select
                 value={form.country}
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g. Canada"
-              />
+              >
+                <option value="CA">Canada (CAD)</option>
+                <option value="US">United States (USD)</option>
+                <option value="GB">United Kingdom (GBP)</option>
+              </select>
             </div>
             <button
               type="submit"

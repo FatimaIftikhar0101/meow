@@ -6,13 +6,27 @@ import api from '@/lib/api';
 interface Recipient {
   id: string;
   name: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   country: string;
   bankAccount: string;
+  bankName?: string;
 }
 
-const emptyForm = { name: '', email: '', phone: '', country: '', bankAccount: '' };
+const COUNTRIES = [
+  { code: 'PK', name: 'Pakistan' },
+  { code: 'IN', name: 'India' },
+  { code: 'PH', name: 'Philippines' },
+];
+
+const emptyForm = {
+  name: '',
+  email: '',
+  phone: '',
+  country: 'PK',
+  bankAccount: '',
+  bankName: '',
+};
 
 export default function RecipientsPage() {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
@@ -27,7 +41,9 @@ export default function RecipientsPage() {
     setRecipients(res.data);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const openAdd = () => {
     setEditingId(null);
@@ -38,7 +54,14 @@ export default function RecipientsPage() {
 
   const openEdit = (r: Recipient) => {
     setEditingId(r.id);
-    setForm({ name: r.name, email: r.email, phone: r.phone, country: r.country, bankAccount: r.bankAccount });
+    setForm({
+      name: r.name,
+      email: r.email ?? '',
+      phone: r.phone ?? '',
+      country: r.country,
+      bankAccount: r.bankAccount,
+      bankName: r.bankName ?? '',
+    });
     setError('');
     setShowForm(true);
   };
@@ -47,18 +70,30 @@ export default function RecipientsPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    const payload: Record<string, string> = {
+      name: form.name.trim(),
+      country: form.country,
+      bankAccount: form.bankAccount.trim(),
+    };
+    if (form.email.trim()) payload.email = form.email.trim();
+    if (form.phone.trim()) payload.phone = form.phone.trim();
+    if (form.bankName.trim()) payload.bankName = form.bankName.trim();
+
     try {
       if (editingId) {
-        await api.patch(`/recipients/${editingId}`, form);
+        await api.patch(`/recipients/${editingId}`, payload);
       } else {
-        await api.post('/recipients', form);
+        await api.post('/recipients', payload);
       }
       setForm(emptyForm);
       setShowForm(false);
       setEditingId(null);
       load();
-    } catch {
-      setError('Failed to save recipient.');
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = e.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to save recipient.');
     } finally {
       setLoading(false);
     }
@@ -66,17 +101,14 @@ export default function RecipientsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Remove this recipient?')) return;
-    await api.delete(`/recipients/${id}`);
-    load();
+    try {
+      await api.delete(`/recipients/${id}`);
+      load();
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      alert(e.response?.data?.message || 'Failed to delete recipient.');
+    }
   };
-
-  const fields = [
-    { label: 'Full Name', key: 'name', placeholder: 'John Doe' },
-    { label: 'Email', key: 'email', placeholder: 'john@example.com' },
-    { label: 'Phone', key: 'phone', placeholder: '+639123456789' },
-    { label: 'Country', key: 'country', placeholder: 'Philippines' },
-    { label: 'Bank Account', key: 'bankAccount', placeholder: '1234567890' },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -104,7 +136,9 @@ export default function RecipientsPage() {
                 <div>
                   <p className="font-medium text-gray-900">{r.name}</p>
                   <p className="text-sm text-gray-500">{r.country} · {r.bankAccount}</p>
-                  <p className="text-xs text-gray-400">{r.email} · {r.phone}</p>
+                  {(r.email || r.phone) && (
+                    <p className="text-xs text-gray-400">{[r.email, r.phone].filter(Boolean).join(' · ')}</p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -132,18 +166,69 @@ export default function RecipientsPage() {
             </h2>
             {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-3">
-              {fields.map(({ label, key, placeholder }) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                  <input
-                    required
-                    value={form[key as keyof typeof form]}
-                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                    placeholder={placeholder}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="John Doe"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <select
+                  required
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name} ({c.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account</label>
+                <input
+                  required
+                  value={form.bankAccount}
+                  onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
+                  placeholder="IBAN or local account number"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name <span className="text-gray-400">(optional)</span></label>
+                <input
+                  value={form.bankName}
+                  onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                  placeholder="HBL, ICICI, BPI, …"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-gray-400">(optional)</span></label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="recipient@example.com"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone <span className="text-gray-400">(optional)</span></label>
+                <input
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+92 300 1234567"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"

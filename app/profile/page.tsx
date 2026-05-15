@@ -11,8 +11,9 @@ interface Profile {
 }
 
 interface KycStatus {
-  passed: boolean;
+  status: 'pending' | 'passed' | 'failed';
   reason?: string;
+  verifiedAt?: string | null;
 }
 
 export default function ProfilePage() {
@@ -37,15 +38,17 @@ export default function ProfilePage() {
   const handleVerify = async () => {
     setVerifying(true);
     try {
-      await api.post('/compliance/verify');
-      setKyc({ passed: true });
-      setVerified(true);
+      const res = await api.post('/compliance/verify');
+      setKyc(res.data);
+      setVerified(res.data.status === 'passed');
     } catch {
       //
     } finally {
       setVerifying(false);
     }
   };
+
+  const isVerified = kyc?.status === 'passed';
 
   if (!profile) {
     return (
@@ -82,7 +85,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">KYC Status</span>
-              {kyc?.passed ? (
+              {isVerified ? (
                 <span className="text-xs font-medium bg-green-100 text-green-600 px-2.5 py-1 rounded-full">
                   ✓ Verified
                 </span>
@@ -96,7 +99,7 @@ export default function ProfilePage() {
         </div>
 
         {/* KYC verification */}
-        {!kyc?.passed && (
+        {!isVerified && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
             <h3 className="font-semibold text-yellow-800 mb-1">Verify your identity</h3>
             <p className="text-sm text-yellow-700 mb-4">

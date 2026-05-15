@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -7,8 +7,15 @@ import api from '@/lib/api';
 export default function FundWalletPage() {
   const router = useRouter();
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get('/wallet/balance')
+      .then((res) => setCurrency(res.data.currency))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,8 +24,10 @@ export default function FundWalletPage() {
     try {
       await api.post('/wallet/fund', { amount: parseFloat(amount) });
       router.push('/dashboard');
-    } catch {
-      setError('Failed to fund wallet. Try again.');
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = e.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to fund wallet. Try again.');
     } finally {
       setLoading(false);
     }
@@ -37,17 +46,19 @@ export default function FundWalletPage() {
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount (USD)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Amount ({currency})</label>
               <input
                 type="number"
                 required
                 min="1"
+                max="50000"
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="100.00"
               />
+              <p className="text-xs text-gray-400 mt-1">Daily funding limit: 20,000 {currency}</p>
             </div>
             <button
               type="submit"
