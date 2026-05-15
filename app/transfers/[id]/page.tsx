@@ -202,9 +202,14 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
         {!['delivered', 'failed', 'cancelled', 'payout_processing'].includes(transfer.status) && (
           <button
             onClick={async () => {
-              await api.post(`/transfers/${id}/cancel`);
-              const res = await api.get(`/transfers/${id}`);
-              setTransfer(res.data);
+              if (!confirm('Cancel this transfer? Funds will be refunded to your wallet.')) return;
+              try {
+                const res = await api.post(`/transfers/${id}/cancel`);
+                setTransfer(res.data);
+              } catch (err) {
+                const e = err as { response?: { data?: { message?: string } } };
+                alert(e.response?.data?.message || 'Could not cancel — the transfer may have already advanced.');
+              }
             }}
             className="w-full border border-red-300 text-red-500 hover:bg-red-50 font-medium py-2.5 rounded-lg transition text-sm"
           >

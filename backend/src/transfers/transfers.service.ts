@@ -246,7 +246,7 @@ export class TransfersService {
     const next = NEXT_STATUS[transfer.status];
     if (!next) return;
 
-    if (transfer.status === 'payment_received') {
+    if (transfer.status === 'payment_received' || transfer.status === 'fx_converted') {
       const passed = await this.compliance.requirePassed(transfer.userId);
       if (!passed) {
         await this.transitionWithRefund(

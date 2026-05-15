@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { logout } from '@/lib/auth';
 
 interface Transfer {
   id: string;
@@ -43,18 +42,24 @@ export default function DashboardPage() {
   const [balance, setBalance] = useState<string>('0.00');
   const [currency, setCurrency] = useState('USD');
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [email, setEmail] = useState('');
+  const [kycPassed, setKycPassed] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [walletRes, transfersRes] = await Promise.all([
+        const [walletRes, transfersRes, profileRes, kycRes] = await Promise.all([
           api.get('/wallet/balance'),
           api.get('/transfers'),
+          api.get('/auth/profile'),
+          api.get('/compliance/status'),
         ]);
         setBalance(walletRes.data.balance);
         setCurrency(walletRes.data.currency);
         setTransfers(transfersRes.data);
+        setEmail(profileRes.data.email ?? '');
+        setKycPassed(kycRes.data.status === 'passed');
       } catch {
         router.push('/login');
       } finally {
@@ -81,12 +86,21 @@ export default function DashboardPage() {
           <Link href="/recipients" className="text-sm text-gray-600 hover:text-gray-900">Recipients</Link>
           <Link href="/wallet/transactions" className="text-sm text-gray-600 hover:text-gray-900">History</Link>
           <Link href="/profile" className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold hover:bg-blue-700 transition">
-            P
+            {email ? email[0].toUpperCase() : '·'}
           </Link>
         </div>
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        {kycPassed === false && (
+          <Link
+            href="/profile"
+            className="block bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl px-5 py-4 hover:bg-yellow-100 transition"
+          >
+            <p className="text-sm font-medium">Verify your identity to send money →</p>
+          </Link>
+        )}
+
         {/* Wallet card */}
         <div className="bg-blue-600 text-white rounded-2xl p-6">
           <p className="text-blue-200 text-sm mb-1">Wallet Balance</p>

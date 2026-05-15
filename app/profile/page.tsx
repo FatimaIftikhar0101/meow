@@ -89,9 +89,13 @@ export default function ProfilePage() {
                 <span className="text-xs font-medium bg-green-100 text-green-600 px-2.5 py-1 rounded-full">
                   ✓ Verified
                 </span>
+              ) : kyc?.status === 'failed' ? (
+                <span className="text-xs font-medium bg-red-100 text-red-600 px-2.5 py-1 rounded-full">
+                  Verification failed
+                </span>
               ) : (
                 <span className="text-xs font-medium bg-yellow-100 text-yellow-600 px-2.5 py-1 rounded-full">
-                  Not Verified
+                  Not verified
                 </span>
               )}
             </div>
@@ -100,14 +104,16 @@ export default function ProfilePage() {
 
         {/* KYC verification */}
         {!isVerified && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
-            <h3 className="font-semibold text-yellow-800 mb-1">Verify your identity</h3>
-            <p className="text-sm text-yellow-700 mb-4">
-              KYC verification is required to send money. It only takes a moment.
+          <div className={`border rounded-2xl p-6 ${kyc?.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
+            <h3 className={`font-semibold mb-1 ${kyc?.status === 'failed' ? 'text-red-800' : 'text-yellow-800'}`}>
+              {kyc?.status === 'failed' ? 'Verification failed' : 'Verify your identity'}
+            </h3>
+            <p className={`text-sm mb-4 ${kyc?.status === 'failed' ? 'text-red-700' : 'text-yellow-700'}`}>
+              {kyc?.reason ?? 'KYC verification is required to send money. It only takes a moment.'}
             </p>
             {verified ? (
               <p className="text-sm text-green-600 font-medium">✓ Successfully verified!</p>
-            ) : (
+            ) : kyc?.status === 'failed' ? null : (
               <button
                 onClick={handleVerify}
                 disabled={verifying}

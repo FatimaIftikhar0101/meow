@@ -27,20 +27,17 @@ export class ComplianceService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
 
-    const existing = await this.prisma.kycRecord.findFirst({
-      where: { userId, status: 'passed' },
-    });
-    if (existing) {
-      return this.status(userId);
-    }
-
     const high =
       user.country &&
       HIGH_RISK_COUNTRIES.has(user.country.trim().toUpperCase());
     const result: KycStatus = high ? 'failed' : 'passed';
     const reason = high ? 'High-risk jurisdiction' : null;
 
-    await this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.kycRecord.findFirst({
+        where: { userId, status: 'passed' },
+      });
+      if (existing) return false;
       await tx.kycRecord.create({
         data: {
           userId,
@@ -59,8 +56,10 @@ export class ComplianceService {
           entityId: userId,
         },
       });
+      return true;
     });
-    this.logger.log(`KYC ${result} for user ${userId}`);
+
+    if (created) this.logger.log(`KYC ${result} for user ${userId}`);
     return this.status(userId);
   }
 
