@@ -22,6 +22,10 @@ export default function ProfilePage() {
   const [kyc, setKyc] = useState<KycStatus | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -49,6 +53,24 @@ export default function ProfilePage() {
   };
 
   const isVerified = kyc?.status === 'passed';
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess(false);
+    setPwSaving(true);
+    try {
+      await api.post('/auth/change-password', pwForm);
+      setPwSuccess(true);
+      setPwForm({ currentPassword: '', newPassword: '' });
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = e.response?.data?.message;
+      setPwError(Array.isArray(msg) ? msg.join(', ') : msg || 'Could not change password');
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   if (!profile) {
     return (
@@ -124,6 +146,50 @@ export default function ProfilePage() {
             )}
           </div>
         )}
+
+        {/* Change password */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Change Password</h3>
+          {pwError && (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{pwError}</div>
+          )}
+          {pwSuccess && (
+            <div className="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg mb-3">
+              Password updated.
+            </div>
+          )}
+          <form onSubmit={handleChangePassword} className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Current password</label>
+              <input
+                type="password"
+                required
+                value={pwForm.currentPassword}
+                onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">New password</label>
+              <input
+                type="password"
+                required
+                minLength={10}
+                value={pwForm.newPassword}
+                onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })}
+                placeholder="Min 10 chars, with upper, lower, digit"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={pwSaving}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+            >
+              {pwSaving ? 'Saving...' : 'Update password'}
+            </button>
+          </form>
+        </div>
 
         {/* Quick links */}
         <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">

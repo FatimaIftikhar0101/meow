@@ -69,4 +69,38 @@ export class ComplianceService {
     });
     return record !== null;
   }
+
+  async adminOverride(
+    targetUserId: string,
+    status: 'passed' | 'failed',
+    reason: string | null,
+    adminUserId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!user) throw new BadRequestException('User not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.kycRecord.create({
+        data: {
+          userId: targetUserId,
+          status,
+          provider: 'admin_override',
+          providerRef: `admin-${Date.now()}`,
+          reason,
+          verifiedAt: status === 'passed' ? new Date() : null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: adminUserId,
+          action: `admin.kyc.${status}`,
+          entityType: 'user',
+          entityId: targetUserId,
+          metadata: { reason },
+        },
+      });
+    });
+    this.logger.log(`Admin ${adminUserId} overrode KYC to ${status} for ${targetUserId}`);
+    return this.status(targetUserId);
+  }
 }

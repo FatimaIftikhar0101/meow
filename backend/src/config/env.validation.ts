@@ -17,4 +17,5 @@ export const envSchema = Joi.object({
   THROTTLE_LIMIT: Joi.number().integer().min(1).default(100),
   TRANSFER_DAILY_LIMIT: Joi.number().min(0).default(10000),
   TRANSFER_TICK_MS: Joi.number().integer().min(1000).default(5000),
+  ADMIN_EMAILS: Joi.string().allow('').default(''),
 }).unknown(true);

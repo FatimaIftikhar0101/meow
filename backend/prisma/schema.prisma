@@ -24,6 +24,8 @@ model User {
   email        String   @unique
   passwordHash String
   country      String?
+  role         UserRole @default(customer)
+  suspended    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -32,6 +34,11 @@ model User {
   transfers  Transfer[]
   kycRecords KycRecord[]
   auditLogs  AuditLog[]
+}
+
+enum UserRole {
+  customer
+  admin
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

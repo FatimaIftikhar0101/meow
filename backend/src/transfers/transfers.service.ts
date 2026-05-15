@@ -229,6 +229,37 @@ export class TransfersService {
     return this.get(userId, id);
   }
 
+  async adminForceFail(transferId: string, reason: string, adminUserId: string) {
+    const transfer = await this.prisma.transfer.findUnique({
+      where: { id: transferId },
+    });
+    if (!transfer) {
+      throw new NotFoundException('Transfer not found');
+    }
+    if (transfer.status === 'delivered' || transfer.status === 'failed' || transfer.status === 'cancelled') {
+      throw new ForbiddenException(
+        `Cannot force-fail transfer in status ${transfer.status}`,
+      );
+    }
+    await this.transitionWithRefund(
+      transfer.id,
+      transfer.status,
+      'failed',
+      reason,
+      `Force-failed by admin: ${reason}`,
+    );
+    await this.prisma.auditLog.create({
+      data: {
+        userId: adminUserId,
+        action: 'admin.transfer.force_fail',
+        entityType: 'transfer',
+        entityId: transferId,
+        metadata: { reason, targetUserId: transfer.userId },
+      },
+    });
+    return this.get(transfer.userId, transferId);
+  }
+
   async findDueForTick(olderThanMs: number) {
     const cutoff = new Date(Date.now() - olderThanMs);
     return this.prisma.transfer.findMany({

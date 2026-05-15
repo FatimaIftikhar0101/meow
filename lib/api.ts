@@ -17,10 +17,11 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('access_token');
-      window.location.href = '/login';
+      const onAdmin = window.location.pathname.startsWith('/admin');
+      window.location.href = onAdmin ? '/admin/login' : '/login';
     }
     return Promise.reject(err);
-  }
+  },
 );
 
 export default api;
