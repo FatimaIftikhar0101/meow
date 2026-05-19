@@ -26,47 +26,97 @@ const STEPS = [
 ] as const;
 
 type StepKey = (typeof STEPS)[number]['key'];
-
 const ORDER = STEPS.map((s) => s.key);
 
 function poseFor(status: string, delivered: boolean): StepKey {
   if (delivered) return 'delivered';
-  return (ORDER.includes(status as StepKey) ? (status as StepKey) : 'initiated');
+  return ORDER.includes(status as StepKey) ? (status as StepKey) : 'initiated';
+}
+
+const PURR_MESSAGES = ['purr', 'mrrrr', 'meow', 'more', '<3'];
+
+interface FloatingMark {
+  id: number;
+  x: number;
+  y: number;
+  emoji: string;
 }
 
 export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatTimelineProps) {
   const idx = ORDER.indexOf(currentStatus as StepKey);
   const progress = delivered ? 1 : Math.max(0, idx / (STEPS.length - 1));
 
-  // Interactive cat — tracks pointer events so it feels alive.
+  // Pointer / play state
   const [reacting, setReacting] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const dragStart = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
+  const [petCount, setPetCount] = useState(0);
+  const [marks, setMarks] = useState<FloatingMark[]>([]);
+  const markIdRef = useRef(0);
+  const dragStart = useRef<{ px: number; py: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const trailLast = useRef<{ x: number; y: number } | null>(null);
+
+  const spawnMark = (x: number, y: number, emoji?: string) => {
+    const id = ++markIdRef.current;
+    const e = emoji ?? '★';
+    setMarks((prev) => [...prev, { id, x, y, emoji: e }]);
+    setTimeout(() => setMarks((prev) => prev.filter((m) => m.id !== id)), 1100);
+  };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragStart.current = { px: e.clientX, py: e.clientY, ox: drag?.x ?? 0, oy: drag?.y ?? 0 };
+    dragStart.current = {
+      px: e.clientX,
+      py: e.clientY,
+      ox: drag?.x ?? 0,
+      oy: drag?.y ?? 0,
+      moved: false,
+    };
     setDragging(true);
     setReacting(true);
   };
+
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragStart.current) return;
     const dx = e.clientX - dragStart.current.px;
     const dy = e.clientY - dragStart.current.py;
-    // Cap so it springs back nicely.
+    if (Math.abs(dx) + Math.abs(dy) > 4) dragStart.current.moved = true;
     setDrag({
-      x: dragStart.current.ox + Math.max(-40, Math.min(40, dx)),
+      x: dragStart.current.ox + Math.max(-50, Math.min(50, dx)),
       y: dragStart.current.oy + Math.max(-30, Math.min(30, dy)),
     });
+    // Sparkle trail while dragging
+    const local = e.currentTarget.getBoundingClientRect();
+    const lx = e.clientX - local.left;
+    const ly = e.clientY - local.top;
+    if (
+      !trailLast.current ||
+      Math.hypot(lx - trailLast.current.x, ly - trailLast.current.y) > 18
+    ) {
+      trailLast.current = { x: lx, y: ly };
+      spawnMark(lx, ly, '✦');
+    }
   };
-  const handlePointerUp = () => {
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    // Was it a tap (no drag movement)? If so, it's a pet.
+    const wasTap = dragStart.current && !dragStart.current.moved;
     dragStart.current = null;
+    trailLast.current = null;
     setDrag(null);
     setDragging(false);
-    // Linger the reaction a moment so the bounce reads.
-    setTimeout(() => setReacting(false), 500);
+
+    if (wasTap) {
+      const local = e.currentTarget.getBoundingClientRect();
+      const lx = e.clientX - local.left;
+      const ly = e.clientY - local.top;
+      setPetCount((c) => c + 1);
+      // pet → spawn a gold star + small heart
+      spawnMark(lx, ly - 8, '★');
+      spawnMark(lx + 8, ly - 4, '♡');
+    }
+    setTimeout(() => setReacting(false), 450);
   };
 
   if (failed) {
@@ -88,9 +138,10 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
 
   const pose = poseFor(currentStatus, !!delivered);
   const currentStep = STEPS.find((s) => s.key === pose);
+  const message = petCount > 0 ? PURR_MESSAGES[Math.min(petCount - 1, PURR_MESSAGES.length - 1)] : 'pet me';
 
   return (
-    <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
+    <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 overflow-hidden">
       <div className="flex items-baseline justify-between mb-2">
         <h2 className="font-bold text-[var(--foreground)] text-lg">Live tracking</h2>
         <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] font-bold">
@@ -99,15 +150,22 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
       </div>
 
       {currentStep && (
-        <p className="text-sm text-[var(--muted-foreground)] mb-6">
-          <span className="text-[var(--accent)] font-semibold">{currentStep.label}</span>
-          <span className="mx-2">·</span>
-          {currentStep.sub}
-        </p>
+        <div className="flex items-baseline justify-between mb-6 text-sm">
+          <p className="text-[var(--muted-foreground)]">
+            <span className="text-[var(--accent)] font-semibold">{currentStep.label}</span>
+            <span className="mx-2">·</span>
+            {currentStep.sub}
+          </p>
+          {petCount > 0 && (
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--accent)]">
+              ★ {petCount} pets
+            </p>
+          )}
+        </div>
       )}
 
-      {/* the track: cat walks across this */}
-      <div className="relative h-32" ref={ref}>
+      {/* the track — cat walks across this */}
+      <div className="relative h-32">
         {/* track line */}
         <div className="absolute left-2 right-2 top-[68px] h-1 rounded-full bg-[var(--surface-elevated)]" />
         {/* progress fill */}
@@ -121,7 +179,7 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
         />
 
         {/* checkpoints */}
-        <div className="absolute left-2 right-2 top-[64px] flex justify-between">
+        <div className="absolute left-2 right-2 top-[64px] flex justify-between pointer-events-none">
           {STEPS.map((step, i) => {
             const done = delivered ? true : i < idx;
             const active = i === idx && !delivered;
@@ -141,34 +199,63 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
           })}
         </div>
 
-        {/* the cat — positioned along the track */}
+        {/* floating gold marks (stars / hearts / sparkles) */}
+        {marks.map((m) => (
+          <span
+            key={m.id}
+            className="absolute pointer-events-none font-bold"
+            style={{
+              left: m.x,
+              top: m.y,
+              color: m.emoji === '♡' ? '#ff6b8a' : '#e0b259',
+              fontSize: m.emoji === '✦' ? 12 : 16,
+              animation: 'mark-float 1.1s ease-out forwards',
+              textShadow: '0 0 8px rgba(224,178,89,0.6)',
+            }}
+          >
+            {m.emoji}
+          </span>
+        ))}
+
+        {/* the cat — positioned along the track, interactive */}
         <div
-          className="absolute -translate-x-1/2 cursor-grab active:cursor-grabbing select-none touch-none"
+          className="absolute -translate-x-1/2 select-none touch-none"
           style={{
             left: `calc(8px + (100% - 16px) * ${progress})`,
             top: '0px',
+            cursor: dragging ? 'grabbing' : 'grab',
             transition: dragging
               ? undefined
               : 'left 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-            transform: `translate(${drag?.x ?? 0}px, ${drag?.y ?? 0}px) scale(${reacting ? 1.1 : 1})`,
+            transform: `translate(${drag?.x ?? 0}px, ${drag?.y ?? 0}px) scale(${reacting ? 1.1 : hovering ? 1.04 : 1})`,
             filter: reacting
               ? 'drop-shadow(0 8px 18px rgba(224,178,89,0.55))'
+              : hovering
+              ? 'drop-shadow(0 6px 14px rgba(224,178,89,0.35))'
               : 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))',
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onMouseEnter={() => setReacting(true)}
-          onMouseLeave={() => !dragging && setReacting(false)}
+          onPointerCancel={() => {
+            dragStart.current = null;
+            trailLast.current = null;
+            setDrag(null);
+            setDragging(false);
+            setReacting(false);
+          }}
+          onPointerEnter={() => setHovering(true)}
+          onPointerLeave={() => {
+            if (!dragging) setHovering(false);
+          }}
         >
           <RealisticCat status={pose} size={64} />
-          {reacting && (
+          {(hovering || reacting) && (
             <span
-              className="absolute -top-2 left-full ml-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--accent)] bg-[var(--surface-elevated)] border border-[var(--accent)]/40 rounded-full px-2 py-0.5 whitespace-nowrap pointer-events-none"
+              className="absolute -top-3 left-full ml-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--accent)] bg-[var(--surface-elevated)] border border-[var(--accent)]/40 rounded-full px-2 py-0.5 whitespace-nowrap pointer-events-none"
               style={{ animation: 'float-up 280ms ease-out both' }}
             >
-              meow
+              {message}
             </span>
           )}
         </div>
@@ -193,8 +280,8 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
         })}
       </div>
 
-      <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] text-center mt-4">
-        Try dragging the cat
+      <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] text-center mt-5">
+        Tap to pet · drag to play · she&apos;ll find her way home
       </p>
     </div>
   );

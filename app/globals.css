@@ -119,6 +119,13 @@ body {
   100% { opacity: 1; transform: translateY(0); }
 }
 
+/* Floating gold marks (★ ♡ ✦) that bloom from the cat when petted / dragged. */
+@keyframes mark-float {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  20%  { opacity: 1; transform: translate(0, -6px) scale(1.1); }
+  100% { opacity: 0; transform: translate(0, -28px) scale(0.9); }
+}
+
 @keyframes aurora {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%      { transform: translate(16px, -8px) scale(1.05); }
