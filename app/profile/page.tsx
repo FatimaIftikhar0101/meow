@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { logout, setToken } from '@/lib/auth';
+import { BrandWordmark } from '@/app/_components/Brand';
 
 interface Profile {
   userId: string;
   email: string;
+  country: string | null;
 }
 
 interface KycStatus {
@@ -75,103 +77,98 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <p className="text-[var(--muted-foreground)]">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-        <h1 className="text-lg font-semibold text-gray-900">Profile</h1>
+    <div className="min-h-screen bg-[var(--background)]">
+      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BrandWordmark size={24} />
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">Profile</span>
       </nav>
 
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-4">
-        {/* Account info */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+      <div className="max-w-xl mx-auto px-4 py-10 space-y-4">
+        {/* Account card */}
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold">
+            <div className="w-14 h-14 rounded-full bg-[var(--brand)] flex items-center justify-center text-white text-xl font-bold">
               {profile.email[0].toUpperCase()}
             </div>
-            <div>
-              <p className="font-semibold text-gray-900">{profile.email}</p>
-              <p className="text-sm text-gray-500">Account ID: {profile.userId?.slice(0, 8)}...</p>
+            <div className="flex-1">
+              <p className="font-semibold text-[var(--foreground)]">{profile.email}</p>
+              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                {profile.country ?? '—'} · Account {profile.userId?.slice(0, 8)}…
+              </p>
             </div>
-          </div>
-
-          <div className="border-t border-gray-100 pt-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Email</span>
-              <span className="text-sm font-medium text-gray-900">{profile.email}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">KYC Status</span>
-              {isVerified ? (
-                <span className="text-xs font-medium bg-green-100 text-green-600 px-2.5 py-1 rounded-full">
-                  ✓ Verified
-                </span>
-              ) : kyc?.status === 'failed' ? (
-                <span className="text-xs font-medium bg-red-100 text-red-600 px-2.5 py-1 rounded-full">
-                  Verification failed
-                </span>
-              ) : (
-                <span className="text-xs font-medium bg-yellow-100 text-yellow-600 px-2.5 py-1 rounded-full">
-                  Not verified
-                </span>
-              )}
-            </div>
+            {isVerified ? (
+              <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">
+                ✓ Verified
+              </span>
+            ) : kyc?.status === 'failed' ? (
+              <span className="text-xs font-semibold bg-red-100 text-red-700 px-3 py-1 rounded-full">
+                Failed
+              </span>
+            ) : (
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-3 py-1 rounded-full">
+                Not verified
+              </span>
+            )}
           </div>
         </div>
 
-        {/* KYC verification */}
+        {/* KYC */}
         {!isVerified && (
-          <div className={`border rounded-2xl p-6 ${kyc?.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
-            <h3 className={`font-semibold mb-1 ${kyc?.status === 'failed' ? 'text-red-800' : 'text-yellow-800'}`}>
+          <div className={`border rounded-3xl p-6 ${kyc?.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+            <h3 className={`font-semibold mb-1 ${kyc?.status === 'failed' ? 'text-red-800' : 'text-amber-900'}`}>
               {kyc?.status === 'failed' ? 'Verification failed' : 'Verify your identity'}
             </h3>
-            <p className={`text-sm mb-4 ${kyc?.status === 'failed' ? 'text-red-700' : 'text-yellow-700'}`}>
-              {kyc?.reason ?? 'KYC verification is required to send money. It only takes a moment.'}
+            <p className={`text-sm mb-4 ${kyc?.status === 'failed' ? 'text-red-700' : 'text-amber-800'}`}>
+              {kyc?.reason ?? 'Identity verification is required by Canadian regulators before you can send money. It only takes a moment.'}
             </p>
             {verified ? (
-              <p className="text-sm text-green-600 font-medium">✓ Successfully verified!</p>
+              <p className="text-sm text-emerald-700 font-semibold">✓ Successfully verified!</p>
             ) : kyc?.status === 'failed' ? null : (
               <button
                 onClick={handleVerify}
                 disabled={verifying}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white font-medium px-5 py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+                className="bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-semibold px-5 py-2.5 rounded-full text-sm transition disabled:opacity-50 shadow"
               >
-                {verifying ? 'Verifying...' : 'Verify Now'}
+                {verifying ? 'Verifying…' : 'Verify now'}
               </button>
             )}
           </div>
         )}
 
         {/* Change password */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Change Password</h3>
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
+          <h3 className="font-semibold text-[var(--foreground)] mb-3">Change password</h3>
           {pwError && (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{pwError}</div>
+            <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl mb-3">{pwError}</div>
           )}
           {pwSuccess && (
-            <div className="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg mb-3">
-              Password updated.
+            <div className="bg-emerald-50 text-emerald-700 text-sm px-4 py-3 rounded-xl mb-3">
+              Password updated. All other devices have been signed out.
             </div>
           )}
           <form onSubmit={handleChangePassword} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Current password</label>
+              <label className="block text-xs font-semibold text-[var(--foreground)] mb-1 uppercase tracking-wider">Current password</label>
               <input
                 type="password"
                 required
                 value={pwForm.currentPassword}
                 onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">New password</label>
+              <label className="block text-xs font-semibold text-[var(--foreground)] mb-1 uppercase tracking-wider">New password</label>
               <input
                 type="password"
                 required
@@ -179,43 +176,42 @@ export default function ProfilePage() {
                 value={pwForm.newPassword}
                 onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })}
                 placeholder="Min 10 chars, with upper, lower, digit"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
               />
             </div>
             <button
               type="submit"
               disabled={pwSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+              className="bg-[var(--brand)] hover:bg-[var(--brand-deep)] text-white font-semibold px-5 py-2.5 rounded-full text-sm transition disabled:opacity-50"
             >
-              {pwSaving ? 'Saving...' : 'Update password'}
+              {pwSaving ? 'Saving…' : 'Update password'}
             </button>
           </form>
         </div>
 
         {/* Quick links */}
-        <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
-          <Link href="/wallet/transactions" className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition">
-            <span className="text-sm font-medium text-gray-700">Transaction History</span>
-            <span className="text-gray-400">→</span>
-          </Link>
-          <Link href="/recipients" className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition">
-            <span className="text-sm font-medium text-gray-700">My Recipients</span>
-            <span className="text-gray-400">→</span>
-          </Link>
-          <Link href="/dashboard" className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition">
-            <span className="text-sm font-medium text-gray-700">My Transfers</span>
-            <span className="text-gray-400">→</span>
-          </Link>
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] divide-y divide-[var(--border)] overflow-hidden">
+          <ProfileLink href="/wallet/transactions" label="Transaction history" />
+          <ProfileLink href="/recipients" label="My recipients" />
+          <ProfileLink href="/dashboard" label="My transfers" />
         </div>
 
-        {/* Sign out */}
         <button
           onClick={logout}
-          className="w-full border border-red-200 text-red-500 hover:bg-red-50 font-medium py-3 rounded-2xl transition text-sm"
+          className="w-full border border-red-200 text-red-600 hover:bg-red-50 font-semibold py-3 rounded-2xl transition text-sm"
         >
-          Sign Out
+          Sign out
         </button>
       </div>
     </div>
+  );
+}
+
+function ProfileLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="flex items-center justify-between px-5 py-4 hover:bg-[var(--muted)] transition">
+      <span className="text-sm font-medium text-[var(--foreground)]">{label}</span>
+      <span className="text-[var(--muted-foreground)]">→</span>
+    </Link>
   );
 }

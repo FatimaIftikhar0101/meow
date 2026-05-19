@@ -4,6 +4,8 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { io } from 'socket.io-client';
 import { getToken } from '@/lib/auth';
+import { BrandWordmark } from '@/app/_components/Brand';
+import { CatCoin } from '@/app/_components/CatCoin';
 
 interface TimelineEntry {
   id: string;
@@ -26,12 +28,12 @@ interface Transfer {
 }
 
 const steps = [
-  { key: 'initiated', label: 'Transfer Initiated', icon: '📋' },
-  { key: 'payment_received', label: 'Payment Received', icon: '💳' },
-  { key: 'compliance_check', label: 'Identity Verified', icon: '✅' },
-  { key: 'fx_converted', label: 'Currency Converted', icon: '💱' },
-  { key: 'payout_processing', label: 'Payout Processing', icon: '🏦' },
-  { key: 'delivered', label: 'Delivered', icon: '🎉' },
+  { key: 'initiated', label: 'Transfer initiated', sub: 'We received your request' },
+  { key: 'payment_received', label: 'Payment received', sub: 'Funds debited from your wallet' },
+  { key: 'compliance_check', label: 'Identity verified', sub: 'Compliance check passed' },
+  { key: 'fx_converted', label: 'Converted at rate', sub: 'Locked in the FX rate' },
+  { key: 'payout_processing', label: 'Sending to bank', sub: 'Payout partner processing' },
+  { key: 'delivered', label: 'Delivered', sub: 'Funds in recipient account' },
 ];
 
 const stepOrder = steps.map((s) => s.key);
@@ -62,16 +64,16 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <p className="text-[var(--muted-foreground)]">Loading…</p>
       </div>
     );
   }
 
   if (!transfer) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Transfer not found.</p>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <p className="text-[var(--muted-foreground)]">Transfer not found.</p>
       </div>
     );
   }
@@ -79,121 +81,139 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
   const currentStepIndex = stepOrder.indexOf(transfer.status);
   const isFailed = transfer.status === 'failed';
   const isCancelled = transfer.status === 'cancelled';
+  const isDelivered = transfer.status === 'delivered';
+  const progressPct = isDelivered
+    ? 100
+    : Math.max(0, Math.min(100, (currentStepIndex / (steps.length - 1)) * 100));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-        <h1 className="text-lg font-semibold text-gray-900">Track Transfer</h1>
+    <div className="min-h-screen bg-[var(--background)]">
+      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BrandWordmark size={24} />
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">Tracking</span>
       </nav>
 
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-xl mx-auto px-4 py-8 space-y-6">
         {/* Summary card */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex justify-between items-start">
+        <div className="bg-[var(--brand)] text-white rounded-3xl p-6 shadow-lg">
+          <p className="text-white/70 text-xs uppercase tracking-wider font-semibold">
+            {isDelivered ? 'Delivered' : isFailed ? 'Failed' : isCancelled ? 'Cancelled' : 'In progress'}
+          </p>
+          <div className="flex items-end justify-between mt-2">
             <div>
-              <p className="text-sm text-gray-500">Sending to</p>
-              <p className="font-semibold text-gray-900 mt-0.5">{transfer.recipient?.name}</p>
-              <p className="text-sm text-gray-500">{transfer.recipient?.country}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Amount</p>
-              <p className="font-semibold text-gray-900">{transfer.amount} {transfer.sendCurrency}</p>
+              <p className="text-3xl font-bold">{parseFloat(transfer.amount).toFixed(2)} {transfer.sendCurrency}</p>
               {transfer.receiveAmount && (
-                <p className="text-sm text-green-600">→ {transfer.receiveAmount} {transfer.receiveCurrency}</p>
+                <p className="text-white/80 text-sm mt-1">
+                  → {parseFloat(transfer.receiveAmount).toFixed(2)} {transfer.receiveCurrency} to {transfer.recipient?.name}
+                </p>
               )}
             </div>
           </div>
           {transfer.fxRateApplied && (
-            <p className="text-xs text-gray-400 mt-3">
-              Rate: 1 {transfer.sendCurrency} = {parseFloat(transfer.fxRateApplied).toFixed(4)} {transfer.receiveCurrency}
+            <p className="text-white/60 text-xs mt-3">
+              1 {transfer.sendCurrency} = {parseFloat(transfer.fxRateApplied).toFixed(4)} {transfer.receiveCurrency}
             </p>
           )}
         </div>
 
-        {/* Status */}
         {(isFailed || isCancelled) ? (
-          <div className={`rounded-2xl border p-6 text-center ${isFailed ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-            <p className="text-2xl mb-2">{isFailed ? '❌' : '🚫'}</p>
-            <p className={`font-semibold ${isFailed ? 'text-red-600' : 'text-gray-600'}`}>
-              Transfer {isFailed ? 'Failed' : 'Cancelled'}
+          <div className={`rounded-3xl border p-6 text-center ${isFailed ? 'bg-red-50 border-red-200' : 'bg-[var(--muted)] border-[var(--border)]'}`}>
+            <p className="text-3xl mb-2">{isFailed ? '😿' : '🚫'}</p>
+            <p className={`font-semibold ${isFailed ? 'text-red-700' : 'text-[var(--foreground)]'}`}>
+              Transfer {isFailed ? 'failed' : 'cancelled'}
             </p>
             {transfer.timeline.at(-1)?.message && (
-              <p className="text-sm text-gray-500 mt-1">{transfer.timeline.at(-1)?.message}</p>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1">{transfer.timeline.at(-1)?.message}</p>
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-5">Transfer Progress</h2>
-            <div className="space-y-4">
-              {steps.map((step, i) => {
-                const done = i < currentStepIndex || transfer.status === 'delivered';
-                const active = i === currentStepIndex && transfer.status !== 'delivered';
-                const timeline = transfer.timeline.find((t) => t.status === step.key);
+          <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
+            <h2 className="font-semibold text-[var(--foreground)] mb-1">Where&apos;s your money?</h2>
+            <p className="text-sm text-[var(--muted-foreground)] mb-5">
+              Our cat is taking your coin to the recipient.
+            </p>
 
-                return (
-                  <div key={step.key} className="flex items-start gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium
-                        ${done ? 'bg-green-500 text-white' : active ? 'bg-blue-600 text-white animate-pulse' : 'bg-gray-100 text-gray-400'}`}>
-                        {done ? '✓' : step.icon}
-                      </div>
-                      {i < steps.length - 1 && (
-                        <div className={`w-0.5 h-6 mt-1 ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
-                      )}
-                    </div>
-                    <div className="pt-1.5">
-                      <p className={`text-sm font-medium ${done || active ? 'text-gray-900' : 'text-gray-400'}`}>
+            {/* Track with the cat walking down it */}
+            <div className="relative">
+              {/* the track */}
+              <div className="absolute left-7 top-3 bottom-3 w-1 bg-[var(--muted)] rounded-full" />
+              {/* progress fill on the track */}
+              <div
+                className="absolute left-7 top-3 w-1 bg-gradient-to-b from-[var(--accent)] to-[var(--accent-deep)] rounded-full transition-all duration-700"
+                style={{ height: `calc(${progressPct}% - 6px)` }}
+              />
+              {/* the cat walking */}
+              <div
+                className="absolute -left-1 transition-all duration-700"
+                style={{
+                  top: `calc(${progressPct}% - 32px)`,
+                }}
+              >
+                <CatCoin size={56} playful={!isDelivered} />
+              </div>
+
+              <div className="space-y-5 pl-20">
+                {steps.map((step, i) => {
+                  const done = isDelivered ? true : i < currentStepIndex;
+                  const active = i === currentStepIndex && !isDelivered;
+                  const timeline = transfer.timeline.find((t) => t.status === step.key);
+                  return (
+                    <div
+                      key={step.key}
+                      className="relative"
+                      style={{
+                        animation: active ? 'float-up 300ms ease-out both' : undefined,
+                      }}
+                    >
+                      {/* dot on the track */}
+                      <div
+                        className={`absolute -left-[52px] top-1.5 w-3.5 h-3.5 rounded-full border-2 ${
+                          done
+                            ? 'bg-[var(--accent)] border-[var(--accent)]'
+                            : active
+                            ? 'bg-white border-[var(--accent)]'
+                            : 'bg-[var(--muted)] border-[var(--border)]'
+                        }`}
+                      />
+                      <p className={`font-medium ${done || active ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]'}`}>
                         {step.label}
                       </p>
+                      <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{step.sub}</p>
                       {timeline && (
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-[10px] text-[var(--muted-foreground)] mt-1 uppercase tracking-wider">
                           {new Date(timeline.createdAt).toLocaleTimeString()}
                         </p>
                       )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
 
         {/* Receipt — shown when delivered */}
-        {transfer.status === 'delivered' && (
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-            <h2 className="font-semibold text-green-800 mb-4">Transfer Receipt</h2>
+        {isDelivered && (
+          <div className="bg-gradient-to-br from-emerald-50 to-[var(--muted)] border border-emerald-200 rounded-3xl p-6">
+            <h2 className="font-semibold text-emerald-800 mb-4 flex items-center gap-2">
+              <span className="text-xl">🎉</span> Receipt
+            </h2>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Transfer ID</span>
-                <span className="font-mono text-gray-700 text-xs">{transfer.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Recipient</span>
-                <span className="font-medium text-gray-900">{transfer.recipient?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">You sent</span>
-                <span className="font-medium text-gray-900">{transfer.amount} {transfer.sendCurrency}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">They received</span>
-                <span className="font-medium text-green-700">{transfer.receiveAmount} {transfer.receiveCurrency}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Exchange rate</span>
-                <span className="text-gray-700">1 {transfer.sendCurrency} = {parseFloat(transfer.fxRateApplied).toFixed(4)} {transfer.receiveCurrency}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Date</span>
-                <span className="text-gray-700">{new Date(transfer.createdAt).toLocaleString()}</span>
-              </div>
+              <Row label="Transfer ID" value={<span className="font-mono text-[var(--muted-foreground)] text-xs">{transfer.id}</span>} />
+              <Row label="Recipient" value={transfer.recipient?.name} />
+              <Row label="You sent" value={`${parseFloat(transfer.amount).toFixed(2)} ${transfer.sendCurrency}`} />
+              <Row label="They received" value={<span className="text-emerald-700 font-semibold">{parseFloat(transfer.receiveAmount).toFixed(2)} {transfer.receiveCurrency}</span>} />
+              <Row label="Exchange rate" value={`1 ${transfer.sendCurrency} = ${parseFloat(transfer.fxRateApplied).toFixed(4)} ${transfer.receiveCurrency}`} />
+              <Row label="Date" value={new Date(transfer.createdAt).toLocaleString()} />
             </div>
             <button
               onClick={() => window.print()}
-              className="mt-4 w-full border border-green-300 text-green-700 hover:bg-green-100 font-medium py-2.5 rounded-lg transition text-sm"
+              className="mt-4 w-full border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-medium py-2.5 rounded-xl transition text-sm"
             >
-              Print Receipt
+              Print receipt
             </button>
           </div>
         )}
@@ -211,12 +231,21 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
                 alert(e.response?.data?.message || 'Could not cancel — the transfer may have already advanced.');
               }
             }}
-            className="w-full border border-red-300 text-red-500 hover:bg-red-50 font-medium py-2.5 rounded-lg transition text-sm"
+            className="w-full border border-red-200 text-red-600 hover:bg-red-50 font-medium py-3 rounded-2xl transition text-sm"
           >
-            Cancel Transfer
+            Cancel transfer
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-[var(--muted-foreground)]">{label}</span>
+      <span className="text-[var(--foreground)] font-medium">{value}</span>
     </div>
   );
 }

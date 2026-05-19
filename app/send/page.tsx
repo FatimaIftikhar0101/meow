@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { BrandWordmark } from '@/app/_components/Brand';
 
 interface Recipient {
   id: string;
@@ -96,30 +97,34 @@ export default function SendPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl border border-gray-200 p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-            <h2 className="text-xl font-semibold text-gray-900">Send Money</h2>
-          </div>
+    <div className="min-h-screen bg-[var(--background)]">
+      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BrandWordmark size={24} />
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">Send money</span>
+      </nav>
 
-          <div className="bg-blue-50 text-blue-700 text-sm px-4 py-2.5 rounded-lg mb-4">
-            Balance: {parseFloat(balance).toFixed(2)} {sendCurrency}
-          </div>
+      <div className="max-w-md mx-auto px-4 py-10">
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-7 shadow-sm">
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Send money</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1">
+            Available balance: <span className="font-semibold text-[var(--foreground)]">{parseFloat(balance).toFixed(2)} {sendCurrency}</span>
+          </p>
 
           {error && (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
+            <div className="mt-5 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
+              <label className="block text-xs font-semibold text-[var(--foreground)] mb-1.5 uppercase tracking-wider">Recipient</label>
               <select
                 required
                 value={recipientId}
                 onChange={(e) => setRecipientId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
               >
                 <option value="">Select recipient</option>
                 {recipients.map((r) => (
@@ -129,15 +134,15 @@ export default function SendPage() {
                 ))}
               </select>
               {recipients.length === 0 && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-[var(--muted-foreground)] mt-1.5">
                   No recipients yet.{' '}
-                  <Link href="/recipients" className="text-blue-500 hover:underline">Add one</Link>
+                  <Link href="/recipients" className="text-[var(--brand)] hover:underline">Add one</Link>
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">You send ({sendCurrency})</label>
+              <label className="block text-xs font-semibold text-[var(--foreground)] mb-1.5 uppercase tracking-wider">You send ({sendCurrency})</label>
               <input
                 type="number"
                 required
@@ -145,32 +150,34 @@ export default function SendPage() {
                 step="0.01"
                 value={sendAmount}
                 onChange={(e) => setSendAmount(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 placeholder="100.00"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Recipient gets {receiveCurrency && `(${receiveCurrency})`}
-              </label>
-              <div className="flex-1 border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-sm text-gray-700">
-                {preview ? preview.receiveAmount.toFixed(2) : '—'}
-              </div>
-              {preview && (
-                <div className="text-xs text-gray-400 mt-1 space-y-0.5">
-                  <p>Rate: 1 {sendCurrency} = {preview.rate.toFixed(4)} {receiveCurrency}</p>
-                  <p>Fee: {preview.fee.toFixed(2)} {sendCurrency}</p>
+            {preview && receiveCurrency && (
+              <div className="bg-[var(--muted)] rounded-2xl p-4 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Recipient gets</span>
+                  <span className="font-semibold text-[var(--foreground)]">{preview.receiveAmount.toFixed(2)} {receiveCurrency}</span>
                 </div>
-              )}
-            </div>
+                <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
+                  <span>Rate</span>
+                  <span>1 {sendCurrency} = {preview.rate.toFixed(4)} {receiveCurrency}</span>
+                </div>
+                <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
+                  <span>Fee</span>
+                  <span>{preview.fee.toFixed(2)} {sendCurrency}</span>
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading || !preview}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition disabled:opacity-50"
+              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 shadow"
             >
-              {loading ? 'Sending...' : 'Send Money'}
+              {loading ? 'Sending…' : 'Send money'}
             </button>
           </form>
         </div>

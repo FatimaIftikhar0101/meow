@@ -3,18 +3,19 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { BrandWordmark } from '@/app/_components/Brand';
+
+const QUICK_AMOUNTS = [100, 250, 500, 1000];
 
 export default function FundWalletPage() {
   const router = useRouter();
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('CAD');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/wallet/balance')
-      .then((res) => setCurrency(res.data.currency))
-      .catch(() => {});
+    api.get('/wallet/balance').then((res) => setCurrency(res.data.currency)).catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,19 +35,27 @@ export default function FundWalletPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl border border-gray-200 p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-            <h2 className="text-xl font-semibold text-gray-900">Add Money</h2>
-          </div>
+    <div className="min-h-screen bg-[var(--background)]">
+      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BrandWordmark size={24} />
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">Add money</span>
+      </nav>
+
+      <div className="max-w-md mx-auto px-4 py-10">
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-7 shadow-sm">
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Add money</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1">Top up your {currency} wallet. Demo only — no real card is charged.</p>
+
           {error && (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
+            <div className="mt-5 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount ({currency})</label>
+              <label className="block text-xs font-semibold text-[var(--foreground)] mb-1.5 uppercase tracking-wider">Amount ({currency})</label>
               <input
                 type="number"
                 required
@@ -55,17 +64,29 @@ export default function FundWalletPage() {
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 placeholder="100.00"
               />
-              <p className="text-xs text-gray-400 mt-1">Daily funding limit: 20,000 {currency}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {QUICK_AMOUNTS.map((a) => (
+                  <button
+                    type="button"
+                    key={a}
+                    onClick={() => setAmount(String(a))}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-full bg-[var(--muted)] text-[var(--foreground)] hover:bg-[var(--border)] transition"
+                  >
+                    {a} {currency}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--muted-foreground)] mt-3">Daily limit: 20,000 {currency}</p>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition disabled:opacity-50"
+              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 shadow"
             >
-              {loading ? 'Adding...' : 'Add Money'}
+              {loading ? 'Adding…' : 'Add money'}
             </button>
           </form>
         </div>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { BrandWordmark } from '@/app/_components/Brand';
 
 interface Recipient {
   id: string;
@@ -111,136 +112,121 @@ export default function RecipientsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-        <h1 className="text-lg font-semibold text-gray-900">Recipients</h1>
+    <div className="min-h-screen bg-[var(--background)]">
+      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BrandWordmark size={24} />
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">Recipients</span>
       </nav>
 
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-4">
+      <div className="max-w-xl mx-auto px-4 py-10 space-y-4">
         {recipients.length === 0 && !showForm && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+          <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-10 text-center">
             <p className="text-4xl mb-3">👥</p>
-            <p className="text-gray-600 font-medium">No recipients yet</p>
-            <p className="text-sm text-gray-400 mt-1">Add someone you want to send money to</p>
+            <p className="text-[var(--foreground)] font-medium">No recipients yet</p>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">Add someone you want to send money to.</p>
           </div>
         )}
 
         {recipients.map((r) => (
-          <div key={r.id} className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+          <div key={r.id} className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
+                <div className="w-11 h-11 rounded-full bg-[var(--muted)] flex items-center justify-center text-[var(--brand)] font-semibold">
                   {r.name[0].toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{r.name}</p>
-                  <p className="text-sm text-gray-500">{r.country} · {r.bankAccount}</p>
+                  <p className="font-semibold text-[var(--foreground)]">{r.name}</p>
+                  <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{r.country} · {r.bankAccount}</p>
                   {(r.email || r.phone) && (
-                    <p className="text-xs text-gray-400">{[r.email, r.phone].filter(Boolean).join(' · ')}</p>
+                    <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">{[r.email, r.phone].filter(Boolean).join(' · ')}</p>
                   )}
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => openEdit(r)}
-                  className="text-sm text-blue-500 hover:text-blue-700 font-medium"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(r.id)}
-                  className="text-sm text-red-400 hover:text-red-600 font-medium"
-                >
-                  Remove
-                </button>
+                <button onClick={() => openEdit(r)} className="text-sm text-[var(--brand)] hover:underline font-medium">Edit</button>
+                <button onClick={() => handleDelete(r.id)} className="text-sm text-red-500 hover:text-red-700 font-medium">Remove</button>
               </div>
             </div>
           </div>
         ))}
 
         {showForm ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">
-              {editingId ? 'Edit Recipient' : 'New Recipient'}
+          <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
+            <h2 className="font-semibold text-[var(--foreground)] mb-4">
+              {editingId ? 'Edit recipient' : 'New recipient'}
             </h2>
-            {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>}
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Field label="Full name">
                 <input
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="John Doe"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+              </Field>
+              <Field label="Country">
                 <select
                   required
                   value={form.country}
                   onChange={(e) => setForm({ ...form, country: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 >
                   {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name} ({c.code})
-                    </option>
+                    <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account</label>
+              </Field>
+              <Field label="Bank account">
                 <input
                   required
                   value={form.bankAccount}
                   onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
                   placeholder="IBAN or local account number"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name <span className="text-gray-400">(optional)</span></label>
+              </Field>
+              <Field label="Bank name" optional>
                 <input
                   value={form.bankName}
                   onChange={(e) => setForm({ ...form, bankName: e.target.value })}
                   placeholder="HBL, ICICI, BPI, …"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-gray-400">(optional)</span></label>
+              </Field>
+              <Field label="Email" optional>
                 <input
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="recipient@example.com"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone <span className="text-gray-400">(optional)</span></label>
+              </Field>
+              <Field label="Phone" optional>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+92 300 1234567"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
-              </div>
+              </Field>
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition disabled:opacity-50 text-sm"
+                  className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-semibold py-2.5 rounded-xl transition disabled:opacity-50 text-sm shadow"
                 >
-                  {loading ? 'Saving...' : editingId ? 'Save Changes' : 'Add Recipient'}
+                  {loading ? 'Saving…' : editingId ? 'Save changes' : 'Add recipient'}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); setEditingId(null); }}
-                  className="flex-1 border border-gray-300 text-gray-600 font-medium py-2.5 rounded-lg hover:bg-gray-50 transition text-sm"
+                  className="flex-1 border border-[var(--border)] text-[var(--muted-foreground)] font-medium py-2.5 rounded-xl hover:bg-[var(--muted)] transition text-sm"
                 >
                   Cancel
                 </button>
@@ -250,12 +236,23 @@ export default function RecipientsPage() {
         ) : (
           <button
             onClick={openAdd}
-            className="w-full border-2 border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-500 font-medium py-3 rounded-2xl transition text-sm"
+            className="w-full border-2 border-dashed border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--accent)] hover:text-[var(--accent-deep)] font-medium py-4 rounded-2xl transition text-sm"
           >
-            + Add Recipient
+            + Add recipient
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function Field({ label, optional, children }: { label: string; optional?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-[var(--foreground)] mb-1.5 uppercase tracking-wider">
+        {label}{optional && <span className="text-[var(--muted-foreground)] normal-case ml-1">(optional)</span>}
+      </label>
+      {children}
     </div>
   );
 }

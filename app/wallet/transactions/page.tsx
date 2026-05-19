@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { BrandWordmark } from '@/app/_components/Brand';
 
 interface Transaction {
   id: string;
@@ -48,19 +49,24 @@ export default function TransactionsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">←</Link>
-        <h1 className="text-lg font-semibold text-gray-900">Transaction History</h1>
+    <div className="min-h-screen bg-[var(--background)]">
+      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BrandWordmark size={24} />
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">Activity</span>
       </nav>
 
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-3">
+      <div className="max-w-xl mx-auto px-4 py-10 space-y-3">
+        <h1 className="text-2xl font-bold text-[var(--foreground)] mb-3">Transaction history</h1>
         {loading ? (
-          <p className="text-center text-gray-500 py-10">Loading...</p>
+          <p className="text-center text-[var(--muted-foreground)] py-10">Loading…</p>
         ) : transactions.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-            <p className="text-gray-500 text-sm">No transactions yet.</p>
-            <Link href="/wallet/fund" className="text-blue-600 text-sm font-medium mt-2 inline-block hover:underline">
+          <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-10 text-center">
+            <p className="text-3xl mb-3">📭</p>
+            <p className="text-[var(--foreground)] font-medium">No transactions yet</p>
+            <Link href="/wallet/fund" className="text-[var(--brand)] text-sm font-semibold mt-2 inline-block hover:underline">
               Add money to your wallet →
             </Link>
           </div>
@@ -68,15 +74,14 @@ export default function TransactionsPage() {
           transactions.map((tx) => {
             const isCredit = tx.direction === 'credit';
             return (
-              <div key={tx.id} className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center justify-between">
+              <div key={tx.id} className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg
-                    ${isCredit ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${isCredit ? 'bg-emerald-100 text-emerald-700' : 'bg-[var(--accent)]/15 text-[var(--accent-deep)]'}`}>
                     {isCredit ? '↓' : '↑'}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{labelFor(tx)}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-sm font-medium text-[var(--foreground)]">{labelFor(tx)}</p>
+                    <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
                       {new Date(tx.createdAt).toLocaleDateString('en-US', {
                         day: 'numeric', month: 'short', year: 'numeric',
                         hour: '2-digit', minute: '2-digit',
@@ -84,7 +89,7 @@ export default function TransactionsPage() {
                     </p>
                   </div>
                 </div>
-                <p className={`font-semibold text-sm ${isCredit ? 'text-green-600' : 'text-red-500'}`}>
+                <p className={`font-semibold text-sm ${isCredit ? 'text-emerald-700' : 'text-[var(--accent-deep)]'}`}>
                   {isCredit ? '+' : '-'}{parseFloat(tx.amount).toFixed(2)} {tx.currency}
                 </p>
               </div>
