@@ -114,7 +114,7 @@ export default function SendPage() {
           </p>
 
           {error && (
-            <div className="mt-5 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
+            <div className="mt-5 bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl">{error}</div>
           )}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">

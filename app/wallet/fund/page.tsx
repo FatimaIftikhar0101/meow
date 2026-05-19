@@ -50,7 +50,7 @@ export default function FundWalletPage() {
           <p className="text-sm text-[var(--muted-foreground)] mt-1">Top up your {currency} wallet. Demo only — no real card is charged.</p>
 
           {error && (
-            <div className="mt-5 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
+            <div className="mt-5 bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl">{error}</div>
           )}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">

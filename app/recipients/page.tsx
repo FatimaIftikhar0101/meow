@@ -147,7 +147,7 @@ export default function RecipientsPage() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => openEdit(r)} className="text-sm text-[var(--brand)] hover:underline font-medium">Edit</button>
-                <button onClick={() => handleDelete(r.id)} className="text-sm text-red-500 hover:text-red-700 font-medium">Remove</button>
+                <button onClick={() => handleDelete(r.id)} className="text-sm text-[var(--danger)] hover:text-[var(--danger)] font-medium">Remove</button>
               </div>
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function RecipientsPage() {
             <h2 className="font-semibold text-[var(--foreground)] mb-4">
               {editingId ? 'Edit recipient' : 'New recipient'}
             </h2>
-            {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
+            {error && <div className="bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Full name">
                 <input

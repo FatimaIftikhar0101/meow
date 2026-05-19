@@ -17,14 +17,14 @@ interface Transfer {
 }
 
 const statusStyle: Record<string, string> = {
-  initiated: 'bg-[var(--muted)] text-[var(--ink-soft)]',
-  payment_received: 'bg-[var(--mint-soft)] text-[var(--mint)]',
-  compliance_check: 'bg-[var(--gold-soft)] text-amber-800',
-  fx_converted: 'bg-[var(--accent-soft)] text-[var(--accent-deep)]',
-  payout_processing: 'bg-[var(--accent-soft)] text-[var(--accent-deep)]',
-  delivered: 'bg-[var(--mint-soft)] text-[var(--mint)]',
-  failed: 'bg-red-100 text-red-700',
-  cancelled: 'bg-[var(--muted)] text-[var(--muted-foreground)]',
+  initiated: 'bg-[var(--surface)] text-[var(--muted-foreground)] border-[var(--border)]',
+  payment_received: 'bg-[var(--mint-soft)] text-[var(--mint)] border-[var(--mint)]/30',
+  compliance_check: 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30',
+  fx_converted: 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30',
+  payout_processing: 'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]/30',
+  delivered: 'bg-[var(--mint-soft)] text-[var(--mint)] border-[var(--mint)]/30',
+  failed: 'bg-[var(--danger-soft)] text-[var(--danger)] border-[var(--danger)]/30',
+  cancelled: 'bg-[var(--surface)] text-[var(--muted-foreground)] border-[var(--border)]',
 };
 
 const statusLabels: Record<string, string> = {
@@ -32,7 +32,7 @@ const statusLabels: Record<string, string> = {
   payment_received: 'Payment received',
   compliance_check: 'Compliance',
   fx_converted: 'Converted',
-  payout_processing: 'On its way',
+  payout_processing: 'In transit',
   delivered: 'Delivered',
   failed: 'Failed',
   cancelled: 'Cancelled',
@@ -73,66 +73,71 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-        <p className="text-[var(--muted-foreground)]">Loading…</p>
+        <p className="text-[var(--muted-foreground)] text-sm tracking-widest uppercase">Loading</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <nav className="bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      <nav className="border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <BrandWordmark />
-        <div className="flex items-center gap-1 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-2">
           <NavLink href="/recipients">Recipients</NavLink>
           <NavLink href="/wallet/transactions">Activity</NavLink>
           <Link
             href="/profile"
-            className="ml-2 w-9 h-9 rounded-full bg-[var(--ink)] flex items-center justify-center text-white text-sm font-bold hover:bg-[var(--brand-deep)] transition"
+            className="ml-2 w-9 h-9 rounded-full bg-[var(--surface-elevated)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--foreground)] text-sm font-bold hover:border-[var(--accent)] transition"
           >
             {email ? email[0].toUpperCase() : '·'}
           </Link>
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-7">
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
         {kycPassed === false && (
           <Link
             href="/profile"
-            className="flex items-center justify-between bg-[var(--gold-soft)] border border-amber-200 text-amber-900 rounded-2xl px-5 py-4 hover:bg-amber-100 transition"
+            className="flex items-center justify-between bg-[var(--accent-soft)] border border-[var(--accent)]/40 text-[var(--accent)] rounded-2xl px-5 py-3.5 hover:bg-[var(--accent)]/15 transition"
           >
-            <span className="text-sm font-semibold flex items-center gap-2">
-              <span className="text-lg">🪪</span> Verify your identity to send money
-            </span>
+            <span className="text-sm font-semibold">Verify your identity to send money</span>
             <span className="text-sm">→</span>
           </Link>
         )}
 
-        {/* Hero wallet card */}
-        <div className="relative bg-[var(--ink)] text-white rounded-[2rem] p-8 shadow-2xl overflow-hidden">
+        {/* Balance card */}
+        <div
+          className="relative rounded-3xl border border-[var(--border-strong)] p-8 overflow-hidden"
+          style={{
+            background:
+              'linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 60%, var(--background) 100%)',
+          }}
+        >
           <div
-            className="absolute -right-20 -top-20 w-72 h-72 rounded-full opacity-50"
-            style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', animation: 'aurora 6s ease-in-out infinite' }}
-          />
-          <div
-            className="absolute -left-12 -bottom-16 w-56 h-56 rounded-full opacity-40"
-            style={{ background: 'radial-gradient(circle, var(--mint), transparent 70%)', animation: 'aurora 8s ease-in-out infinite 1s' }}
+            className="absolute -right-24 -top-24 w-72 h-72 rounded-full opacity-20"
+            style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', animation: 'aurora 7s ease-in-out infinite' }}
           />
           <div className="relative">
-            <p className="text-white/60 text-[11px] uppercase tracking-[0.2em] font-bold">Available balance</p>
-            <p className="text-5xl font-extrabold mt-2 tracking-tight">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--muted-foreground)] font-bold">Available balance</p>
+              <span className="text-[10px] uppercase tracking-[0.25em] text-[var(--accent)] font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live
+              </span>
+            </div>
+            <p className="text-5xl font-extrabold tracking-tight tabular text-[var(--foreground)] mt-2">
               {parseFloat(balance).toFixed(2)}
-              <span className="text-white/70 text-2xl ml-2">{currency}</span>
+              <span className="text-[var(--muted-foreground)] text-2xl ml-2 font-bold">{currency}</span>
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 href="/send"
-                className="bg-[var(--accent)] text-white text-sm font-bold px-6 py-3 rounded-full hover:bg-[var(--accent-deep)] transition shadow-lg shadow-[var(--accent)]/30"
+                className="bg-[var(--accent)] text-[var(--ink)] text-sm font-bold px-6 py-3 rounded-full hover:bg-[var(--accent-deep)] transition shadow-lg shadow-[var(--accent)]/20"
               >
                 Send money →
               </Link>
               <Link
                 href="/wallet/fund"
-                className="bg-white/10 backdrop-blur border border-white/20 text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-white/20 transition"
+                className="border border-[var(--border-strong)] text-[var(--foreground)] text-sm font-semibold px-6 py-3 rounded-full hover:border-[var(--accent)] hover:bg-[var(--surface)] transition"
               >
                 + Add money
               </Link>
@@ -142,10 +147,7 @@ export default function DashboardPage() {
 
         {/* Quick stats */}
         <div className="grid grid-cols-3 gap-3">
-          <Stat
-            label="Transfers"
-            value={transfers.length.toString()}
-          />
+          <Stat label="Transfers" value={transfers.length.toString()} />
           <Stat
             label="In flight"
             value={transfers.filter((t) => !['delivered', 'failed', 'cancelled'].includes(t.status)).length.toString()}
@@ -163,30 +165,29 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-bold text-[var(--foreground)] tracking-tight">Recent transfers</h2>
             {transfers.length > 0 && (
-              <Link href="/wallet/transactions" className="text-sm text-[var(--accent)] hover:text-[var(--accent-deep)] font-semibold">All activity →</Link>
+              <Link href="/wallet/transactions" className="text-xs text-[var(--accent)] hover:text-[var(--accent-deep)] font-semibold uppercase tracking-wider">All activity →</Link>
             )}
           </div>
           {transfers.length === 0 ? (
             <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-12 text-center">
-              <p className="text-5xl mb-4">🐾</p>
-              <p className="text-[var(--foreground)] font-bold text-lg">Let&apos;s send your first transfer</p>
-              <p className="text-sm text-[var(--muted-foreground)] mt-1">Our kitten will carry your money home.</p>
-              <Link href="/send" className="inline-block mt-5 bg-[var(--accent)] text-white text-sm font-bold px-6 py-2.5 rounded-full hover:bg-[var(--accent-deep)] transition shadow-lg shadow-[var(--accent)]/30">
+              <p className="text-[var(--foreground)] font-bold text-lg">No transfers yet</p>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1">Send your first transfer to a recipient.</p>
+              <Link href="/send" className="inline-block mt-5 bg-[var(--accent)] text-[var(--ink)] text-sm font-bold px-6 py-2.5 rounded-full hover:bg-[var(--accent-deep)] transition">
                 Send money →
               </Link>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {transfers.map((t) => (
                 <Link href={`/transfers/${t.id}`} key={t.id}>
-                  <div className="group bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4 flex items-center justify-between hover:border-[var(--accent)] hover:shadow-lg hover:shadow-[var(--accent)]/5 transition cursor-pointer">
+                  <div className="group bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4 flex items-center justify-between hover:border-[var(--accent)]/60 hover:bg-[var(--surface-elevated)] transition cursor-pointer">
                     <div className="flex items-center gap-4">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--gold)] flex items-center justify-center text-white font-bold">
+                      <div className="w-10 h-10 rounded-full border border-[var(--border-strong)] bg-[var(--surface-elevated)] flex items-center justify-center text-[var(--accent)] font-bold">
                         {t.recipient?.name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div>
-                        <p className="font-semibold text-[var(--foreground)] group-hover:text-[var(--accent-deep)] transition">{t.recipient?.name || 'Unknown'}</p>
-                        <p className="text-xs text-[var(--muted-foreground)] mt-0.5 font-mono">
+                        <p className="font-semibold text-[var(--foreground)]">{t.recipient?.name || 'Unknown'}</p>
+                        <p className="text-xs text-[var(--muted-foreground)] mt-0.5 font-mono tabular">
                           {parseFloat(t.amount).toFixed(2)} {t.sendCurrency} → {t.receiveAmount ? parseFloat(t.receiveAmount).toFixed(2) : '—'} {t.receiveCurrency}
                         </p>
                         <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider mt-0.5">
@@ -194,7 +195,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${statusStyle[t.status] || 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-[0.15em] px-3 py-1.5 rounded-full border ${statusStyle[t.status] || 'bg-[var(--surface)] text-[var(--muted-foreground)] border-[var(--border)]'}`}>
                       {statusLabels[t.status] || t.status}
                     </span>
                   </div>
@@ -212,7 +213,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="px-3 py-1.5 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--accent-deep)] hover:bg-[var(--accent-soft)] rounded-full transition"
+      className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition"
     >
       {children}
     </Link>
@@ -220,11 +221,11 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: 'accent' | 'mint' }) {
-  const color = accent === 'accent' ? 'text-[var(--accent-deep)]' : accent === 'mint' ? 'text-[var(--mint)]' : 'text-[var(--foreground)]';
+  const color = accent === 'accent' ? 'text-[var(--accent)]' : accent === 'mint' ? 'text-[var(--mint)]' : 'text-[var(--foreground)]';
   return (
     <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-4">
-      <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-bold">{label}</p>
-      <p className={`text-2xl font-extrabold mt-1 ${color}`}>{value}</p>
+      <p className="text-[9px] uppercase tracking-[0.25em] text-[var(--muted-foreground)] font-bold">{label}</p>
+      <p className={`text-3xl font-extrabold mt-1.5 tabular ${color}`}>{value}</p>
     </div>
   );
 }

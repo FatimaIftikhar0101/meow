@@ -76,7 +76,7 @@ export default function TransactionsPage() {
             return (
               <div key={tx.id} className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${isCredit ? 'bg-emerald-100 text-emerald-700' : 'bg-[var(--accent)]/15 text-[var(--accent-deep)]'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${isCredit ? 'bg-[var(--mint-soft)] text-[var(--mint)]' : 'bg-[var(--accent)]/15 text-[var(--accent-deep)]'}`}>
                     {isCredit ? '↓' : '↑'}
                   </div>
                   <div>
@@ -89,7 +89,7 @@ export default function TransactionsPage() {
                     </p>
                   </div>
                 </div>
-                <p className={`font-semibold text-sm ${isCredit ? 'text-emerald-700' : 'text-[var(--accent-deep)]'}`}>
+                <p className={`font-semibold text-sm ${isCredit ? 'text-[var(--mint)]' : 'text-[var(--accent-deep)]'}`}>
                   {isCredit ? '+' : '-'}{parseFloat(tx.amount).toFixed(2)} {tx.currency}
                 </p>
               </div>

@@ -107,15 +107,15 @@ export default function ProfilePage() {
               </p>
             </div>
             {isVerified ? (
-              <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">
+              <span className="text-xs font-semibold bg-[var(--mint-soft)] text-[var(--mint)] px-3 py-1 rounded-full">
                 ✓ Verified
               </span>
             ) : kyc?.status === 'failed' ? (
-              <span className="text-xs font-semibold bg-red-100 text-red-700 px-3 py-1 rounded-full">
+              <span className="text-xs font-semibold bg-[var(--danger-soft)] text-[var(--danger)] px-3 py-1 rounded-full">
                 Failed
               </span>
             ) : (
-              <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-3 py-1 rounded-full">
+              <span className="text-xs font-semibold bg-[var(--accent-soft)] text-[var(--accent)] px-3 py-1 rounded-full">
                 Not verified
               </span>
             )}
@@ -124,15 +124,15 @@ export default function ProfilePage() {
 
         {/* KYC */}
         {!isVerified && (
-          <div className={`border rounded-3xl p-6 ${kyc?.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-            <h3 className={`font-semibold mb-1 ${kyc?.status === 'failed' ? 'text-red-800' : 'text-amber-900'}`}>
+          <div className={`border rounded-3xl p-6 ${kyc?.status === 'failed' ? 'bg-[var(--danger-soft)] border-[var(--danger)]/30' : 'bg-[var(--accent-soft)] border-[var(--accent)]/30'}`}>
+            <h3 className={`font-semibold mb-1 ${kyc?.status === 'failed' ? 'text-[var(--danger)]' : 'text-[var(--accent)]'}`}>
               {kyc?.status === 'failed' ? 'Verification failed' : 'Verify your identity'}
             </h3>
-            <p className={`text-sm mb-4 ${kyc?.status === 'failed' ? 'text-red-700' : 'text-amber-800'}`}>
+            <p className={`text-sm mb-4 ${kyc?.status === 'failed' ? 'text-[var(--danger)]' : 'text-[var(--accent)]'}`}>
               {kyc?.reason ?? 'Identity verification is required by Canadian regulators before you can send money. It only takes a moment.'}
             </p>
             {verified ? (
-              <p className="text-sm text-emerald-700 font-semibold">✓ Successfully verified!</p>
+              <p className="text-sm text-[var(--mint)] font-semibold">✓ Successfully verified!</p>
             ) : kyc?.status === 'failed' ? null : (
               <button
                 onClick={handleVerify}
@@ -149,10 +149,10 @@ export default function ProfilePage() {
         <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
           <h3 className="font-semibold text-[var(--foreground)] mb-3">Change password</h3>
           {pwError && (
-            <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl mb-3">{pwError}</div>
+            <div className="bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl mb-3">{pwError}</div>
           )}
           {pwSuccess && (
-            <div className="bg-emerald-50 text-emerald-700 text-sm px-4 py-3 rounded-xl mb-3">
+            <div className="bg-[var(--mint-soft)] text-[var(--mint)] text-sm px-4 py-3 rounded-xl mb-3">
               Password updated. All other devices have been signed out.
             </div>
           )}
@@ -198,7 +198,7 @@ export default function ProfilePage() {
 
         <button
           onClick={logout}
-          className="w-full border border-red-200 text-red-600 hover:bg-red-50 font-semibold py-3 rounded-2xl transition text-sm"
+          className="w-full border border-[var(--danger)]/30 text-[var(--danger)] hover:bg-[var(--danger-soft)] font-semibold py-3 rounded-2xl transition text-sm"
         >
           Sign out
         </button>

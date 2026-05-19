@@ -5,7 +5,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
-import { CatCoin } from '@/app/_components/CatCoin';
+import { WorldMap } from '@/app/_components/WorldMap';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,85 +34,92 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-[var(--background)]">
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--ink)] text-white relative overflow-hidden">
-        <div
-          className="absolute -right-24 -top-24 w-96 h-96 rounded-full opacity-50"
-          style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', animation: 'aurora 7s ease-in-out infinite' }}
-        />
-        <div
-          className="absolute -left-20 bottom-0 w-80 h-80 rounded-full opacity-40"
-          style={{ background: 'radial-gradient(circle, var(--mint), transparent 70%)', animation: 'aurora 9s ease-in-out infinite 1s' }}
-        />
-        <BrandWordmark size={32} />
+    <div className="min-h-screen grid lg:grid-cols-[1.2fr_1fr] bg-[var(--background)]">
+      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden border-r border-[var(--border)]">
+        <BrandWordmark size={28} />
         <div className="relative">
-          <CatCoin size={120} />
-          <h2 className="mt-6 text-5xl font-extrabold leading-tight tracking-tight">
-            Send money<br/>
-            <span className="text-[var(--accent)]">like a cat</span> on a mission.
+          {/* preview map — uses a delivered transfer aesthetic for the hero */}
+          <div className="mb-10">
+            <WorldMap
+              sendCurrency="CAD"
+              receiveCurrency="PKR"
+              recipientName="Ayesha"
+              progress={0.55}
+            />
+          </div>
+          <h2 className="text-4xl font-extrabold leading-[1.05] tracking-tight text-[var(--foreground)]">
+            Move money <span className="text-[var(--accent)]">precisely.</span><br/>
+            Track every step.
           </h2>
-          <p className="mt-4 text-white/70 text-lg max-w-md">
-            Fast, transparent transfers from Canada to home. Watch every coin from your wallet to theirs.
+          <p className="mt-4 text-[var(--muted-foreground)] text-base max-w-md">
+            Regulated cross-border transfers from Canada. Real-time settlement visibility, bank-grade controls, transparent rates.
           </p>
         </div>
-        <div className="relative flex items-center gap-4 text-white/50 text-xs">
-          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--mint)]" /> FINTRAC ready</span>
-          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" /> Bank-grade encryption</span>
-          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Live tracking</span>
+        <div className="relative flex items-center gap-5 text-[var(--muted-foreground)] text-[11px] uppercase tracking-[0.2em] font-semibold">
+          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--mint)]" /> FINTRAC</span>
+          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> AES-256</span>
+          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[var(--foreground)]" /> Audit-logged</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-center px-4 py-12">
+      <div className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm">
-          <div className="lg:hidden mb-8 text-center">
-            <BrandWordmark />
+          <div className="lg:hidden mb-10 text-center">
+            <BrandWordmark size={24} />
           </div>
-          <h1 className="text-3xl font-extrabold text-[var(--foreground)] tracking-tight">Welcome back</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1.5">Sign in to send a transfer.</p>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--muted-foreground)] font-bold">Sign in</p>
+          <h1 className="text-3xl font-extrabold text-[var(--foreground)] tracking-tight mt-2">Welcome back.</h1>
 
           {error && (
-            <div className="mt-6 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl border border-red-100">{error}</div>
+            <div className="mt-6 bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl border border-[var(--danger)]/30">{error}</div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-[var(--ink-soft)] mb-1.5 uppercase tracking-[0.15em]">Email</label>
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+            <Field label="Email">
               <input
                 type="email"
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full bg-[var(--surface)] border border-[var(--border-strong)] rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
                 placeholder="you@example.com"
               />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-[var(--ink-soft)] mb-1.5 uppercase tracking-[0.15em]">Password</label>
+            </Field>
+            <Field label="Password">
               <input
                 type="password"
                 required
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full bg-[var(--surface)] border border-[var(--border-strong)] rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
                 placeholder="••••••••"
               />
-            </div>
+            </Field>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-bold py-3.5 rounded-2xl transition disabled:opacity-50 shadow-lg shadow-[var(--accent)]/30 hover:shadow-xl hover:shadow-[var(--accent)]/40"
+              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-[var(--ink)] font-bold py-3.5 rounded-xl transition disabled:opacity-50 shadow-lg shadow-[var(--accent)]/15"
             >
               {loading ? 'Signing in…' : 'Sign in →'}
             </button>
           </form>
           <p className="text-center text-sm text-[var(--muted-foreground)] mt-6">
             New here?{' '}
-            <Link href="/register" className="text-[var(--accent-deep)] hover:underline font-bold">
+            <Link href="/register" className="text-[var(--accent)] hover:text-[var(--accent-deep)] font-bold">
               Create account
             </Link>
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-[var(--muted-foreground)] mb-1.5 uppercase tracking-[0.18em]">{label}</label>
+      {children}
     </div>
   );
 }

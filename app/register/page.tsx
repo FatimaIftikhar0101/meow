@@ -5,7 +5,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
-import { CatCoin } from '@/app/_components/CatCoin';
+import { WorldMap } from '@/app/_components/WorldMap';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -31,91 +31,87 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-[var(--background)]">
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--ink)] text-white relative overflow-hidden">
-        <div
-          className="absolute -right-24 -top-24 w-96 h-96 rounded-full opacity-50"
-          style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', animation: 'aurora 7s ease-in-out infinite' }}
-        />
-        <div
-          className="absolute -left-20 bottom-0 w-80 h-80 rounded-full opacity-40"
-          style={{ background: 'radial-gradient(circle, var(--mint), transparent 70%)', animation: 'aurora 9s ease-in-out infinite 1s' }}
-        />
-        <BrandWordmark size={32} />
+    <div className="min-h-screen grid lg:grid-cols-[1.2fr_1fr] bg-[var(--background)]">
+      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden border-r border-[var(--border)]">
+        <BrandWordmark size={28} />
         <div className="relative">
-          <CatCoin size={120} />
-          <h2 className="mt-6 text-5xl font-extrabold leading-tight tracking-tight">
-            Three steps.<br/>
-            <span className="text-[var(--accent)]">Then send.</span>
+          <div className="mb-10">
+            <WorldMap
+              sendCurrency="CAD"
+              receiveCurrency="INR"
+              recipientName="Family"
+              progress={0.85}
+            />
+          </div>
+          <h2 className="text-4xl font-extrabold leading-[1.05] tracking-tight text-[var(--foreground)]">
+            One account.<br/>
+            <span className="text-[var(--accent)]">Six destinations.</span>
           </h2>
-          <ul className="mt-7 space-y-4 text-white/90">
-            <Step n={1} label="Create your account" />
-            <Step n={2} label="Verify your identity in a minute" />
-            <Step n={3} label="Add money & send to family" />
+          <ul className="mt-7 space-y-3 text-[var(--ink-soft)] text-sm">
+            <Bullet>Open a CAD wallet in minutes</Bullet>
+            <Bullet>Verify identity with auto-KYC</Bullet>
+            <Bullet>Send to PK, IN, PH and growing</Bullet>
           </ul>
         </div>
-        <p className="relative text-xs text-white/50">Regulated by FINTRAC · Canadian MSB</p>
+        <p className="relative text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] font-bold">Regulated MSB · FINTRAC compliant</p>
       </div>
 
-      <div className="flex items-center justify-center px-4 py-12">
+      <div className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm">
-          <div className="lg:hidden mb-8 text-center">
-            <BrandWordmark />
+          <div className="lg:hidden mb-10 text-center">
+            <BrandWordmark size={24} />
           </div>
-          <h1 className="text-3xl font-extrabold text-[var(--foreground)] tracking-tight">Create your account</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1.5">Free. No commitment. Cat included.</p>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--muted-foreground)] font-bold">Create account</p>
+          <h1 className="text-3xl font-extrabold text-[var(--foreground)] tracking-tight mt-2">Get started.</h1>
 
           {error && (
-            <div className="mt-6 bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl border border-red-100">{error}</div>
+            <div className="mt-6 bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl border border-[var(--danger)]/30">{error}</div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-[var(--ink-soft)] mb-1.5 uppercase tracking-[0.15em]">Email</label>
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+            <Field label="Email">
               <input
                 type="email"
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full bg-[var(--surface)] border border-[var(--border-strong)] rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
                 placeholder="you@example.com"
               />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-[var(--ink-soft)] mb-1.5 uppercase tracking-[0.15em]">Password</label>
+            </Field>
+            <Field label="Password">
               <input
                 type="password"
                 required
                 minLength={10}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full bg-[var(--surface)] border border-[var(--border-strong)] rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
                 placeholder="10+ chars, upper, lower, digit"
               />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-[var(--ink-soft)] mb-1.5 uppercase tracking-[0.15em]">Country</label>
+            </Field>
+            <Field label="Country of residence">
               <select
                 value={form.country}
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
-                className="w-full bg-[var(--surface)] border border-[var(--border-strong)] rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
               >
-                <option value="CA">🇨🇦 Canada (CAD)</option>
-                <option value="US">🇺🇸 United States (USD)</option>
-                <option value="GB">🇬🇧 United Kingdom (GBP)</option>
+                <option value="CA">Canada · CAD</option>
+                <option value="US">United States · USD</option>
+                <option value="GB">United Kingdom · GBP</option>
               </select>
-            </div>
+            </Field>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-bold py-3.5 rounded-2xl transition disabled:opacity-50 shadow-lg shadow-[var(--accent)]/30 hover:shadow-xl hover:shadow-[var(--accent)]/40"
+              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-[var(--ink)] font-bold py-3.5 rounded-xl transition disabled:opacity-50 shadow-lg shadow-[var(--accent)]/15"
             >
               {loading ? 'Creating…' : 'Create account →'}
             </button>
           </form>
           <p className="text-center text-sm text-[var(--muted-foreground)] mt-6">
             Already have one?{' '}
-            <Link href="/login" className="text-[var(--accent-deep)] hover:underline font-bold">
+            <Link href="/login" className="text-[var(--accent)] hover:text-[var(--accent-deep)] font-bold">
               Sign in
             </Link>
           </p>
@@ -125,13 +121,20 @@ export default function RegisterPage() {
   );
 }
 
-function Step({ n, label }: { n: number; label: string }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <li className="flex items-center gap-4">
-      <span className="w-9 h-9 rounded-full bg-[var(--accent)]/20 border border-[var(--accent)]/40 grid place-items-center text-sm font-bold text-[var(--accent)]">
-        {n}
-      </span>
-      <span className="text-base">{label}</span>
+    <div>
+      <label className="block text-[10px] font-bold text-[var(--muted-foreground)] mb-1.5 uppercase tracking-[0.18em]">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function Bullet({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3">
+      <span className="w-1 h-1 rounded-full bg-[var(--accent)]" />
+      {children}
     </li>
   );
 }

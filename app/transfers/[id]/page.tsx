@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { io } from 'socket.io-client';
 import { getToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
-import { TransferMap } from '@/app/_components/TransferMap';
+import { WorldMap } from '@/app/_components/WorldMap';
 
 interface TimelineEntry {
   id: string;
@@ -96,8 +96,8 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
-        {/* The map — kitten flying from sender to recipient */}
-        <TransferMap
+        {/* The world map — kitten flying from sender to recipient */}
+        <WorldMap
           sendCurrency={transfer.sendCurrency}
           receiveCurrency={transfer.receiveCurrency}
           recipientName={transfer.recipient?.name}
@@ -131,8 +131,8 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
         </div>
 
         {(isFailed || isCancelled) ? (
-          <div className={`rounded-3xl border p-6 text-center ${isFailed ? 'bg-red-50 border-red-200' : 'bg-[var(--muted)] border-[var(--border)]'}`}>
-            <p className={`font-bold text-lg ${isFailed ? 'text-red-700' : 'text-[var(--foreground)]'}`}>
+          <div className={`rounded-3xl border p-6 text-center ${isFailed ? 'bg-[var(--danger-soft)] border-[var(--danger)]/30' : 'bg-[var(--muted)] border-[var(--border)]'}`}>
+            <p className={`font-bold text-lg ${isFailed ? 'text-[var(--danger)]' : 'text-[var(--foreground)]'}`}>
               Transfer {isFailed ? 'failed' : 'cancelled'}
             </p>
             {transfer.timeline.at(-1)?.message && (
@@ -222,7 +222,7 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
                 alert(e.response?.data?.message || 'Could not cancel — the transfer may have already advanced.');
               }
             }}
-            className="w-full border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold py-3 rounded-2xl transition text-sm"
+            className="w-full border-2 border-[var(--danger)]/30 text-[var(--danger)] hover:bg-[var(--danger-soft)] font-semibold py-3 rounded-2xl transition text-sm"
           >
             Cancel transfer
           </button>
