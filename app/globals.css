@@ -133,3 +133,45 @@ body {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%      { transform: translate(20px, -10px) scale(1.05); }
 }
+
+/* Flying kitten — gentle bob while gliding. */
+@keyframes float-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-4px) rotate(1deg); }
+}
+
+/* Tail flick — slightly snappier than the walking tail-wag. */
+@keyframes tail-flick {
+  0%, 100% { transform: rotate(-10deg); }
+  50%      { transform: rotate(18deg); }
+}
+
+/* Front-paw curl when carrying a coin. */
+@keyframes paw-curl {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(6deg) translateY(-1px); }
+}
+
+/* Coin tilts slightly with paw movement. */
+@keyframes coin-tilt {
+  0%, 100% { transform: translate(0, 0) rotate(-6deg); }
+  50%      { transform: translate(0, -3px) rotate(8deg); }
+}
+
+/* Sparkles around the flying kitten. */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.4); }
+  50%      { opacity: 1; transform: scale(1.2); }
+}
+
+/* Twinkling stars in the dreamy map background. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
+
+/* The whole arc pulses very subtly. */
+@keyframes path-pulse {
+  0%, 100% { stroke-dashoffset: 0; }
+  100%     { stroke-dashoffset: -24; }
+}

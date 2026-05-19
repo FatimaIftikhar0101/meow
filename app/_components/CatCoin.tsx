@@ -4,124 +4,146 @@ interface CatCoinProps {
   size?: number;
   /** When false the kitten sits still (used for the "delivered" final frame). */
   playful?: boolean;
+  /** Side-on travelling pose (used in the map). When false, idle pose. */
+  flying?: boolean;
 }
 
 /**
- * A lifelike side-profile kitten walking with a coin floating beside it.
- * Breathing, tail wag, ear twitch, slow blink, and a four-leg lateral gait
- * are layered with different keyframes so it never feels stiff.
+ * A fluffy white kitten. Two modes:
+ *  - flying: a side-on flying pose, paws curled, scarf streaming, coin clutched
+ *  - !flying: a seated kitten on the ground (used in the auth hero)
+ *
+ * Pure SVG + CSS keyframes. Designed to read at small sizes and feel alive
+ * (breathing, tail flick, ear twitch, blink, coin spin + sparkle).
  */
-export function CatCoin({ size = 96, playful = true }: CatCoinProps) {
-  const a = playful ? undefined : { animation: 'none' };
+export function CatCoin({ size = 96, playful = true, flying = true }: CatCoinProps) {
+  const a = playful ? undefined : { animation: 'none' as const };
+  return flying ? (
+    <FlyingKitten size={size} playful={playful} a={a} />
+  ) : (
+    <SeatedKitten size={size} playful={playful} a={a} />
+  );
+}
 
+function FlyingKitten({ size, playful, a }: { size: number; playful: boolean; a?: { animation: 'none' } }) {
   return (
     <div
       className="relative inline-block select-none"
-      style={{ width: size * 1.4, height: size }}
+      style={{
+        width: size * 1.5,
+        height: size,
+        animation: playful ? 'float-bob 2.4s ease-in-out infinite' : undefined,
+      }}
       aria-hidden="true"
     >
       <svg
-        viewBox="0 0 140 100"
-        width={size * 1.4}
+        viewBox="0 0 150 100"
+        width={size * 1.5}
         height={size}
-        style={{
-          overflow: 'visible',
-          animation: playful ? 'cat-breath 2.2s ease-in-out infinite' : undefined,
-          transformOrigin: 'center bottom',
-        }}
+        style={{ overflow: 'visible' }}
       >
-        {/* soft ground shadow */}
-        <ellipse cx="60" cy="92" rx="42" ry="3" fill="#0d1230" opacity="0.08" />
+        <defs>
+          <radialGradient id="kittenFur" cx="40%" cy="40%" r="65%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="70%" stopColor="#fafafa" />
+            <stop offset="100%" stopColor="#e9e7df" />
+          </radialGradient>
+          <radialGradient id="catShine" cx="30%" cy="30%" r="60%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
 
-        {/* far-side legs (paint first so near-side overlaps) */}
-        <g style={playful ? { animation: 'leg-step-b 0.7s ease-in-out infinite', transformOrigin: '40px 78px' } : a}>
-          <rect x="36" y="74" width="6" height="16" rx="3" fill="#2a2f55" />
-          <ellipse cx="39" cy="91" rx="4.5" ry="2" fill="#0d1230" />
-        </g>
-        <g style={playful ? { animation: 'leg-step-a 0.7s ease-in-out infinite', transformOrigin: '80px 78px' } : a}>
-          <rect x="76" y="74" width="6" height="16" rx="3" fill="#2a2f55" />
-          <ellipse cx="79" cy="91" rx="4.5" ry="2" fill="#0d1230" />
-        </g>
+        {/* aura glow */}
+        <ellipse cx="70" cy="55" rx="60" ry="22" fill="#ffffff" opacity="0.18" />
 
-        {/* tail — wags from base */}
-        <g style={playful ? { animation: 'tail-wag 0.9s ease-in-out infinite', transformOrigin: '92px 60px' } : a}>
+        {/* trailing tail (curls behind the body, wags) */}
+        <g style={playful ? { animation: 'tail-flick 1.4s ease-in-out infinite', transformOrigin: '110px 56px' } : a}>
           <path
-            d="M92 60 Q 112 50, 118 38 Q 121 32, 126 36"
-            stroke="#3b3a3a"
-            strokeWidth="6"
+            d="M 108 56 Q 128 50 135 38 Q 140 28 148 30"
+            stroke="url(#kittenFur)"
+            strokeWidth="9"
             fill="none"
             strokeLinecap="round"
           />
           <path
-            d="M92 60 Q 112 50, 118 38 Q 121 32, 126 36"
-            stroke="#5a5775"
-            strokeWidth="2.5"
+            d="M 110 56 Q 128 50 135 38 Q 140 28 148 30"
+            stroke="#fff5e8"
+            strokeWidth="3"
             fill="none"
             strokeLinecap="round"
+            opacity="0.7"
           />
         </g>
 
-        {/* body */}
-        <ellipse cx="60" cy="64" rx="34" ry="18" fill="#3b3a3a" />
-        {/* belly highlight */}
-        <ellipse cx="58" cy="72" rx="22" ry="8" fill="#e8d6c1" opacity="0.85" />
+        {/* body — soft elongated for flight */}
+        <ellipse cx="70" cy="58" rx="42" ry="22" fill="url(#kittenFur)" />
+        <ellipse cx="62" cy="68" rx="26" ry="10" fill="#fff5e8" opacity="0.9" />
+
+        {/* back paw tucked back */}
+        <g style={playful ? { animation: 'paw-curl 1.6s ease-in-out infinite', transformOrigin: '92px 70px' } : a}>
+          <ellipse cx="92" cy="74" rx="7" ry="4" fill="url(#kittenFur)" />
+          <ellipse cx="95" cy="76" rx="2" ry="1.2" fill="#ffb6c1" />
+        </g>
+
+        {/* front paws curled forward (carrying coin) */}
+        <g style={playful ? { animation: 'paw-curl 1.4s ease-in-out infinite 0.3s', transformOrigin: '46px 70px' } : a}>
+          <ellipse cx="46" cy="72" rx="6" ry="4" fill="url(#kittenFur)" />
+          <ellipse cx="44" cy="74" rx="1.8" ry="1.1" fill="#ffb6c1" />
+        </g>
+        <g style={playful ? { animation: 'paw-curl 1.4s ease-in-out infinite', transformOrigin: '36px 64px' } : a}>
+          <ellipse cx="36" cy="66" rx="5.5" ry="3.5" fill="url(#kittenFur)" />
+        </g>
 
         {/* head */}
         <g>
-          <circle cx="30" cy="50" r="18" fill="#3b3a3a" />
-          {/* cheek/snout lighter patch */}
-          <ellipse cx="22" cy="55" rx="9" ry="6" fill="#e8d6c1" />
+          <circle cx="32" cy="48" r="20" fill="url(#kittenFur)" />
+          {/* cheek lighter patch */}
+          <ellipse cx="24" cy="54" rx="9" ry="6" fill="#fff" opacity="0.7" />
 
           {/* ears */}
-          <g style={playful ? { animation: 'ear-twitch 4s ease-in-out infinite', transformOrigin: '22px 36px' } : a}>
-            <polygon points="14,32 18,44 24,38" fill="#3b3a3a" />
-            <polygon points="16,34 18.5,41 22,37" fill="#ff9c7a" />
+          <g style={playful ? { animation: 'ear-twitch 4.5s ease-in-out infinite', transformOrigin: '23px 33px' } : a}>
+            <polygon points="14,28 21,42 27,34" fill="url(#kittenFur)" />
+            <polygon points="17,31 21,40 24,34" fill="#ffb6c1" />
           </g>
-          <g style={playful ? { animation: 'ear-twitch 4s ease-in-out infinite 0.4s', transformOrigin: '34px 36px' } : a}>
-            <polygon points="36,32 32,44 42,40" fill="#3b3a3a" />
-            <polygon points="36,34 33.5,41 38,38" fill="#ff9c7a" />
+          <g style={playful ? { animation: 'ear-twitch 4.5s ease-in-out infinite 0.5s', transformOrigin: '40px 33px' } : a}>
+            <polygon points="44,28 37,42 32,34" fill="url(#kittenFur)" />
+            <polygon points="41,31 37,40 34,34" fill="#ffb6c1" />
           </g>
 
-          {/* eye — closed lid above, animates a blink */}
-          <g style={playful ? { animation: 'blink 5s ease-in-out infinite', transformOrigin: '20px 48px' } : a}>
-            <ellipse cx="20" cy="48" rx="2.6" ry="3.4" fill="#fff5e0" />
-            <ellipse cx="20.5" cy="48.5" rx="1.4" ry="2.4" fill="#0d1230" />
-            <circle cx="20.9" cy="47.5" r="0.6" fill="#ffffff" />
+          {/* eye (side-profile, one visible) */}
+          <g style={playful ? { animation: 'blink 5.5s ease-in-out infinite', transformOrigin: '22px 48px' } : a}>
+            <ellipse cx="22" cy="48" rx="2.8" ry="3.6" fill="#0d1230" />
+            <circle cx="23" cy="46.5" r="0.9" fill="#ffffff" />
+            <circle cx="21.3" cy="49" r="0.5" fill="#ffffff" opacity="0.7" />
           </g>
 
           {/* nose + mouth */}
-          <path d="M14 53 l-2 -0.5 l1 1.5 z" fill="#ff4d6d" />
-          <path d="M14 55 q1 2 2.5 1.5 m-2.5 -1.5 q-1 2 -2.5 1.5" stroke="#0d1230" strokeWidth="0.7" fill="none" strokeLinecap="round" />
+          <path d="M14 53 l-2 -0.5 l1.4 1.7 z" fill="#ffb6c1" />
+          <path d="M14 56 q1.5 2 3 1.5 m-3 -1.5 q-1.5 2 -3 1.5" stroke="#0d1230" strokeWidth="0.7" fill="none" strokeLinecap="round" />
 
           {/* whiskers */}
           <g style={playful ? { animation: 'whisker 3.2s ease-in-out infinite', transformOrigin: '14px 56px' } : a}>
-            <line x1="2" y1="55" x2="14" y2="55" stroke="#fff5e0" strokeWidth="0.7" strokeLinecap="round" />
-            <line x1="2" y1="58" x2="14" y2="57" stroke="#fff5e0" strokeWidth="0.7" strokeLinecap="round" />
-            <line x1="2" y1="61" x2="14" y2="59" stroke="#fff5e0" strokeWidth="0.7" strokeLinecap="round" />
+            <line x1="0" y1="55" x2="13" y2="55" stroke="#cfc8b5" strokeWidth="0.7" strokeLinecap="round" />
+            <line x1="0" y1="58" x2="13" y2="57.5" stroke="#cfc8b5" strokeWidth="0.7" strokeLinecap="round" />
+            <line x1="0" y1="61" x2="13" y2="60" stroke="#cfc8b5" strokeWidth="0.7" strokeLinecap="round" />
           </g>
-        </g>
 
-        {/* near-side legs (in front) */}
-        <g style={playful ? { animation: 'leg-step-a 0.7s ease-in-out infinite', transformOrigin: '46px 78px' } : a}>
-          <rect x="42" y="74" width="6" height="16" rx="3" fill="#3b3a3a" />
-          <ellipse cx="45" cy="91" rx="4.5" ry="2" fill="#0d1230" />
-        </g>
-        <g style={playful ? { animation: 'leg-step-b 0.7s ease-in-out infinite', transformOrigin: '86px 78px' } : a}>
-          <rect x="82" y="74" width="6" height="16" rx="3" fill="#3b3a3a" />
-          <ellipse cx="85" cy="91" rx="4.5" ry="2" fill="#0d1230" />
+          {/* head shine */}
+          <ellipse cx="26" cy="40" rx="8" ry="5" fill="url(#catShine)" />
         </g>
       </svg>
 
-      {/* the coin orbits above the kitten's shoulders */}
+      {/* coin clutched in paws */}
       <div
         className="absolute"
         style={{
-          right: '14%',
-          top: '6%',
-          width: size * 0.34,
-          height: size * 0.34,
-          animation: playful ? 'coin-float 1.8s ease-in-out infinite' : undefined,
-          filter: 'drop-shadow(0 4px 8px rgba(245, 179, 66, 0.45))',
+          left: '14%',
+          top: '52%',
+          width: size * 0.36,
+          height: size * 0.36,
+          animation: playful ? 'coin-tilt 1.8s ease-in-out infinite' : undefined,
+          filter: 'drop-shadow(0 6px 12px rgba(245, 179, 66, 0.55))',
         }}
       >
         <div
@@ -129,8 +151,7 @@ export function CatCoin({ size = 96, playful = true }: CatCoinProps) {
           style={{
             width: '100%',
             height: '100%',
-            background:
-              'radial-gradient(circle at 30% 30%, #fff1c2, #f5b342 60%, #b07a14)',
+            background: 'radial-gradient(circle at 30% 30%, #fff1c2, #f5b342 60%, #b07a14)',
             border: '2px solid #b07a14',
             animation: playful ? 'coin-spin 2.6s linear infinite' : undefined,
             transformStyle: 'preserve-3d',
@@ -142,7 +163,6 @@ export function CatCoin({ size = 96, playful = true }: CatCoinProps) {
           >
             $
           </div>
-          {/* moving highlight */}
           <div
             className="absolute rounded-full bg-white"
             style={{
@@ -157,6 +177,86 @@ export function CatCoin({ size = 96, playful = true }: CatCoinProps) {
           />
         </div>
       </div>
+
+      {/* sparkle trail */}
+      {playful && (
+        <>
+          <Sparkle delay="0s" cx="58%" cy="36%" />
+          <Sparkle delay="0.6s" cx="52%" cy="64%" />
+          <Sparkle delay="1.1s" cx="78%" cy="44%" />
+        </>
+      )}
     </div>
+  );
+}
+
+function SeatedKitten({ size, playful, a }: { size: number; playful: boolean; a?: { animation: 'none' } }) {
+  return (
+    <div className="relative inline-block select-none" style={{ width: size, height: size }} aria-hidden="true">
+      <svg viewBox="0 0 100 100" width={size} height={size} style={{ overflow: 'visible' }}>
+        <defs>
+          <radialGradient id="seatedFur" cx="40%" cy="40%" r="65%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="70%" stopColor="#fafafa" />
+            <stop offset="100%" stopColor="#e9e7df" />
+          </radialGradient>
+        </defs>
+        {/* shadow */}
+        <ellipse cx="50" cy="92" rx="32" ry="3" fill="#0d1230" opacity="0.1" />
+        {/* tail curled around */}
+        <g style={playful ? { animation: 'tail-flick 1.6s ease-in-out infinite', transformOrigin: '72px 78px' } : a}>
+          <path d="M72 78 Q86 70 80 56" stroke="url(#seatedFur)" strokeWidth="10" fill="none" strokeLinecap="round" />
+        </g>
+        {/* body */}
+        <ellipse cx="50" cy="72" rx="28" ry="18" fill="url(#seatedFur)" />
+        {/* legs */}
+        <ellipse cx="36" cy="86" rx="7" ry="4" fill="url(#seatedFur)" />
+        <ellipse cx="64" cy="86" rx="7" ry="4" fill="url(#seatedFur)" />
+        {/* head */}
+        <circle cx="50" cy="42" r="22" fill="url(#seatedFur)" />
+        {/* ears */}
+        <g style={playful ? { animation: 'ear-twitch 4.5s ease-in-out infinite', transformOrigin: '38px 26px' } : a}>
+          <polygon points="32,16 40,32 46,22" fill="url(#seatedFur)" />
+          <polygon points="35,20 40,30 43,23" fill="#ffb6c1" />
+        </g>
+        <g style={playful ? { animation: 'ear-twitch 4.5s ease-in-out infinite 0.5s', transformOrigin: '62px 26px' } : a}>
+          <polygon points="68,16 60,32 54,22" fill="url(#seatedFur)" />
+          <polygon points="65,20 60,30 57,23" fill="#ffb6c1" />
+        </g>
+        {/* eyes */}
+        <g style={playful ? { animation: 'blink 5.5s ease-in-out infinite', transformOrigin: '50px 44px' } : a}>
+          <ellipse cx="42" cy="44" rx="3" ry="4" fill="#0d1230" />
+          <ellipse cx="58" cy="44" rx="3" ry="4" fill="#0d1230" />
+          <circle cx="43" cy="42.5" r="1" fill="#ffffff" />
+          <circle cx="59" cy="42.5" r="1" fill="#ffffff" />
+        </g>
+        {/* nose + mouth */}
+        <path d="M48 52 l2 1.5 l2 -1.5 z" fill="#ffb6c1" />
+        <path d="M50 54 q-1 2 -2 1.5 m2 -1.5 q1 2 2 1.5" stroke="#0d1230" strokeWidth="0.8" fill="none" strokeLinecap="round" />
+        {/* whiskers */}
+        <line x1="28" y1="50" x2="42" y2="50" stroke="#cfc8b5" strokeWidth="0.7" />
+        <line x1="58" y1="50" x2="72" y2="50" stroke="#cfc8b5" strokeWidth="0.7" />
+      </svg>
+    </div>
+  );
+}
+
+function Sparkle({ delay, cx, cy }: { delay: string; cx: string; cy: string }) {
+  return (
+    <span
+      className="absolute"
+      style={{
+        left: cx,
+        top: cy,
+        width: 6,
+        height: 6,
+        animation: `sparkle 1.8s ease-in-out infinite ${delay}`,
+      }}
+    >
+      <span
+        className="absolute inset-0 rounded-full"
+        style={{ background: 'radial-gradient(circle, #fff, transparent 70%)' }}
+      />
+    </span>
   );
 }
