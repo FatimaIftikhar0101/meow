@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { geoNaturalEarth1, type GeoProjection } from 'd3-geo';
 
@@ -81,6 +82,14 @@ export function WorldMap({
   const cy = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * peakY + t * t * ry;
   const arcLen = Math.max(400, dist * 1.6);
 
+  // Live country hover tooltip — child Geographies dispatch a CustomEvent.
+  const [hoverCountry, setHoverCountry] = useState('');
+  useEffect(() => {
+    const handler = (e: Event) => setHoverCountry((e as CustomEvent<string>).detail);
+    window.addEventListener('country-hover', handler);
+    return () => window.removeEventListener('country-hover', handler);
+  }, []);
+
   // Geographies callback typed loosely because react-simple-maps' GeoJSON
   // payload is generic.
   type Geo = { rsmKey: string; id?: string; properties?: { name?: string } };
@@ -104,16 +113,28 @@ export function WorldMap({
             geographies.map((geo) => {
               const isOrigin = geo.id === iso3(senderCode);
               const isDest = geo.id === iso3(receiverCode);
+              const isEndpoint = isOrigin || isDest;
               return (
                 <Geography
                   key={geo.rsmKey}
                   geography={geo as unknown as Parameters<typeof Geography>[0]['geography']}
-                  fill={isOrigin || isDest ? '#1a2a52' : '#0f1b3a'}
-                  stroke="#1d2a52"
-                  strokeWidth={0.4}
+                  fill={isEndpoint ? '#2a3a72' : '#1a2548'}
+                  stroke={isEndpoint ? '#4a5ba0' : '#2a3258'}
+                  strokeWidth={isEndpoint ? 0.6 : 0.4}
+                  onMouseEnter={() => {
+                    const name = geo.properties?.name ?? '';
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('country-hover', { detail: name }));
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('country-hover', { detail: '' }));
+                    }
+                  }}
                   style={{
-                    default: { outline: 'none' },
-                    hover: { outline: 'none', fill: '#1a2a52' },
+                    default: { outline: 'none', cursor: 'pointer' },
+                    hover: { outline: 'none', fill: '#3a4a8a', cursor: 'pointer' },
                     pressed: { outline: 'none' },
                   }}
                 />
@@ -167,8 +188,7 @@ export function WorldMap({
         <Pin x={rx} y={ry} pulsing={!delivered && !failed} />
       </ComposableMap>
 
-      {/* A small gold packet glides along the arc — the cat is shown in the
-          separate timeline below, not on the map itself. */}
+      {/* A subtle gold packet glides along the arc to indicate movement. */}
       {!failed && (
         <div
           className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -176,7 +196,7 @@ export function WorldMap({
             left: `${(cx / MAP_W) * 100}%`,
             top: `${(cy / MAP_H) * 100}%`,
             transition: 'left 900ms ease-out, top 900ms ease-out',
-            filter: 'drop-shadow(0 0 8px rgba(224,178,89,0.7))',
+            filter: 'drop-shadow(0 0 10px rgba(224,178,89,0.8))',
           }}
         >
           <div
@@ -185,6 +205,16 @@ export function WorldMap({
               background: 'radial-gradient(circle at 30% 30%, #fff1c2, #e0b259 60%, #9a6d18)',
             }}
           />
+        </div>
+      )}
+
+      {/* Country hover tooltip */}
+      {hoverCountry && (
+        <div
+          className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[var(--surface-elevated)] border border-[var(--border-strong)] text-[11px] uppercase tracking-[0.2em] text-[var(--foreground)] font-bold pointer-events-none"
+          style={{ animation: 'float-up 200ms ease-out both' }}
+        >
+          {hoverCountry}
         </div>
       )}
 
