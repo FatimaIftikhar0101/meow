@@ -1,5 +1,5 @@
 'use client';
-import { POSES } from './CatPoses';
+import { RealisticCat } from './RealisticCat';
 
 interface TimelineEntry {
   id: string;
@@ -54,12 +54,11 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
   const idx = ORDER.indexOf(currentStatus as typeof ORDER[number]);
 
   if (failed) {
-    const Pose = POSES.compliance_check;
     return (
       <div className="bg-[var(--surface)] rounded-3xl border border-[var(--danger)]/30 p-6">
         <div className="flex items-center gap-4">
-          <div className="opacity-50">
-            <Pose size={72} />
+          <div className="opacity-60">
+            <RealisticCat status="compliance_check" size={72} />
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--danger)] font-bold">Returned</p>
@@ -82,7 +81,6 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
 
       <ol className="space-y-3">
         {STEPS.map((step, i) => {
-          const Pose = POSES[step.key];
           const done = delivered ? true : i < idx;
           const active = i === idx && !delivered;
           const event = timeline.find((t) => t.status === step.key);
@@ -107,7 +105,7 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
                   filter: state === 'active' ? 'drop-shadow(0 6px 14px rgba(224,178,89,0.25))' : undefined,
                 }}
               >
-                <Pose size={64} />
+                <RealisticCat status={step.key} size={64} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
