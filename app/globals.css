@@ -1,30 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  /* Remitly-inspired palette: deep indigo brand + warm coral accent + cream */
-  --background: #fdfbf6;
-  --foreground: #0e1a3a;
-  --brand: #1a2a6c;
-  --brand-deep: #11194a;
-  --accent: #ff6b3d;
-  --accent-deep: #e95425;
-  --muted: #f1ede2;
-  --muted-foreground: #5b6478;
+  /* Original palette: warm cream background + deep midnight ink + electric coral
+     CTA + mint accent + gold for coin/highlights. Warm and trustworthy with
+     personality, not a copy of any existing remit. */
+  --background: #fff8ee;
+  --background-deep: #fef0db;
+  --foreground: #0d1230;
+  --ink: #0d1230;
+  --ink-soft: #2a2f55;
+  --brand: #0d1230;
+  --brand-deep: #050720;
+  --accent: #ff4d6d;
+  --accent-deep: #e0334d;
+  --accent-soft: #ffe0e6;
+  --mint: #0fbfa7;
+  --mint-soft: #ccfff5;
+  --gold: #f5b342;
+  --gold-soft: #fff1d1;
+  --muted: #faf3e7;
+  --muted-foreground: #6c6f8a;
   --surface: #ffffff;
-  --border: #e7e2d3;
+  --border: #f0e7d6;
+  --border-strong: #e4d6b9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
   --color-brand: var(--brand);
   --color-brand-deep: var(--brand-deep);
   --color-accent: var(--accent);
   --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-mint: var(--mint);
+  --color-mint-soft: var(--mint-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -33,30 +52,84 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "cv11";
 }
 
-/* Cat-with-coin animation used on the transfer detail timeline */
-@keyframes cat-walk {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-3px) rotate(2deg); }
+/* ─── Cat-coin: more lifelike walking kitten ─────────────────────────────── */
+
+/* The whole kitten bobs slightly with its gait. */
+@keyframes cat-breath {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-1.2px) scaleY(1.01); }
+}
+
+/* Two leg pairs walking in opposite phase (lateral gait, simplified).
+   Each leg lifts up then forward, then back down. */
+@keyframes leg-step-a {
+  0%   { transform: translateY(0)    rotate(0); }
+  25%  { transform: translateY(-3px) rotate(-12deg); }
+  50%  { transform: translateY(0)    rotate(8deg); }
+  100% { transform: translateY(0)    rotate(0); }
+}
+@keyframes leg-step-b {
+  0%   { transform: translateY(0)    rotate(0); }
+  50%  { transform: translateY(0)    rotate(-8deg); }
+  75%  { transform: translateY(-3px) rotate(12deg); }
+  100% { transform: translateY(0)    rotate(0); }
+}
+
+/* Tail wag — sinusoidal. */
+@keyframes tail-wag {
+  0%, 100% { transform: rotate(-6deg); }
+  50%      { transform: rotate(14deg); }
+}
+
+/* Ear twitch — occasional flick. */
+@keyframes ear-twitch {
+  0%, 88%, 100% { transform: rotate(0); }
+  92%           { transform: rotate(-12deg); }
+  96%           { transform: rotate(6deg); }
+}
+
+/* Slow blink. */
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94%, 98%      { transform: scaleY(0.08); }
+}
+
+/* Whiskers wiggle subtly. */
+@keyframes whisker {
+  0%, 100% { transform: rotate(0); }
+  50%      { transform: rotate(2deg); }
+}
+
+/* The coin orbits the kitten with a slight figure-eight feel. */
+@keyframes coin-float {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(2px, -4px); }
+  50%  { transform: translate(0, -6px); }
+  75%  { transform: translate(-2px, -4px); }
+  100% { transform: translate(0, 0); }
 }
 
 @keyframes coin-spin {
-  0% { transform: rotateY(0); }
+  0%   { transform: rotateY(0); }
   100% { transform: rotateY(360deg); }
 }
 
-@keyframes coin-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+@keyframes coin-shine {
+  0%, 100% { opacity: 0.4; transform: translate(-30%, -30%); }
+  50%      { opacity: 0.9; transform: translate(20%, 20%); }
 }
 
-@keyframes paw-tap {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  40% { transform: translateY(-4px) rotate(-8deg); }
-}
-
+/* Subtle entrance for status pills. */
 @keyframes float-up {
-  0% { opacity: 0; transform: translateY(8px); }
+  0%   { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Aurora gradient blobs for hero backgrounds. */
+@keyframes aurora {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(20px, -10px) scale(1.05); }
 }

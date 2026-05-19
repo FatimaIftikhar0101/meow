@@ -16,15 +16,15 @@ interface Transfer {
   recipient: { name: string; country: string };
 }
 
-const statusColors: Record<string, string> = {
-  initiated: 'bg-slate-100 text-slate-600',
-  payment_received: 'bg-blue-100 text-blue-700',
-  compliance_check: 'bg-amber-100 text-amber-700',
-  fx_converted: 'bg-purple-100 text-purple-700',
-  payout_processing: 'bg-[var(--accent)]/15 text-[var(--accent-deep)]',
-  delivered: 'bg-emerald-100 text-emerald-700',
+const statusStyle: Record<string, string> = {
+  initiated: 'bg-[var(--muted)] text-[var(--ink-soft)]',
+  payment_received: 'bg-[var(--mint-soft)] text-[var(--mint)]',
+  compliance_check: 'bg-[var(--gold-soft)] text-amber-800',
+  fx_converted: 'bg-[var(--accent-soft)] text-[var(--accent-deep)]',
+  payout_processing: 'bg-[var(--accent-soft)] text-[var(--accent-deep)]',
+  delivered: 'bg-[var(--mint-soft)] text-[var(--mint)]',
   failed: 'bg-red-100 text-red-700',
-  cancelled: 'bg-slate-100 text-slate-500',
+  cancelled: 'bg-[var(--muted)] text-[var(--muted-foreground)]',
 };
 
 const statusLabels: Record<string, string> = {
@@ -32,7 +32,7 @@ const statusLabels: Record<string, string> = {
   payment_received: 'Payment received',
   compliance_check: 'Compliance',
   fx_converted: 'Converted',
-  payout_processing: 'Processing',
+  payout_processing: 'On its way',
   delivered: 'Delivered',
   failed: 'Failed',
   cancelled: 'Cancelled',
@@ -40,7 +40,7 @@ const statusLabels: Record<string, string> = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [balance, setBalance] = useState<string>('0.00');
+  const [balance, setBalance] = useState('0.00');
   const [currency, setCurrency] = useState('CAD');
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [email, setEmail] = useState('');
@@ -80,85 +80,113 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+      <nav className="bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <BrandWordmark />
-        <div className="flex items-center gap-5">
-          <Link href="/recipients" className="text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--brand)]">Recipients</Link>
-          <Link href="/wallet/transactions" className="text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--brand)]">History</Link>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <NavLink href="/recipients">Recipients</NavLink>
+          <NavLink href="/wallet/transactions">Activity</NavLink>
           <Link
             href="/profile"
-            className="w-9 h-9 rounded-full bg-[var(--brand)] flex items-center justify-center text-white text-sm font-bold hover:bg-[var(--brand-deep)] transition"
+            className="ml-2 w-9 h-9 rounded-full bg-[var(--ink)] flex items-center justify-center text-white text-sm font-bold hover:bg-[var(--brand-deep)] transition"
           >
             {email ? email[0].toUpperCase() : '·'}
           </Link>
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-7">
         {kycPassed === false && (
           <Link
             href="/profile"
-            className="block bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-5 py-4 hover:bg-amber-100 transition"
+            className="flex items-center justify-between bg-[var(--gold-soft)] border border-amber-200 text-amber-900 rounded-2xl px-5 py-4 hover:bg-amber-100 transition"
           >
-            <p className="text-sm font-medium">Verify your identity to send money →</p>
+            <span className="text-sm font-semibold flex items-center gap-2">
+              <span className="text-lg">🪪</span> Verify your identity to send money
+            </span>
+            <span className="text-sm">→</span>
           </Link>
         )}
 
-        {/* Wallet card */}
-        <div className="bg-gradient-to-br from-[var(--brand)] to-[var(--brand-deep)] text-white rounded-3xl p-7 shadow-lg relative overflow-hidden">
-          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-[var(--accent)]/20" />
-          <div className="absolute -right-4 bottom-0 w-24 h-24 rounded-full bg-[var(--accent)]/10" />
+        {/* Hero wallet card */}
+        <div className="relative bg-[var(--ink)] text-white rounded-[2rem] p-8 shadow-2xl overflow-hidden">
+          <div
+            className="absolute -right-20 -top-20 w-72 h-72 rounded-full opacity-50"
+            style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', animation: 'aurora 6s ease-in-out infinite' }}
+          />
+          <div
+            className="absolute -left-12 -bottom-16 w-56 h-56 rounded-full opacity-40"
+            style={{ background: 'radial-gradient(circle, var(--mint), transparent 70%)', animation: 'aurora 8s ease-in-out infinite 1s' }}
+          />
           <div className="relative">
-            <p className="text-white/70 text-xs uppercase tracking-wider font-semibold">Your balance</p>
-            <p className="text-4xl font-bold mt-2">
-              {parseFloat(balance).toFixed(2)} <span className="text-white/80 text-2xl">{currency}</span>
+            <p className="text-white/60 text-[11px] uppercase tracking-[0.2em] font-bold">Available balance</p>
+            <p className="text-5xl font-extrabold mt-2 tracking-tight">
+              {parseFloat(balance).toFixed(2)}
+              <span className="text-white/70 text-2xl ml-2">{currency}</span>
             </p>
-            <div className="mt-5 flex gap-3">
-              <Link
-                href="/wallet/fund"
-                className="bg-white text-[var(--brand)] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-white/90 transition"
-              >
-                + Add money
-              </Link>
+            <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/send"
-                className="bg-[var(--accent)] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[var(--accent-deep)] transition shadow"
+                className="bg-[var(--accent)] text-white text-sm font-bold px-6 py-3 rounded-full hover:bg-[var(--accent-deep)] transition shadow-lg shadow-[var(--accent)]/30"
               >
                 Send money →
+              </Link>
+              <Link
+                href="/wallet/fund"
+                className="bg-white/10 backdrop-blur border border-white/20 text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-white/20 transition"
+              >
+                + Add money
               </Link>
             </div>
           </div>
         </div>
 
+        {/* Quick stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <Stat
+            label="Transfers"
+            value={transfers.length.toString()}
+          />
+          <Stat
+            label="In flight"
+            value={transfers.filter((t) => !['delivered', 'failed', 'cancelled'].includes(t.status)).length.toString()}
+            accent="accent"
+          />
+          <Stat
+            label="Delivered"
+            value={transfers.filter((t) => t.status === 'delivered').length.toString()}
+            accent="mint"
+          />
+        </div>
+
         {/* Transfers */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-[var(--foreground)]">Recent transfers</h2>
+            <h2 className="text-xl font-bold text-[var(--foreground)] tracking-tight">Recent transfers</h2>
             {transfers.length > 0 && (
-              <Link href="/wallet/transactions" className="text-sm text-[var(--brand)] hover:underline">All activity →</Link>
+              <Link href="/wallet/transactions" className="text-sm text-[var(--accent)] hover:text-[var(--accent-deep)] font-semibold">All activity →</Link>
             )}
           </div>
           {transfers.length === 0 ? (
-            <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-10 text-center">
-              <p className="text-3xl mb-3">🐾</p>
-              <p className="text-[var(--foreground)] font-medium">No transfers yet</p>
-              <p className="text-sm text-[var(--muted-foreground)] mt-1">Send your first transfer to get started.</p>
-              <Link href="/send" className="inline-block mt-4 bg-[var(--accent)] text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-[var(--accent-deep)] transition">
-                Send money
+            <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-12 text-center">
+              <p className="text-5xl mb-4">🐾</p>
+              <p className="text-[var(--foreground)] font-bold text-lg">Let&apos;s send your first transfer</p>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1">Our kitten will carry your money home.</p>
+              <Link href="/send" className="inline-block mt-5 bg-[var(--accent)] text-white text-sm font-bold px-6 py-2.5 rounded-full hover:bg-[var(--accent-deep)] transition shadow-lg shadow-[var(--accent)]/30">
+                Send money →
               </Link>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {transfers.map((t) => (
                 <Link href={`/transfers/${t.id}`} key={t.id}>
-                  <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4 flex items-center justify-between hover:border-[var(--accent)] hover:shadow-sm transition cursor-pointer">
+                  <div className="group bg-[var(--surface)] rounded-2xl border border-[var(--border)] px-5 py-4 flex items-center justify-between hover:border-[var(--accent)] hover:shadow-lg hover:shadow-[var(--accent)]/5 transition cursor-pointer">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-[var(--muted)] flex items-center justify-center text-[var(--brand)] font-semibold">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--gold)] flex items-center justify-center text-white font-bold">
                         {t.recipient?.name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div>
-                        <p className="font-medium text-[var(--foreground)]">{t.recipient?.name || 'Unknown'}</p>
-                        <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                        <p className="font-semibold text-[var(--foreground)] group-hover:text-[var(--accent-deep)] transition">{t.recipient?.name || 'Unknown'}</p>
+                        <p className="text-xs text-[var(--muted-foreground)] mt-0.5 font-mono">
                           {parseFloat(t.amount).toFixed(2)} {t.sendCurrency} → {t.receiveAmount ? parseFloat(t.receiveAmount).toFixed(2) : '—'} {t.receiveCurrency}
                         </p>
                         <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider mt-0.5">
@@ -166,7 +194,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${statusColors[t.status] || 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${statusStyle[t.status] || 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
                       {statusLabels[t.status] || t.status}
                     </span>
                   </div>
@@ -176,6 +204,27 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="px-3 py-1.5 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--accent-deep)] hover:bg-[var(--accent-soft)] rounded-full transition"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: 'accent' | 'mint' }) {
+  const color = accent === 'accent' ? 'text-[var(--accent-deep)]' : accent === 'mint' ? 'text-[var(--mint)]' : 'text-[var(--foreground)]';
+  return (
+    <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-4">
+      <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-bold">{label}</p>
+      <p className={`text-2xl font-extrabold mt-1 ${color}`}>{value}</p>
     </div>
   );
 }
