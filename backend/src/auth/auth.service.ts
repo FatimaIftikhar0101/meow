@@ -149,8 +149,11 @@ export class AuthService {
       throw new BadRequestException('New password must differ from current');
     }
     const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash, passwordChangedAt: new Date() },
+      });
       await tx.auditLog.create({
         data: {
           userId,
@@ -159,8 +162,11 @@ export class AuthService {
           entityId: userId,
         },
       });
+      return u;
     });
-    return { ok: true };
+    // Issue a fresh token so the caller doesn't get logged out on its next
+    // request (old tokens are invalidated by the passwordChangedAt check).
+    return this.signToken(updated.id, updated.email, updated.role);
   }
 
   private isAdminEmail(email: string): boolean {

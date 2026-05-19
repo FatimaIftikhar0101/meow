@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { logout } from '@/lib/auth';
+import { logout, setToken } from '@/lib/auth';
 
 interface Profile {
   userId: string;
@@ -60,7 +60,8 @@ export default function ProfilePage() {
     setPwSuccess(false);
     setPwSaving(true);
     try {
-      await api.post('/auth/change-password', pwForm);
+      const res = await api.post('/auth/change-password', pwForm);
+      if (res.data?.access_token) setToken(res.data.access_token);
       setPwSuccess(true);
       setPwForm({ currentPassword: '', newPassword: '' });
     } catch (err) {

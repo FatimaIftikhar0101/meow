@@ -20,14 +20,15 @@ datasource db {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  country      String?
-  role         UserRole @default(customer)
-  suspended    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String
+  passwordChangedAt  DateTime  @default(now())
+  country            String?
+  role               UserRole  @default(customer)
+  suspended          Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   wallets    Wallet[]
   recipients Recipient[]

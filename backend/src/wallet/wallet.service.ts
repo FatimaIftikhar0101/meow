@@ -54,23 +54,37 @@ export class WalletService {
     }
 
     const idempotencyKey = dto.idempotencyKey ?? randomUUID();
-
-    const existing = await this.prisma.ledgerEntry.findFirst({
-      where: {
-        walletId: wallet.id,
-        type: 'wallet_fund',
-        description: `idempotency:${idempotencyKey}`,
-      },
-    });
-    if (existing) {
-      throw new ConflictException('Funding already processed');
-    }
-
     const amount = new Prisma.Decimal(dto.amount);
-    await this.assertWithinDailyFundLimit(wallet.id, amount);
-
     const txGroupId = randomUUID();
+
     await this.prisma.$transaction(async (tx) => {
+      // Lock the wallet so two concurrent funds can't both pass the daily
+      // limit check and over-fund the account.
+      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${wallet.id} FOR UPDATE`;
+
+      const existing = await tx.ledgerEntry.findFirst({
+        where: {
+          walletId: wallet.id,
+          type: 'wallet_fund',
+          description: `idempotency:${idempotencyKey}`,
+        },
+      });
+      if (existing) {
+        throw new ConflictException('Funding already processed');
+      }
+
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const sum = await tx.ledgerEntry.aggregate({
+        where: { walletId: wallet.id, type: 'wallet_fund', createdAt: { gte: since } },
+        _sum: { amount: true },
+      });
+      const used = sum._sum.amount ?? new Prisma.Decimal(0);
+      if (used.plus(amount).gt(FUND_LIMIT_PER_DAY)) {
+        throw new BadRequestException(
+          `Daily funding limit ${FUND_LIMIT_PER_DAY.toString()} exceeded`,
+        );
+      }
+
       await tx.ledgerEntry.create({
         data: {
           walletId: wallet.id,
@@ -126,23 +140,6 @@ export class WalletService {
         ? { id: e.transfer.id, recipient: e.transfer.recipient }
         : null,
     }));
-  }
-
-  private async assertWithinDailyFundLimit(
-    walletId: string,
-    amount: Prisma.Decimal,
-  ) {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const sum = await this.prisma.ledgerEntry.aggregate({
-      where: { walletId, type: 'wallet_fund', createdAt: { gte: since } },
-      _sum: { amount: true },
-    });
-    const used = sum._sum.amount ?? new Prisma.Decimal(0);
-    if (used.plus(amount).gt(FUND_LIMIT_PER_DAY)) {
-      throw new BadRequestException(
-        `Daily funding limit ${FUND_LIMIT_PER_DAY.toString()} exceeded`,
-      );
-    }
   }
 
   private async primaryWallet(userId: string) {

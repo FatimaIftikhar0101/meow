@@ -108,21 +108,12 @@ export class TransfersService {
     const sendAmount = new Prisma.Decimal(dto.sendAmount);
     const quote = this.corridors.computeQuote(corridor, sendAmount);
 
-    await this.assertDailyVelocity(userId, sendCurrency, sendAmount);
-
     const wallet = await this.wallets.findUserWallet(userId, sendCurrency);
     if (!wallet) {
       throw new BadRequestException(`No ${sendCurrency} wallet`);
     }
 
-    const totalDebit = sendAmount.plus(quote.fee);
-    const balance = await this.wallets.computeBalance(wallet.id);
-    if (balance.lt(totalDebit)) {
-      throw new BadRequestException('Insufficient balance');
-    }
-
     const idempotencyKey = dto.idempotencyKey ?? randomUUID();
-
     const existing = await this.prisma.transfer.findUnique({
       where: { idempotencyKey },
       include: {
@@ -137,9 +128,21 @@ export class TransfersService {
       return serialiseDetail(existing);
     }
 
+    const totalDebit = sendAmount.plus(quote.fee);
     const txGroupId = randomUUID();
 
     const transfer = await this.prisma.$transaction(async (tx) => {
+      // Hold a row lock on the wallet for the duration of this transaction.
+      // Concurrent transfer creates against the same wallet serialise here,
+      // closing the read-then-debit overdraft window.
+      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${wallet.id} FOR UPDATE`;
+
+      const balance = await this.computeBalanceLocked(tx, wallet.id);
+      if (balance.lt(totalDebit)) {
+        throw new BadRequestException('Insufficient balance');
+      }
+      await this.assertDailyVelocityLocked(tx, userId, sendCurrency, sendAmount);
+
       const created = await tx.transfer.create({
         data: {
           userId,
@@ -388,7 +391,27 @@ export class TransfersService {
     );
   }
 
-  private async assertDailyVelocity(
+  private async computeBalanceLocked(
+    tx: Prisma.TransactionClient,
+    walletId: string,
+  ): Promise<Prisma.Decimal> {
+    const [credits, debits] = await Promise.all([
+      tx.ledgerEntry.aggregate({
+        where: { walletId, direction: 'credit' },
+        _sum: { amount: true },
+      }),
+      tx.ledgerEntry.aggregate({
+        where: { walletId, direction: 'debit' },
+        _sum: { amount: true },
+      }),
+    ]);
+    const c = credits._sum.amount ?? new Prisma.Decimal(0);
+    const d = debits._sum.amount ?? new Prisma.Decimal(0);
+    return c.minus(d);
+  }
+
+  private async assertDailyVelocityLocked(
+    tx: Prisma.TransactionClient,
     userId: string,
     currency: string,
     amount: Prisma.Decimal,
@@ -397,7 +420,7 @@ export class TransfersService {
       this.config.get<number>('TRANSFER_DAILY_LIMIT') ?? 10000,
     );
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const agg = await this.prisma.transfer.aggregate({
+    const agg = await tx.transfer.aggregate({
       where: {
         userId,
         sendCurrency: currency,
