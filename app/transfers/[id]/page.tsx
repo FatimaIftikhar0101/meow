@@ -6,6 +6,7 @@ import { io } from 'socket.io-client';
 import { getToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { WorldMap } from '@/app/_components/WorldMap';
+import { CatTimeline } from '@/app/_components/CatTimeline';
 
 interface TimelineEntry {
   id: string;
@@ -130,55 +131,12 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
           )}
         </div>
 
-        {(isFailed || isCancelled) ? (
-          <div className={`rounded-3xl border p-6 text-center ${isFailed ? 'bg-[var(--danger-soft)] border-[var(--danger)]/30' : 'bg-[var(--muted)] border-[var(--border)]'}`}>
-            <p className={`font-bold text-lg ${isFailed ? 'text-[var(--danger)]' : 'text-[var(--foreground)]'}`}>
-              Transfer {isFailed ? 'failed' : 'cancelled'}
-            </p>
-            {transfer.timeline.at(-1)?.message && (
-              <p className="text-sm text-[var(--muted-foreground)] mt-1">{transfer.timeline.at(-1)?.message}</p>
-            )}
-          </div>
-        ) : (
-          <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 shadow-sm">
-            <h2 className="font-bold text-[var(--foreground)] text-lg mb-4">Timeline</h2>
-            <div className="space-y-3">
-              {steps.map((step, i) => {
-                const done = isDelivered ? true : i < currentStepIndex;
-                const active = i === currentStepIndex && !isDelivered;
-                const event = transfer.timeline.find((t) => t.status === step.key);
-                if (!done && !active) {
-                  return (
-                    <div key={step.key} className="flex items-start gap-3 opacity-40">
-                      <div className="mt-1.5 w-2 h-2 rounded-full bg-[var(--border-strong)] flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm text-[var(--muted-foreground)]">{step.label}</p>
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    key={step.key}
-                    className="flex items-start gap-3"
-                    style={{ animation: active ? 'float-up 380ms ease-out both' : undefined }}
-                  >
-                    <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${active ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--mint)]'}`} />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-[var(--foreground)]">{step.label}</p>
-                      <p className="text-xs text-[var(--muted-foreground)]">{step.sub}</p>
-                    </div>
-                    {event && (
-                      <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider">
-                        {new Date(event.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <CatTimeline
+          currentStatus={transfer.status}
+          timeline={transfer.timeline}
+          delivered={isDelivered}
+          failed={isFailed || isCancelled}
+        />
 
         {/* Receipt — shown when delivered */}
         {isDelivered && (

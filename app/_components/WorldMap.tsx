@@ -1,7 +1,6 @@
 'use client';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { geoNaturalEarth1, type GeoProjection } from 'd3-geo';
-import { LottieKitten } from './LottieKitten';
 
 /**
  * Real-world map (Natural Earth low-res, 110m resolution, ~106KB) rendered
@@ -168,7 +167,8 @@ export function WorldMap({
         <Pin x={rx} y={ry} pulsing={!delivered && !failed} />
       </ComposableMap>
 
-      {/* The kitten — absolute HTML overlay so we can swap to Lottie. */}
+      {/* A small gold packet glides along the arc — the cat is shown in the
+          separate timeline below, not on the map itself. */}
       {!failed && (
         <div
           className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -176,9 +176,15 @@ export function WorldMap({
             left: `${(cx / MAP_W) * 100}%`,
             top: `${(cy / MAP_H) * 100}%`,
             transition: 'left 900ms ease-out, top 900ms ease-out',
+            filter: 'drop-shadow(0 0 8px rgba(224,178,89,0.7))',
           }}
         >
-          <LottieKitten size={64} playful={!delivered} />
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{
+              background: 'radial-gradient(circle at 30% 30%, #fff1c2, #e0b259 60%, #9a6d18)',
+            }}
+          />
         </div>
       )}
 
