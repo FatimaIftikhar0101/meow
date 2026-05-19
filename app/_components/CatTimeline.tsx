@@ -52,16 +52,29 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [petCount, setPetCount] = useState(0);
+  const [kissing, setKissing] = useState(false);
   const [marks, setMarks] = useState<FloatingMark[]>([]);
   const markIdRef = useRef(0);
   const dragStart = useRef<{ px: number; py: number; ox: number; oy: number; moved: boolean } | null>(null);
   const trailLast = useRef<{ x: number; y: number } | null>(null);
+  const kissTimer = useRef<number | null>(null);
 
   const spawnMark = (x: number, y: number, emoji?: string) => {
     const id = ++markIdRef.current;
     const e = emoji ?? '★';
     setMarks((prev) => [...prev, { id, x, y, emoji: e }]);
-    setTimeout(() => setMarks((prev) => prev.filter((m) => m.id !== id)), 1100);
+    setTimeout(() => setMarks((prev) => prev.filter((m) => m.id !== id)), 1400);
+  };
+
+  const triggerKiss = (lx: number, ly: number) => {
+    // Cat zooms big, fires a flurry of hearts + coin kisses outward.
+    setKissing(true);
+    spawnMark(lx, ly - 4, '♡');
+    spawnMark(lx + 12, ly + 4, '★');
+    spawnMark(lx - 10, ly, '✦');
+    spawnMark(lx + 4, ly - 14, '😘');
+    if (kissTimer.current) window.clearTimeout(kissTimer.current);
+    kissTimer.current = window.setTimeout(() => setKissing(false), 1400);
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -112,9 +125,8 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
       const lx = e.clientX - local.left;
       const ly = e.clientY - local.top;
       setPetCount((c) => c + 1);
-      // pet → spawn a gold star + small heart
-      spawnMark(lx, ly - 8, '★');
-      spawnMark(lx + 8, ly - 4, '♡');
+      // pet → cat blows a kiss-coin in your direction (the big reaction)
+      triggerKiss(lx, ly);
     }
     setTimeout(() => setReacting(false), 450);
   };
@@ -138,7 +150,11 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
 
   const pose = poseFor(currentStatus, !!delivered);
   const currentStep = STEPS.find((s) => s.key === pose);
-  const message = petCount > 0 ? PURR_MESSAGES[Math.min(petCount - 1, PURR_MESSAGES.length - 1)] : 'pet me';
+  const message = kissing
+    ? 'mwah!'
+    : petCount > 0
+    ? PURR_MESSAGES[Math.min(petCount - 1, PURR_MESSAGES.length - 1)]
+    : 'tap for a kiss';
 
   return (
     <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 overflow-hidden">
@@ -199,36 +215,49 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
           })}
         </div>
 
-        {/* floating gold marks (stars / hearts / sparkles) */}
-        {marks.map((m) => (
-          <span
-            key={m.id}
-            className="absolute pointer-events-none font-bold"
-            style={{
-              left: m.x,
-              top: m.y,
-              color: m.emoji === '♡' ? '#ff6b8a' : '#e0b259',
-              fontSize: m.emoji === '✦' ? 12 : 16,
-              animation: 'mark-float 1.1s ease-out forwards',
-              textShadow: '0 0 8px rgba(224,178,89,0.6)',
-            }}
-          >
-            {m.emoji}
-          </span>
-        ))}
+        {/* floating gold marks (stars / hearts / sparkles / kisses) */}
+        {marks.map((m) => {
+          const isEmoji = m.emoji === '😘';
+          const isHeart = m.emoji === '♡';
+          return (
+            <span
+              key={m.id}
+              className="absolute pointer-events-none font-bold"
+              style={
+                {
+                  left: m.x,
+                  top: m.y,
+                  color: isHeart ? '#ff6b8a' : '#e0b259',
+                  fontSize: isEmoji ? 26 : m.emoji === '✦' ? 12 : 18,
+                  animation: isEmoji ? 'kiss-fly 1.4s ease-out forwards' : 'mark-float 1.2s ease-out forwards',
+                  textShadow: '0 0 10px rgba(224,178,89,0.6)',
+                  '--kiss-x': `${(m.id * 17) % 60 - 30}px`,
+                } as React.CSSProperties
+              }
+            >
+              {m.emoji}
+            </span>
+          );
+        })}
 
         {/* the cat — positioned along the track, interactive */}
         <div
           className="absolute -translate-x-1/2 select-none touch-none"
           style={{
             left: `calc(8px + (100% - 16px) * ${progress})`,
-            top: '0px',
+            top: kissing ? '-32px' : '0px',
+            zIndex: kissing ? 20 : 5,
             cursor: dragging ? 'grabbing' : 'grab',
             transition: dragging
-              ? undefined
-              : 'left 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-            transform: `translate(${drag?.x ?? 0}px, ${drag?.y ?? 0}px) scale(${reacting ? 1.1 : hovering ? 1.04 : 1})`,
-            filter: reacting
+              ? 'top 400ms cubic-bezier(0.22, 1, 0.36, 1)'
+              : 'left 900ms cubic-bezier(0.22, 1, 0.36, 1), top 400ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+            transform: `translate(${drag?.x ?? 0}px, ${drag?.y ?? 0}px) scale(${
+              kissing ? 2.4 : reacting ? 1.1 : hovering ? 1.04 : 1
+            })`,
+            transformOrigin: 'center bottom',
+            filter: kissing
+              ? 'drop-shadow(0 16px 32px rgba(224,178,89,0.7))'
+              : reacting
               ? 'drop-shadow(0 8px 18px rgba(224,178,89,0.55))'
               : hovering
               ? 'drop-shadow(0 6px 14px rgba(224,178,89,0.35))'
@@ -249,8 +278,21 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
             if (!dragging) setHovering(false);
           }}
         >
-          <RealisticCat status={pose} size={64} />
-          {(hovering || reacting) && (
+          {/* idle breathing wrapper — always running for "video-like" casual motion */}
+          <div style={{ animation: 'cat-breathe 3.6s ease-in-out infinite' }}>
+            <RealisticCat status={pose} size={64} />
+          </div>
+
+          {kissing && (
+            <span
+              className="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl pointer-events-none"
+              style={{ animation: 'mark-float 1.3s ease-out forwards' }}
+            >
+              😘
+            </span>
+          )}
+
+          {(hovering || reacting) && !kissing && (
             <span
               className="absolute -top-3 left-full ml-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--accent)] bg-[var(--surface-elevated)] border border-[var(--accent)]/40 rounded-full px-2 py-0.5 whitespace-nowrap pointer-events-none"
               style={{ animation: 'float-up 280ms ease-out both' }}
@@ -281,7 +323,7 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
       </div>
 
       <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] text-center mt-5">
-        Tap to pet · drag to play · she&apos;ll find her way home
+        Tap for a kiss · drag to play · she&apos;ll find her way home
       </p>
     </div>
   );

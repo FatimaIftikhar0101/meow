@@ -126,6 +126,19 @@ body {
   100% { opacity: 0; transform: translate(0, -28px) scale(0.9); }
 }
 
+/* Long-distance kiss emoji flying toward the user from the cat. */
+@keyframes kiss-fly {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  15%  { opacity: 1; transform: translate(0, -12px) scale(1.4); }
+  100% { opacity: 0; transform: translate(var(--kiss-x, 30px), -120px) scale(2.4); }
+}
+
+/* Always-on idle breathing for the SVG cat (real GIFs ignore this). */
+@keyframes cat-breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.012) translateY(-0.4px); }
+}
+
 @keyframes aurora {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%      { transform: translate(16px, -8px) scale(1.05); }
