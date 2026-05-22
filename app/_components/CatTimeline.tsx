@@ -54,10 +54,33 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
   const [petCount, setPetCount] = useState(0);
   const [kissing, setKissing] = useState(false);
   const [marks, setMarks] = useState<FloatingMark[]>([]);
+  const [yarn, setYarn] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [yarnDragging, setYarnDragging] = useState(false);
   const markIdRef = useRef(0);
   const dragStart = useRef<{ px: number; py: number; ox: number; oy: number; moved: boolean } | null>(null);
   const trailLast = useRef<{ x: number; y: number } | null>(null);
   const kissTimer = useRef<number | null>(null);
+  const yarnStart = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
+
+  const yarnNudge = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    yarnStart.current = { px: e.clientX, py: e.clientY, ox: yarn.x, oy: yarn.y };
+    setYarnDragging(true);
+  };
+  const yarnMove = (e: React.PointerEvent) => {
+    if (!yarnStart.current) return;
+    const dx = e.clientX - yarnStart.current.px;
+    const dy = e.clientY - yarnStart.current.py;
+    setYarn({
+      x: yarnStart.current.ox + Math.max(-80, Math.min(80, dx)),
+      y: yarnStart.current.oy + Math.max(-50, Math.min(50, dy)),
+    });
+  };
+  const yarnRelease = () => {
+    yarnStart.current = null;
+    setYarnDragging(false);
+    setYarn({ x: 0, y: 0 });
+  };
 
   const spawnMark = (x: number, y: number, emoji?: string) => {
     const id = ++markIdRef.current;
@@ -301,6 +324,27 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
             </span>
           )}
         </div>
+
+        {/* Yarn ball — drag it around, lets go and it bounces back next to her. */}
+        <div
+          className="absolute -translate-x-1/2 cursor-grab active:cursor-grabbing select-none touch-none"
+          style={{
+            left: `calc(8px + (100% - 16px) * ${progress} + 56px)`,
+            top: '44px',
+            transform: `translate(${yarn.x}px, ${yarn.y}px) rotate(${yarn.x * 1.5}deg)`,
+            transition: yarnDragging
+              ? 'transform 60ms linear, left 900ms cubic-bezier(0.22, 1, 0.36, 1)'
+              : 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1), left 900ms cubic-bezier(0.22, 1, 0.36, 1)',
+            zIndex: 4,
+          }}
+          onPointerDown={yarnNudge}
+          onPointerMove={yarnMove}
+          onPointerUp={yarnRelease}
+          onPointerCancel={yarnRelease}
+          aria-label="Toy yarn ball"
+        >
+          <YarnBall size={28} />
+        </div>
       </div>
 
       {/* step captions */}
@@ -323,8 +367,34 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
       </div>
 
       <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] text-center mt-5">
-        Tap for a kiss · drag to play · she&apos;ll find her way home
+        Tap for a kiss · drag the yarn · she&apos;ll find her way home
       </p>
     </div>
+  );
+}
+
+function YarnBall({ size = 28 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true">
+      <defs>
+        <radialGradient id="yarnGrad" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#ff7a8a" />
+          <stop offset="55%" stopColor="#e0334d" />
+          <stop offset="100%" stopColor="#7a1023" />
+        </radialGradient>
+      </defs>
+      <circle cx="20" cy="20" r="16" fill="url(#yarnGrad)" />
+      {/* yarn strands */}
+      <g stroke="#a51a30" strokeWidth="0.8" fill="none" opacity="0.7">
+        <path d="M 6 18 Q 14 12 22 16 Q 30 20 34 14" />
+        <path d="M 6 22 Q 16 18 24 22 Q 32 26 36 22" />
+        <path d="M 8 28 Q 16 26 22 30 Q 28 34 34 30" />
+        <path d="M 10 12 Q 18 10 24 14 Q 30 18 34 16" />
+      </g>
+      {/* dangling tail */}
+      <path d="M 32 28 Q 38 32 36 38" stroke="#e0334d" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      {/* highlight */}
+      <circle cx="13" cy="14" r="3" fill="#ffffff" opacity="0.35" />
+    </svg>
   );
 }
