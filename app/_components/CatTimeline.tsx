@@ -172,9 +172,15 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
   }
 
   const pose = poseFor(currentStatus, !!delivered);
+  // While the yarn is being played with, switch the SVG fallback to the
+  // batting pose. Real video clips dropped into /public/cats/ keep their
+  // own motion regardless.
+  const effectivePose: StepKey = yarnDragging && pose !== 'delivered' ? 'fx_converted' : pose;
   const currentStep = STEPS.find((s) => s.key === pose);
   const message = kissing
     ? 'mwah!'
+    : yarnDragging
+    ? 'play!'
     : petCount > 0
     ? PURR_MESSAGES[Math.min(petCount - 1, PURR_MESSAGES.length - 1)]
     : 'tap for a kiss';
@@ -274,9 +280,11 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
             transition: dragging
               ? 'top 400ms cubic-bezier(0.22, 1, 0.36, 1)'
               : 'left 900ms cubic-bezier(0.22, 1, 0.36, 1), top 400ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+            // While the yarn is being played with, the cat leans toward it
+            // based on the yarn's horizontal offset, like she's tracking it.
             transform: `translate(${drag?.x ?? 0}px, ${drag?.y ?? 0}px) scale(${
               kissing ? 2.4 : reacting ? 1.1 : hovering ? 1.04 : 1
-            })`,
+            }) rotate(${yarnDragging ? Math.max(-10, Math.min(10, yarn.x * 0.12)) : 0}deg)`,
             transformOrigin: 'center bottom',
             filter: kissing
               ? 'drop-shadow(0 16px 32px rgba(224,178,89,0.7))'
@@ -303,7 +311,7 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
         >
           {/* idle breathing wrapper — always running for "video-like" casual motion */}
           <div style={{ animation: 'cat-breathe 3.6s ease-in-out infinite' }}>
-            <RealisticCat status={pose} size={64} />
+            <RealisticCat status={effectivePose} size={64} />
           </div>
 
           {kissing && (
@@ -367,7 +375,7 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
       </div>
 
       <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] text-center mt-5">
-        Tap for a kiss · drag the yarn · she&apos;ll find her way home
+        Tap for a kiss · drag the yarn · she swipes when it&apos;s near
       </p>
     </div>
   );

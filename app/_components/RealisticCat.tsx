@@ -5,38 +5,53 @@ import { POSES } from './CatPoses';
 type Status = keyof typeof POSES;
 
 /**
- * Renders a real photo/GIF of a cat for the given status if you've dropped
- * one into /public/cats/. Falls back to the elegant SVG otherwise.
+ * Renders the most realistic asset available for a given transfer status:
  *
- * Lookup order (per status, e.g. "delivered"):
- *   /cats/delivered.webp
- *   /cats/delivered.gif    ← animated photos work great here
- *   /cats/delivered.png
- *   /cats/delivered.jpg
- *   /cats/delivered.jpeg
+ *   /cats/{status}.mp4   ← best (real video clip, loops silently)
+ *   /cats/{status}.webm
+ *   /cats/{status}.webp
+ *   /cats/{status}.gif
+ *   /cats/{status}.png
+ *   /cats/{status}.jpg / .jpeg
  *
- * Drop any of these formats into /home/pc/meow/public/cats/{status}.gif (or
- * .webp, .png …) and the timeline switches to real cats instantly — no
- * code change, no rebuild.
+ * Falls back to the elegant SVG pose if no asset is present.
+ *
+ * Drop a real cat-playing-with-yarn .mp4 at e.g.
+ *   /home/pc/meow/public/cats/payout_processing.mp4
+ * and the timeline instantly shows a real cat — no rebuild.
  */
-const EXTENSIONS = ['webp', 'gif', 'png', 'jpg', 'jpeg'] as const;
+const VIDEO_EXTS = ['mp4', 'webm'] as const;
+const IMAGE_EXTS = ['webp', 'gif', 'png', 'jpg', 'jpeg'] as const;
 
-const cache: Partial<Record<Status, string | 'none'>> = {};
+const cache: Partial<Record<Status, { url: string; kind: 'video' | 'image' } | 'none'>> = {};
 
-async function probe(status: Status): Promise<string | null> {
-  if (cache[status]) {
-    return cache[status] === 'none' ? null : (cache[status] as string);
-  }
-  for (const ext of EXTENSIONS) {
+async function probe(status: Status): Promise<{ url: string; kind: 'video' | 'image' } | null> {
+  const cached = cache[status];
+  if (cached) return cached === 'none' ? null : cached;
+  for (const ext of VIDEO_EXTS) {
     const url = `/cats/${status}.${ext}`;
     try {
       const res = await fetch(url, { method: 'HEAD' });
       if (res.ok) {
-        cache[status] = url;
-        return url;
+        const hit = { url, kind: 'video' as const };
+        cache[status] = hit;
+        return hit;
       }
     } catch {
-      // ignore
+      /* ignore */
+    }
+  }
+  for (const ext of IMAGE_EXTS) {
+    const url = `/cats/${status}.${ext}`;
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok) {
+        const hit = { url, kind: 'image' as const };
+        cache[status] = hit;
+        return hit;
+      }
+    } catch {
+      /* ignore */
     }
   }
   cache[status] = 'none';
@@ -44,16 +59,17 @@ async function probe(status: Status): Promise<string | null> {
 }
 
 export function RealisticCat({ status, size = 80 }: { status: Status; size?: number }) {
-  const [src, setSrc] = useState<string | null>(
-    cache[status] && cache[status] !== 'none' ? (cache[status] as string) : null,
+  const initial = cache[status];
+  const [asset, setAsset] = useState<{ url: string; kind: 'video' | 'image' } | null>(
+    initial && initial !== 'none' ? initial : null,
   );
-  const [checked, setChecked] = useState(cache[status] === 'none');
+  const [checked, setChecked] = useState(initial === 'none');
 
   useEffect(() => {
     let cancelled = false;
-    probe(status).then((url) => {
+    probe(status).then((found) => {
       if (cancelled) return;
-      setSrc(url);
+      setAsset(found);
       setChecked(true);
     });
     return () => {
@@ -61,11 +77,27 @@ export function RealisticCat({ status, size = 80 }: { status: Status; size?: num
     };
   }, [status]);
 
-  if (src) {
+  if (asset?.kind === 'video') {
+    return (
+      <video
+        src={asset.url}
+        width={size}
+        height={size}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="rounded-2xl object-cover bg-[var(--surface-elevated)]"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
+  if (asset?.kind === 'image') {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- local asset, tiny, no remote optimisation needed
       <img
-        src={src}
+        src={asset.url}
         alt={status}
         width={size}
         height={size}
