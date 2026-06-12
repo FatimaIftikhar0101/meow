@@ -5,36 +5,38 @@ import { POSES } from './CatPoses';
 type Status = keyof typeof POSES;
 
 /**
- * Renders the most realistic asset available for a given transfer status:
+ * Renders the most realistic asset available for a given transfer status.
  *
- *   /cats/{status}.mp4   ← best (real video clip, loops silently)
- *   /cats/{status}.webm
- *   /cats/{status}.webp
- *   /cats/{status}.gif
- *   /cats/{status}.png
- *   /cats/{status}.jpg / .jpeg
+ * Lookup order:
+ *   1. /cats/{status}.{mp4,webm,webp,gif,png,jpg,jpeg}   (per-status, wins)
+ *   2. /cats/default.{mp4,webm,webp,gif,png,jpg,jpeg}    (single file → all statuses)
+ *   3. Refined SVG pose (fallback)
  *
- * Falls back to the elegant SVG pose if no asset is present.
+ * Drop one file at:
+ *   /home/pc/meow/public/cats/default.mp4
+ * and the same real cat clip is used for every status on the timeline.
  *
- * Drop a real cat-playing-with-yarn .mp4 at e.g.
- *   /home/pc/meow/public/cats/payout_processing.mp4
- * and the timeline instantly shows a real cat — no rebuild.
+ * Drop per-status files (e.g. delivered.mp4) to override default on a step.
  */
 const VIDEO_EXTS = ['mp4', 'webm'] as const;
 const IMAGE_EXTS = ['webp', 'gif', 'png', 'jpg', 'jpeg'] as const;
 
-const cache: Partial<Record<Status, { url: string; kind: 'video' | 'image' } | 'none'>> = {};
+type Asset = { url: string; kind: 'video' | 'image' };
 
-async function probe(status: Status): Promise<{ url: string; kind: 'video' | 'image' } | null> {
-  const cached = cache[status];
-  if (cached) return cached === 'none' ? null : cached;
+const cache: Map<string, Asset | 'none'> = new Map();
+
+async function tryPath(name: string): Promise<Asset | null> {
+  if (cache.has(name)) {
+    const c = cache.get(name);
+    return c === 'none' ? null : (c as Asset);
+  }
   for (const ext of VIDEO_EXTS) {
-    const url = `/cats/${status}.${ext}`;
+    const url = `/cats/${name}.${ext}`;
     try {
       const res = await fetch(url, { method: 'HEAD' });
       if (res.ok) {
-        const hit = { url, kind: 'video' as const };
-        cache[status] = hit;
+        const hit: Asset = { url, kind: 'video' };
+        cache.set(name, hit);
         return hit;
       }
     } catch {
@@ -42,28 +44,33 @@ async function probe(status: Status): Promise<{ url: string; kind: 'video' | 'im
     }
   }
   for (const ext of IMAGE_EXTS) {
-    const url = `/cats/${status}.${ext}`;
+    const url = `/cats/${name}.${ext}`;
     try {
       const res = await fetch(url, { method: 'HEAD' });
       if (res.ok) {
-        const hit = { url, kind: 'image' as const };
-        cache[status] = hit;
+        const hit: Asset = { url, kind: 'image' };
+        cache.set(name, hit);
         return hit;
       }
     } catch {
       /* ignore */
     }
   }
-  cache[status] = 'none';
+  cache.set(name, 'none');
   return null;
 }
 
+async function probe(status: Status): Promise<Asset | null> {
+  // 1. per-status file wins
+  const specific = await tryPath(status);
+  if (specific) return specific;
+  // 2. fall back to the single shared file
+  return await tryPath('default');
+}
+
 export function RealisticCat({ status, size = 80 }: { status: Status; size?: number }) {
-  const initial = cache[status];
-  const [asset, setAsset] = useState<{ url: string; kind: 'video' | 'image' } | null>(
-    initial && initial !== 'none' ? initial : null,
-  );
-  const [checked, setChecked] = useState(initial === 'none');
+  const [asset, setAsset] = useState<Asset | null>(null);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
