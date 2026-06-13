@@ -24,7 +24,7 @@ const VIDEO_EXTS = ['webm', 'mp4'] as const;
 const IMAGE_EXTS = ['webp', 'gif', 'png', 'jpg', 'jpeg'] as const;
 
 type Asset = { url: string; kind: 'video' | 'image' };
-type Transparency = 'none' | 'lighten' | 'multiply';
+type Transparency = 'none' | 'alpha' | 'lighten' | 'multiply';
 
 const cache: Map<string, Asset | 'none'> = new Map();
 
@@ -99,7 +99,8 @@ export function RealisticCat({ status, size = 80, transparent = 'none' }: Props)
       ? { mixBlendMode: 'multiply', filter: 'contrast(1.05)' }
       : {};
 
-  const radius = transparent === 'none' ? '1rem' : '0';
+  const showFrame = transparent === 'none';
+  const radius = showFrame ? '1rem' : '0';
 
   if (asset?.kind === 'video') {
     return (
@@ -111,7 +112,7 @@ export function RealisticCat({ status, size = 80, transparent = 'none' }: Props)
         loop
         muted
         playsInline
-        className={transparent === 'none' ? 'object-cover bg-[var(--surface-elevated)]' : 'object-cover'}
+        className={showFrame ? 'object-cover bg-[var(--surface-elevated)]' : 'object-contain'}
         style={{ width: size, height: size, borderRadius: radius, ...blendStyle }}
       />
     );
@@ -125,7 +126,7 @@ export function RealisticCat({ status, size = 80, transparent = 'none' }: Props)
         alt={status}
         width={size}
         height={size}
-        className="object-cover"
+        className={showFrame ? 'object-cover' : 'object-contain'}
         style={{ width: size, height: size, borderRadius: radius, ...blendStyle }}
       />
     );
