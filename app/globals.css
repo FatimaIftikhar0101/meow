@@ -1,38 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  /* Elite finance dark theme: near-black background with layered charcoal
-     surfaces, premium gold accent, restrained jade for success.
-     No "kawaii" cuteness — closer to Citi Private Bank / Wise / Revolut. */
-  --background: #07090f;
-  --background-deep: #03050a;
-  --surface: #0f1320;
-  --surface-elevated: #161b2e;
-  --surface-glass: rgba(255, 255, 255, 0.04);
-  --foreground: #f0f3fa;
-  --ink: #07090f;
-  --ink-soft: #ced4e8;
-  --muted: #11162a;
-  --muted-foreground: #7a829e;
-  --border: #1d2236;
-  --border-strong: #2d3553;
+  /* Light "elite white" theme: pure white background, layered cream surfaces,
+     premium gold accent, calmer jade for success, restrained red. Reads as
+     premium and friendly — matches the cat clips that have a white room. */
+  --background: #ffffff;
+  --background-deep: #faf8f3;
+  --surface: #ffffff;
+  --surface-elevated: #f8f6f1;
+  --surface-glass: rgba(10, 14, 28, 0.03);
+  --foreground: #0a0e1c;
+  --ink: #0a0e1c;
+  --ink-soft: #2a3055;
+  --muted: #f2efe7;
+  --muted-foreground: #6c7390;
+  --border: #ebe7dc;
+  --border-strong: #d9d3c2;
 
-  /* Accent: premium gold (not loud) */
-  --accent: #e0b259;
-  --accent-deep: #c2932f;
-  --accent-soft: rgba(224, 178, 89, 0.14);
+  /* Accent: premium gold (slightly deeper for white-bg readability) */
+  --accent: #c2932f;
+  --accent-deep: #9a7220;
+  --accent-soft: rgba(194, 147, 47, 0.13);
 
-  /* Success / movement: muted jade */
-  --mint: #2dd4a6;
-  --mint-soft: rgba(45, 212, 166, 0.12);
+  /* Success / movement: deeper jade for contrast on white */
+  --mint: #1ea688;
+  --mint-soft: rgba(30, 166, 136, 0.12);
 
   /* Coin highlight */
-  --gold: #e0b259;
-  --gold-soft: rgba(224, 178, 89, 0.16);
+  --gold: #d4a647;
+  --gold-soft: rgba(212, 166, 71, 0.16);
 
   /* Danger */
-  --danger: #ef476f;
-  --danger-soft: rgba(239, 71, 111, 0.12);
+  --danger: #d33651;
+  --danger-soft: rgba(211, 54, 81, 0.10);
 
   --brand: var(--foreground);
   --brand-deep: var(--foreground);
