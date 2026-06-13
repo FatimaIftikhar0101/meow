@@ -311,7 +311,7 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
         >
           {/* idle breathing wrapper — always running for "video-like" casual motion */}
           <div style={{ animation: 'cat-breathe 3.6s ease-in-out infinite' }}>
-            <RealisticCat status={effectivePose} size={64} />
+            <RealisticCat status={effectivePose} size={80} transparent="lighten" />
           </div>
 
           {kissing && (

@@ -12,16 +12,19 @@ type Status = keyof typeof POSES;
  *   2. /cats/default.{mp4,webm,webp,gif,png,jpg,jpeg}    (single file → all statuses)
  *   3. Refined SVG pose (fallback)
  *
- * Drop one file at:
- *   /home/pc/meow/public/cats/default.mp4
- * and the same real cat clip is used for every status on the timeline.
+ * Transparency:
+ *   pass transparent="lighten" if the source video has a near-black background
+ *   pass transparent="multiply" if the source has a near-white background
+ *   pass transparent="none" (default) to render the video as-is
  *
- * Drop per-status files (e.g. delivered.mp4) to override default on a step.
+ * For true alpha (works regardless of background colour) export a .webm from
+ * unscreen.com / Runway, save it as /cats/default.webm — it'll just work.
  */
-const VIDEO_EXTS = ['mp4', 'webm'] as const;
+const VIDEO_EXTS = ['webm', 'mp4'] as const;
 const IMAGE_EXTS = ['webp', 'gif', 'png', 'jpg', 'jpeg'] as const;
 
 type Asset = { url: string; kind: 'video' | 'image' };
+type Transparency = 'none' | 'lighten' | 'multiply';
 
 const cache: Map<string, Asset | 'none'> = new Map();
 
@@ -61,14 +64,18 @@ async function tryPath(name: string): Promise<Asset | null> {
 }
 
 async function probe(status: Status): Promise<Asset | null> {
-  // 1. per-status file wins
   const specific = await tryPath(status);
   if (specific) return specific;
-  // 2. fall back to the single shared file
   return await tryPath('default');
 }
 
-export function RealisticCat({ status, size = 80 }: { status: Status; size?: number }) {
+interface Props {
+  status: Status;
+  size?: number;
+  transparent?: Transparency;
+}
+
+export function RealisticCat({ status, size = 80, transparent = 'none' }: Props) {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -84,6 +91,16 @@ export function RealisticCat({ status, size = 80 }: { status: Status; size?: num
     };
   }, [status]);
 
+  // Style applied to media when we want to chroma-out the background via CSS.
+  const blendStyle: React.CSSProperties =
+    transparent === 'lighten'
+      ? { mixBlendMode: 'lighten', filter: 'contrast(1.15) brightness(1.05)' }
+      : transparent === 'multiply'
+      ? { mixBlendMode: 'multiply', filter: 'contrast(1.05)' }
+      : {};
+
+  const radius = transparent === 'none' ? '1rem' : '0';
+
   if (asset?.kind === 'video') {
     return (
       <video
@@ -94,22 +111,22 @@ export function RealisticCat({ status, size = 80 }: { status: Status; size?: num
         loop
         muted
         playsInline
-        className="rounded-2xl object-cover bg-[var(--surface-elevated)]"
-        style={{ width: size, height: size }}
+        className={transparent === 'none' ? 'object-cover bg-[var(--surface-elevated)]' : 'object-cover'}
+        style={{ width: size, height: size, borderRadius: radius, ...blendStyle }}
       />
     );
   }
 
   if (asset?.kind === 'image') {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- local asset, tiny, no remote optimisation needed
+      // eslint-disable-next-line @next/next/no-img-element -- local asset, tiny
       <img
         src={asset.url}
         alt={status}
         width={size}
         height={size}
-        className="rounded-2xl object-cover"
-        style={{ width: size, height: size }}
+        className="object-cover"
+        style={{ width: size, height: size, borderRadius: radius, ...blendStyle }}
       />
     );
   }

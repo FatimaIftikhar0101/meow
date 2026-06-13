@@ -110,18 +110,18 @@ export function CatGuide() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="pointer-events-auto relative rounded-full overflow-hidden border-2 border-[var(--accent)] shadow-2xl hover:scale-105 active:scale-95 transition"
+        className="pointer-events-auto relative hover:scale-105 active:scale-95 transition"
         style={{
-          width: 76,
-          height: 76,
-          boxShadow: '0 10px 30px rgba(224,178,89,0.35)',
+          width: 96,
+          height: 96,
+          filter: 'drop-shadow(0 12px 24px rgba(224,178,89,0.4))',
         }}
         aria-label="Meow guide"
       >
-        <RealisticCat status="payout_processing" size={72} />
+        <RealisticCat status="payout_processing" size={96} transparent="lighten" />
         {!open && (
           <span
-            className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[var(--accent)] border-2 border-[var(--background)]"
+            className="absolute top-1 right-1 w-3 h-3 rounded-full bg-[var(--accent)] border-2 border-[var(--background)]"
             aria-hidden="true"
           />
         )}
