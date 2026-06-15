@@ -21,7 +21,6 @@ interface FxPreview {
 const COUNTRY_TO_CURRENCY: Record<string, string> = {
   PK: 'PKR',
   IN: 'INR',
-  PH: 'PHP',
 };
 
 export default function SendPage() {

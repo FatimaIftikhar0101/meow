@@ -17,7 +17,6 @@ interface Recipient {
 const COUNTRIES = [
   { code: 'PK', name: 'Pakistan' },
   { code: 'IN', name: 'India' },
-  { code: 'PH', name: 'Philippines' },
 ];
 
 const emptyForm = {

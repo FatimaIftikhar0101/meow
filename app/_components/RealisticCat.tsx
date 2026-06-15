@@ -71,11 +71,23 @@ async function probe(status: Status): Promise<Asset | null> {
 
 interface Props {
   status: Status;
+  /** Visual height of the cat. Width is inferred from aspect (portrait for alpha video). */
   size?: number;
   transparent?: Transparency;
+  /**
+   * The source clips are 360x452 (portrait, ~0.8 ratio). In alpha mode we
+   * use that ratio so the cat fills the container with no empty space.
+   * Override if you supply a square clip later.
+   */
+  aspect?: number;
 }
 
-export function RealisticCat({ status, size = 80, transparent = 'none' }: Props) {
+export function RealisticCat({
+  status,
+  size = 80,
+  transparent = 'none',
+  aspect = transparent === 'alpha' ? 0.8 : 1,
+}: Props) {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -101,39 +113,65 @@ export function RealisticCat({ status, size = 80, transparent = 'none' }: Props)
 
   const showFrame = transparent === 'none';
   const radius = showFrame ? '1rem' : '0';
+  const width = Math.round(size * aspect);
+  const height = size;
+  const dims = { width, height };
+
+  // Cat clip with a soft elliptical ground-shadow so she reads as standing
+  // on the page surface, not floating in a rectangle.
+  const grounded = (media: React.ReactNode) =>
+    transparent === 'alpha' ? (
+      <div className="relative inline-block" style={dims}>
+        <span
+          aria-hidden
+          className="absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
+          style={{
+            bottom: -4,
+            width: width * 0.7,
+            height: 6,
+            background:
+              'radial-gradient(ellipse, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 70%)',
+            filter: 'blur(1px)',
+          }}
+        />
+        {media}
+      </div>
+    ) : (
+      media
+    );
 
   if (asset?.kind === 'video') {
-    return (
+    return grounded(
       <video
         src={asset.url}
-        width={size}
-        height={size}
+        width={width}
+        height={height}
         autoPlay
         loop
         muted
         playsInline
-        className={showFrame ? 'object-cover bg-[var(--surface-elevated)]' : 'object-contain'}
-        style={{ width: size, height: size, borderRadius: radius, ...blendStyle }}
-      />
+        className={showFrame ? 'object-cover bg-[var(--surface-elevated)]' : 'object-cover'}
+        style={{ width, height, borderRadius: radius, ...blendStyle }}
+      />,
     );
   }
 
   if (asset?.kind === 'image') {
-    return (
+    return grounded(
       // eslint-disable-next-line @next/next/no-img-element -- local asset, tiny
       <img
         src={asset.url}
         alt={status}
-        width={size}
-        height={size}
-        className={showFrame ? 'object-cover' : 'object-contain'}
-        style={{ width: size, height: size, borderRadius: radius, ...blendStyle }}
-      />
+        width={width}
+        height={height}
+        className={showFrame ? 'object-cover' : 'object-cover'}
+        style={{ width, height, borderRadius: radius, ...blendStyle }}
+      />,
     );
   }
 
   if (!checked) {
-    return <div style={{ width: size, height: size }} className="rounded-2xl bg-[var(--surface-elevated)] animate-pulse" />;
+    return <div style={dims} className="rounded-2xl bg-[var(--surface-elevated)] animate-pulse" />;
   }
 
   const Pose = POSES[status];
