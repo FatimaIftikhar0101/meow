@@ -139,6 +139,24 @@ body {
   50%      { transform: scale(1.012) translateY(-0.4px); }
 }
 
+/* Golden flashy aura behind the cat — pulses in/out to hide rough alpha
+   edges from background removal and adds a "popping out of the page" feel. */
+@keyframes cat-aura {
+  0%, 100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes cat-aura-spark {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.85; }
+}
+
 @keyframes aurora {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%      { transform: translate(16px, -8px) scale(1.05); }

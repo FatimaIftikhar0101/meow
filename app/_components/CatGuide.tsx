@@ -118,7 +118,7 @@ export function CatGuide() {
         }}
         aria-label="Meow guide"
       >
-        <RealisticCat status="payout_processing" size={96} transparent="alpha" />
+        <RealisticCat status="welcome" size={96} transparent="alpha" />
         {!open && (
           <span
             className="absolute top-1 right-1 w-3 h-3 rounded-full bg-[var(--accent)] border-2 border-[var(--background)]"

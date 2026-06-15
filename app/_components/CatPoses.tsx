@@ -261,4 +261,7 @@ export const POSES = {
   fx_converted: CatBat,
   payout_processing: CatWalk,
   delivered: CatHappy,
+  // "welcome" reuses the walking pose as an SVG fallback; the real asset is
+  // a transparent jumping clip at /public/cats/welcome.webm.
+  welcome: CatWalk,
 } as const;

@@ -104,11 +104,19 @@ export function RealisticCat({
   }, [status]);
 
   // Style applied to media when we want to chroma-out the background via CSS.
+  // In alpha mode we stack two warm drop-shadows around the silhouette so
+  // the edge always reads as a soft gold rim, even where the aura sits
+  // behind a transparent pixel.
   const blendStyle: React.CSSProperties =
     transparent === 'lighten'
       ? { mixBlendMode: 'lighten', filter: 'contrast(1.15) brightness(1.05)' }
       : transparent === 'multiply'
       ? { mixBlendMode: 'multiply', filter: 'contrast(1.05)' }
+      : transparent === 'alpha'
+      ? {
+          filter:
+            'drop-shadow(0 0 6px rgba(255,217,128,0.85)) drop-shadow(0 0 14px rgba(224,178,89,0.55))',
+        }
       : {};
 
   const showFrame = transparent === 'none';
@@ -117,11 +125,43 @@ export function RealisticCat({
   const height = size;
   const dims = { width, height };
 
-  // Cat clip with a soft elliptical ground-shadow so she reads as standing
-  // on the page surface, not floating in a rectangle.
+  // Cat clip wrapped in a pulsing golden aura (hides rough alpha edges from
+  // background removal, gives a premium "popping out" feel) plus a soft
+  // elliptical ground-shadow so she reads as standing on the page surface,
+  // not floating in a rectangle.
+  const auraSize = Math.round(size * 1.18);
   const grounded = (media: React.ReactNode) =>
     transparent === 'alpha' ? (
       <div className="relative inline-block" style={dims}>
+        {/* outer warm aura — soft + wide */}
+        <span
+          aria-hidden
+          className="absolute left-1/2 top-1/2 rounded-full pointer-events-none"
+          style={{
+            width: auraSize,
+            height: auraSize,
+            background:
+              'radial-gradient(circle, rgba(255,217,128,0.55) 0%, rgba(224,178,89,0.32) 35%, rgba(224,178,89,0) 70%)',
+            filter: 'blur(6px)',
+            animation: 'cat-aura 2.6s ease-in-out infinite',
+            zIndex: 0,
+          }}
+        />
+        {/* inner bright rim — tight to the silhouette, sells the edge */}
+        <span
+          aria-hidden
+          className="absolute left-1/2 top-1/2 rounded-full pointer-events-none"
+          style={{
+            width: Math.round(size * 0.95),
+            height: Math.round(size * 0.95),
+            background:
+              'radial-gradient(circle, rgba(255,243,200,0.7) 0%, rgba(255,217,128,0.35) 50%, rgba(255,217,128,0) 75%)',
+            filter: 'blur(2px)',
+            mixBlendMode: 'screen',
+            animation: 'cat-aura-spark 1.4s ease-in-out infinite',
+            zIndex: 0,
+          }}
+        />
         <span
           aria-hidden
           className="absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
@@ -132,9 +172,12 @@ export function RealisticCat({
             background:
               'radial-gradient(ellipse, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 70%)',
             filter: 'blur(1px)',
+            zIndex: 0,
           }}
         />
-        {media}
+        <span className="relative" style={{ zIndex: 1, display: 'inline-block' }}>
+          {media}
+        </span>
       </div>
     ) : (
       media
