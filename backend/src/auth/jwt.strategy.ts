@@ -19,10 +19,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     config: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    const secret = config.get<string>('JWT_SECRET');
+    if (!secret) {
+      // Env validation should have rejected boot already, but belt-and-braces:
+      // never let a hard-coded fallback ship with real credentials.
+      throw new Error('JWT_SECRET must be set');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET') ?? 'dev-secret-change-me',
+      secretOrKey: secret,
     });
   }
 

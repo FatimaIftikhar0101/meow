@@ -8,7 +8,10 @@ export const envSchema = Joi.object({
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgresql', 'postgres'] })
     .required(),
-  JWT_SECRET: Joi.string().min(16).required(),
+  /* 32-char min ≈ 256 bits of entropy. Generate via:
+       node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+     Rotate in production by deploying a new secret + forcing logout. */
+  JWT_SECRET: Joi.string().min(32).required(),
   JWT_EXPIRES_IN: Joi.string()
     .pattern(/^\d+[smhd]$/)
     .default('7d'),

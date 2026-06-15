@@ -55,10 +55,14 @@ export class TransfersService {
     private readonly config: ConfigService,
   ) {}
 
-  async list(userId: string) {
+  async list(userId: string, limit = 50) {
+    // Capped to bound the worst-case row scan. The dashboard only renders the
+    // recent slice; full history lives behind /wallet/transactions.
+    const take = Math.min(Math.max(limit, 1), 100);
     const transfers = await this.prisma.transfer.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take,
       include: { recipient: { select: { name: true, country: true } } },
     });
     return transfers.map(serialiseSummary);

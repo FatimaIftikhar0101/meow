@@ -13,7 +13,11 @@ import { JwtStrategy } from './jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') ?? 'dev-secret-change-me',
+        secret:
+          config.get<string>('JWT_SECRET') ??
+          (() => {
+            throw new Error('JWT_SECRET must be set');
+          })(),
         signOptions: {
           expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '7d') as
             | `${number}d`
