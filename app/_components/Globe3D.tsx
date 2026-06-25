@@ -51,13 +51,31 @@ function landDots(count: number, radius: number): Float32Array {
   return out;
 }
 
+/* lat/lng → 3D point on a sphere of the given radius (Y-up, standard equirect). */
+function latLngToVec3(lat: number, lng: number, r: number): THREE.Vector3 {
+  const phi = ((90 - lat) * Math.PI) / 180;
+  const theta = ((lng + 180) * Math.PI) / 180;
+  return new THREE.Vector3(
+    -r * Math.sin(phi) * Math.cos(theta),
+    r * Math.cos(phi),
+    r * Math.sin(phi) * Math.sin(theta),
+  );
+}
+
+/* Great-circle-ish arc: quadratic Bezier from `from` to `to` with the apex
+ * lifted radially out of the sphere by an amount proportional to the chord
+ * length. Long flights arch higher than short ones — feels right. */
+function arcCurve(from: THREE.Vector3, to: THREE.Vector3): THREE.QuadraticBezierCurve3 {
+  const mid = from.clone().add(to).multiplyScalar(0.5);
+  const lift = 1.0 + 0.45 * (from.distanceTo(to) / 2);
+  mid.normalize().multiplyScalar(lift);
+  return new THREE.QuadraticBezierCurve3(from, mid, to);
+}
+
 /* ─── Silver dot grid ─────────────────────────────────────────────────── */
 interface DotsProps {
-  /** How many Fibonacci samples to test (only land-side become real dots). */
   samples?: number;
-  /** Slightly above the sphere surface to avoid z-fighting through glass. */
   radius?: number;
-  /** Visual radius of each dot. */
   size?: number;
 }
 
@@ -73,7 +91,6 @@ function GlobeDots({ samples = 11000, radius = 1.003, size = 0.0085 }: DotsProps
     for (let i = 0; i < count; i++) {
       const ix = i * 3;
       dummy.position.set(positions[ix], positions[ix + 1], positions[ix + 2]);
-      // Orient each disc tangent to the sphere surface (face outward).
       dummy.lookAt(0, 0, 0);
       dummy.rotateX(Math.PI / 2);
       dummy.updateMatrix();
@@ -120,19 +137,116 @@ function GlassSphere() {
   );
 }
 
+/* ─── Corridor arcs (gold tubes + travelling pulse + endpoint pins) ──── */
+export interface ArcPoint {
+  lat: number;
+  lng: number;
+  label?: string;
+}
+export interface Arc {
+  from: ArcPoint;
+  to: ArcPoint;
+}
+
+function GlobeArcs({ arcs, radius = 1.012 }: { arcs: Arc[]; radius?: number }) {
+  const items = useMemo(() => {
+    return arcs.map((a) => {
+      const from = latLngToVec3(a.from.lat, a.from.lng, radius);
+      const to = latLngToVec3(a.to.lat, a.to.lng, radius);
+      const curve = arcCurve(from, to);
+      const tube = new THREE.TubeGeometry(curve, 64, 0.004, 6, false);
+      return { from, to, curve, tube };
+    });
+  }, [arcs, radius]);
+
+  // Dispose tube geometries on prop change / unmount to keep the GPU clean.
+  useEffect(() => () => items.forEach((it) => it.tube.dispose()), [items]);
+
+  const pulseRefs = useRef<(THREE.Mesh | null)[]>([]);
+
+  useFrame((state) => {
+    const period = 2.6; // seconds for a pulse to travel a full arc
+    items.forEach((item, i) => {
+      const t = ((state.clock.elapsedTime + i * 0.7) % period) / period;
+      const p = item.curve.getPointAt(t);
+      const m = pulseRefs.current[i];
+      if (m) {
+        m.position.copy(p);
+        // Fade in/out near the endpoints so it feels like a sweep rather than
+        // a hard particle popping in.
+        const fade = Math.sin(t * Math.PI);
+        const s = 0.6 + fade * 0.8;
+        m.scale.setScalar(s);
+        (m.material as THREE.MeshStandardMaterial).opacity = 0.35 + fade * 0.65;
+      }
+    });
+  });
+
+  return (
+    <group>
+      {items.map((item, i) => (
+        <group key={i}>
+          <mesh geometry={item.tube}>
+            <meshBasicMaterial color="#e0b259" transparent opacity={0.55} depthWrite={false} />
+          </mesh>
+          {/* endpoint pin: small bright sphere + a halo */}
+          {[item.from, item.to].map((p, k) => (
+            <group key={k} position={p}>
+              <mesh>
+                <sphereGeometry args={[0.014, 14, 14]} />
+                <meshStandardMaterial
+                  color="#fff1c8"
+                  emissive="#e0b259"
+                  emissiveIntensity={1.2}
+                  toneMapped={false}
+                />
+              </mesh>
+              <mesh>
+                <sphereGeometry args={[0.028, 16, 16]} />
+                <meshBasicMaterial color="#e0b259" transparent opacity={0.18} depthWrite={false} />
+              </mesh>
+            </group>
+          ))}
+          {/* travelling pulse */}
+          <mesh
+            ref={(el) => {
+              pulseRefs.current[i] = el;
+            }}
+          >
+            <sphereGeometry args={[0.022, 14, 14]} />
+            <meshStandardMaterial
+              color="#fff6d8"
+              emissive="#ffe9a8"
+              emissiveIntensity={2.2}
+              transparent
+              opacity={0.9}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /* ─── The interactive group (hover spring + scroll-driven rotation) ───── */
-function GlobeGroup() {
+interface GlobeGroupProps {
+  interactive: boolean;
+  autoRotateSpeed: number;
+  arcs?: Arc[];
+  samples?: number;
+}
+
+function GlobeGroup({ interactive, autoRotateSpeed, arcs, samples }: GlobeGroupProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
-  // Smoothed scroll value — `target` updates on scroll, `current` lerps to it.
   const scroll = useRef({ current: 0, target: 0 });
 
   useEffect(() => {
+    if (!interactive) return;
     const onScroll = () => {
-      // Normalise scroll into a unit-ish range so the rotation is gentle
-      // regardless of page length.
       const doc = document.documentElement;
       const maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
       scroll.current.target = window.scrollY / maxScroll;
@@ -140,9 +254,8 @@ function GlobeGroup() {
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [interactive]);
 
-  // Hover/press spring → smooth bounce on touch.
   const { scale } = useSpring({
     scale: pressed ? 0.97 : hovered ? 1.05 : 1.0,
     config: { mass: 1, tension: 240, friction: 18 },
@@ -151,98 +264,107 @@ function GlobeGroup() {
   useFrame((_, dt) => {
     const g = groupRef.current;
     if (!g) return;
-    // Frame-rate independent lerp toward the latest scroll position.
     const k = 1 - Math.exp(-dt * 6);
     scroll.current.current += (scroll.current.target - scroll.current.current) * k;
-    // Idle drift on Y so the globe is never frozen.
-    g.rotation.y += dt * 0.05;
-    // Additive scroll-driven tilt + nudge — independent from OrbitControls,
-    // which only orbits the camera.
-    g.rotation.x = scroll.current.current * 0.9;
-    g.rotation.z = scroll.current.current * 0.25;
+    g.rotation.y += dt * autoRotateSpeed;
+    if (interactive) {
+      g.rotation.x = scroll.current.current * 0.9;
+      g.rotation.z = scroll.current.current * 0.25;
+    } else {
+      // A subtle constant tilt looks nicer than a perfectly upright spin.
+      g.rotation.x = -0.32;
+    }
   });
 
-  const pointerOver = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    setHovered(true);
-    if (typeof document !== 'undefined') document.body.style.cursor = 'grab';
-  };
-  const pointerOut = () => {
-    setHovered(false);
-    if (typeof document !== 'undefined') document.body.style.cursor = 'auto';
-  };
-  const pointerDown = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    setPressed(true);
-  };
-  const pointerUp = () => setPressed(false);
+  const handlers = interactive
+    ? {
+        onPointerOver: (e: { stopPropagation: () => void }) => {
+          e.stopPropagation();
+          setHovered(true);
+          if (typeof document !== 'undefined') document.body.style.cursor = 'grab';
+        },
+        onPointerOut: () => {
+          setHovered(false);
+          if (typeof document !== 'undefined') document.body.style.cursor = 'auto';
+        },
+        onPointerDown: (e: { stopPropagation: () => void }) => {
+          e.stopPropagation();
+          setPressed(true);
+        },
+        onPointerUp: () => setPressed(false),
+        onPointerCancel: () => setPressed(false),
+      }
+    : {};
 
-  // a.group from @react-spring/three accepts SpringValue for scale.
   return (
-    <a.group
-      ref={groupRef as unknown as React.Ref<THREE.Group>}
-      scale={scale}
-      onPointerOver={pointerOver}
-      onPointerOut={pointerOut}
-      onPointerDown={pointerDown}
-      onPointerUp={pointerUp}
-      onPointerCancel={pointerUp}
-    >
+    <a.group ref={groupRef as unknown as React.Ref<THREE.Group>} scale={scale} {...handlers}>
       <GlassSphere />
-      <GlobeDots />
+      <GlobeDots samples={samples} />
+      {arcs && arcs.length > 0 && <GlobeArcs arcs={arcs} />}
     </a.group>
   );
 }
 
 /* ─── Public component ────────────────────────────────────────────────── */
-interface Globe3DProps {
-  /** Canvas height in px. Width is 100% of the container. */
-  height?: number;
+export interface Globe3DProps {
+  /** Canvas height — px number or any valid CSS value (e.g. "100%", "70vh"). */
+  height?: number | string;
   className?: string;
+  /** "interactive" = drag, scroll-tilt, hover. "passive" = quiet auto-rotation. */
+  mode?: 'interactive' | 'passive';
+  /** Radians/second of idle Y rotation. Defaults: 0.05 interactive, 0.22 passive. */
+  autoRotateSpeed?: number;
+  /** Lit-up corridors with travelling gold pulses. */
+  arcs?: Arc[];
+  /** Land-dot density. Drop to ~6000 on slow phones. */
+  samples?: number;
 }
 
-export function Globe3D({ height = 520, className }: Globe3DProps) {
+export function Globe3D({
+  height = 520,
+  className,
+  mode = 'interactive',
+  autoRotateSpeed,
+  arcs,
+  samples = 11000,
+}: Globe3DProps) {
+  const interactive = mode === 'interactive';
+  const speed = autoRotateSpeed ?? (interactive ? 0.05 : 0.22);
+
   return (
     <div
       className={className}
       style={{
         width: '100%',
         height,
-        // Let the page still scroll vertically with a finger over the canvas.
-        // Horizontal drag is captured by OrbitControls for spin.
-        touchAction: 'pan-y',
+        touchAction: interactive ? 'pan-y' : 'none',
       }}
     >
       <Canvas
-        // Clamp DPR — phones love to report 3+, which kills MeshPhysicalMaterial.
         dpr={[1, 1.5]}
         camera={{ position: [0, 0, 3.2], fov: 35 }}
         gl={{
           antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
-          // Slightly cooler exposure so silver dots read crisp on white.
           toneMappingExposure: 1.05,
         }}
         shadows={false}
-        // No need to re-render when the scene is fully idle — OrbitControls
-        // damping + scroll lerp will request frames as needed via invalidate,
-        // but our useFrame work is cheap enough that "always" is fine on
-        // desktop. Comment this in if you want extra mobile savings:
-        // frameloop="demand"
       >
         <color attach="background" args={['#ffffff']} />
 
-        {/* Studio key + fill so the glass refraction reads against pure white. */}
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 5, 5]} intensity={1.5} />
         <directionalLight position={[-4, 2, -3]} intensity={0.45} color="#dfe5f0" />
 
         <Suspense fallback={null}>
-          {/* Reflections — the glass + metallic dots need an env map to feel real. */}
           <Environment preset="studio" />
-          <GlobeGroup />
-          {/* The soft floor shadow that sells "floating on the page". */}
+          <GlobeGroup
+            interactive={interactive}
+            autoRotateSpeed={speed}
+            arcs={arcs}
+            samples={samples}
+          />
           <ContactShadows
             position={[0, -1.18, 0]}
             opacity={0.32}
@@ -254,19 +376,33 @@ export function Globe3D({ height = 520, className }: Globe3DProps) {
           />
         </Suspense>
 
-        <OrbitControls
-          enableDamping
-          dampingFactor={0.05}
-          enableZoom={false}
-          enablePan={false}
-          rotateSpeed={0.6}
-          // Slight polar clamp prevents flipping upside down and losing context.
-          minPolarAngle={Math.PI * 0.18}
-          maxPolarAngle={Math.PI * 0.82}
-        />
+        {interactive && (
+          <OrbitControls
+            enableDamping
+            dampingFactor={0.05}
+            enableZoom={false}
+            enablePan={false}
+            rotateSpeed={0.6}
+            minPolarAngle={Math.PI * 0.18}
+            maxPolarAngle={Math.PI * 0.82}
+          />
+        )}
       </Canvas>
     </div>
   );
 }
+
+/* Meow's launch corridors — exported so the dashboard / send page can light
+ * them up without duplicating the coordinates. */
+export const MEOW_CORRIDORS: Arc[] = [
+  {
+    from: { lat: 43.6532, lng: -79.3832, label: 'Toronto' },
+    to: { lat: 24.8607, lng: 67.0011, label: 'Karachi' },
+  },
+  {
+    from: { lat: 43.6532, lng: -79.3832, label: 'Toronto' },
+    to: { lat: 19.076, lng: 72.8777, label: 'Mumbai' },
+  },
+];
 
 export default Globe3D;

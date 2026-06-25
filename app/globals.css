@@ -162,6 +162,36 @@ body {
   50%      { transform: translate(16px, -8px) scale(1.05); }
 }
 
+/* Animated linear-gradient sweep for "in flight" status pills — the gold
+   highlight travels across so the user feels the money still moving. */
+@keyframes pill-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.pill-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-soft) 0%,
+    var(--accent-soft) 40%,
+    rgba(255, 233, 168, 0.95) 50%,
+    var(--accent-soft) 60%,
+    var(--accent-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: pill-shimmer 2.4s linear infinite;
+}
+
+/* Soft pulse used on the "live" dot + the in-flight stat tile. */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-shimmer { animation: none; background-image: none; background-color: var(--accent-soft); }
+}
+
 /* Soft top-of-section accent line. */
 .gold-rule {
   height: 1px;
