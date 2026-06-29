@@ -23,6 +23,15 @@ type Status = keyof typeof POSES;
 const VIDEO_EXTS = ['webm', 'mp4'] as const;
 const IMAGE_EXTS = ['webp', 'gif', 'png', 'jpg', 'jpeg'] as const;
 
+/**
+ * Cache-bust query appended to every /cats/* URL. Bump this whenever the
+ * webm files are swapped in place — browsers happily serve stale bytes
+ * from cache when the URL is unchanged, even after a hard refresh in
+ * some cases (service worker, CDN, intermediate proxy). Increment to
+ * force every client to re-download.
+ */
+const CATS_VERSION = '3';
+
 type Asset = { url: string; kind: 'video' | 'image' };
 type Transparency = 'none' | 'alpha' | 'lighten' | 'multiply';
 
@@ -34,7 +43,7 @@ async function tryPath(name: string): Promise<Asset | null> {
     return c === 'none' ? null : (c as Asset);
   }
   for (const ext of VIDEO_EXTS) {
-    const url = `/cats/${name}.${ext}`;
+    const url = `/cats/${name}.${ext}?v=${CATS_VERSION}`;
     try {
       const res = await fetch(url, { method: 'HEAD' });
       if (res.ok) {
@@ -47,7 +56,7 @@ async function tryPath(name: string): Promise<Asset | null> {
     }
   }
   for (const ext of IMAGE_EXTS) {
-    const url = `/cats/${name}.${ext}`;
+    const url = `/cats/${name}.${ext}?v=${CATS_VERSION}`;
     try {
       const res = await fetch(url, { method: 'HEAD' });
       if (res.ok) {
