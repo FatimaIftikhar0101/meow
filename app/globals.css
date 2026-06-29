@@ -188,6 +188,25 @@ body {
   50%      { opacity: 1;    transform: scale(1.18); }
 }
 
+/* Very slow drift for the background cat-skull motif on the launcher.
+   Just enough movement that the page never feels static, never enough
+   to distract from the tiles. translate(-50%, -50%) is preserved so
+   the absolute-positioned wrapper stays centered. */
+@keyframes skull-drift {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(-1.2deg) scale(1);
+    opacity: 0.32;
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(1.2deg) scale(1.025);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="skull-drift"] { animation: none !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pill-shimmer { animation: none; background-image: none; background-color: var(--accent-soft); }
 }
