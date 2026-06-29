@@ -155,7 +155,13 @@ export function MagneticButton({
       <div
         ref={innerRef}
         style={{
-          display: 'inline-block',
+          // Block, full width AND full height — so the wrapped tile
+          // fills its grid cell. inline-block here was sizing the inner
+          // div to its content, which broke column alignment across
+          // rows and prevented h-full from working on the hero.
+          display: 'block',
+          width: '100%',
+          height: '100%',
           transition: 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1)',
           willChange: 'transform',
         }}
