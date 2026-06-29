@@ -351,10 +351,11 @@ export function Globe3D({
         }}
         shadows={false}
       >
-        {/* No <color attach="background"> — gl.alpha is on, so the canvas
-            is transparent and the page (and any background motif) shows
-            through. Otherwise a white square shows up around the round
-            silhouette, especially over a tinted page wash. */}
+        {/* White scene background is what the glass sphere refracts
+            through — without it transmission=0.95 renders the orb as
+            fully transparent and you see nothing. Wrap the canvas in
+            a rounded-full / overflow-hidden parent to clip the rect. */}
+        <color attach="background" args={['#ffffff']} />
 
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 5, 5]} intensity={1.5} />

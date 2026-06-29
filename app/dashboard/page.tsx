@@ -148,24 +148,24 @@ export default function DashboardPage() {
 function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
-      {/* warm wash */}
+      {/* Warm wash — top band only, kept clear of the globe centre so
+          the white globe circle blends seamlessly with the page. */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-x-0 top-0 h-[40vh]"
         style={{
           background:
-            'radial-gradient(circle at 50% 38%, rgba(255,234,178,0.55) 0%, rgba(255,255,255,0) 55%)',
+            'linear-gradient(180deg, rgba(255,232,176,0.45) 0%, rgba(255,255,255,0) 100%)',
         }}
       />
-      {/* dynamic globe — large, soft, behind everything. The wrapper is
-          a perfect circle so even if the canvas ever paints anything in
-          its corners (env reflections, contact shadow plane) it gets
-          clipped to the silhouette. The canvas itself is transparent. */}
+
+      {/* Dynamic globe — clipped to a perfect circle so its rectangular
+          canvas never shows. Opacity 1 so the inside (white scene bg)
+          merges with the white page invisibly. */}
       <div
-        className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden"
+        className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden"
         style={{
-          width: 'min(620px, 90vw)',
-          height: 'min(620px, 90vw)',
-          opacity: 0.7,
+          width: 'min(580px, 86vw)',
+          height: 'min(580px, 86vw)',
           filter: 'saturate(0.92)',
         }}
       >
@@ -179,24 +179,30 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
           />
         )}
       </div>
-      {/* constellation cat — celestial linework, sits above the globe */}
+
+      {/* Constellation cat — celestial accent on top of the globe.
+          Sized smaller (the globe's the hero) and centered on the
+          same point so it reads as a mark on the planet, not a
+          separate object floating beside it. */}
       <div
-        className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2"
+        className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2"
         style={{
-          width: 'min(520px, 82vw)',
-          height: 'min(520px, 82vw)',
-          filter: 'drop-shadow(0 0 14px rgba(224,178,89,0.25))',
+          width: 'min(360px, 60vw)',
+          height: 'min(360px, 60vw)',
+          filter: 'drop-shadow(0 0 12px rgba(224,178,89,0.3))',
           animation: 'motif-drift 18s ease-in-out infinite',
         }}
       >
-        <CatConstellation size={520} stroke="var(--accent)" className="w-full h-full" />
+        <CatConstellation size={360} stroke="var(--accent)" className="w-full h-full" />
       </div>
-      {/* subtle vignette so tiles read clean over the motif */}
+
+      {/* Soft outer vignette — fades the page edges so the tiles read
+          clean and the centre stays bright on the globe + constellation. */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 35%, rgba(255,255,255,0.65) 78%, rgba(255,255,255,0.92) 100%)',
+            'radial-gradient(circle at 50% 54%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.55) 78%, rgba(255,255,255,0.85) 100%)',
         }}
       />
     </div>
