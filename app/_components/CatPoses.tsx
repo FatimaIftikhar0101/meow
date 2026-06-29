@@ -261,7 +261,10 @@ export const POSES = {
   fx_converted: CatBat,
   payout_processing: CatWalk,
   delivered: CatHappy,
-  // "welcome" reuses the walking pose as an SVG fallback; the real asset is
-  // a transparent jumping clip at /public/cats/welcome.webm.
+  // "welcome" reuses the walking pose as an SVG fallback; the real asset
+  // is a transparent saying-hello clip at /public/cats/welcome.webm.
   welcome: CatWalk,
+  // "failed" reuses the inspect pose as a fallback; the real asset is a
+  // transparent covering-eyes clip at /public/cats/failed.webm.
+  failed: CatInspect,
 } as const;

@@ -158,8 +158,8 @@ export function CatTimeline({ currentStatus, timeline, delivered, failed }: CatT
     return (
       <div className="bg-[var(--surface)] rounded-3xl border border-[var(--danger)]/30 p-6">
         <div className="flex items-center gap-4">
-          <div className="opacity-60">
-            <RealisticCat status="compliance_check" size={64} />
+          <div className="opacity-80">
+            <RealisticCat status="failed" size={72} transparent="alpha" />
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--danger)] font-bold">Returned</p>
