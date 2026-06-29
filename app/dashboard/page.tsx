@@ -25,6 +25,19 @@ const IN_FLIGHT = new Set([
   'payout_processing',
 ]);
 
+interface Corridor {
+  fromCurrency: string;
+  toCurrency: string;
+  baseRate: string;   // Decimal serialised as string
+  marginBps: number;
+}
+
+/** Apply the FX margin to a raw base rate to get the customer-facing one. */
+function appliedRate(c: Corridor): number {
+  const raw = parseFloat(c.baseRate);
+  return raw * (1 - c.marginBps / 10000);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [balance, setBalance] = useState(0);
@@ -34,6 +47,7 @@ export default function DashboardPage() {
   const [kycPassed, setKycPassed] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [globeReady, setGlobeReady] = useState(false);
+  const [corridors, setCorridors] = useState<Corridor[]>([]);
 
   // Defer mounting the globe past the launcher's first paint.
   useEffect(() => {
@@ -44,12 +58,14 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [walletRes, transfersRes, profileRes, kycRes] = await Promise.all([
+        const [walletRes, transfersRes, profileRes, kycRes, corridorsRes] = await Promise.all([
           api.get('/wallet/balance'),
           api.get('/transfers'),
           api.get('/auth/profile'),
           api.get('/compliance/status'),
+          api.get('/corridors'),
         ]);
+        setCorridors(corridorsRes.data);
         setBalance(parseFloat(walletRes.data.balance) || 0);
         setCurrency(walletRes.data.currency);
         const first =
@@ -115,6 +131,7 @@ export default function DashboardPage() {
                   </>
                 )}
               </p>
+              {corridors.length > 0 && <RatesStrip corridors={corridors} />}
             </header>
           </Reveal>
 
@@ -158,15 +175,20 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
         }}
       />
 
-      {/* Dynamic globe — clipped to a perfect circle so its rectangular
-          canvas never shows. Opacity 1 so the inside (white scene bg)
-          merges with the white page invisibly. */}
+      {/* Dynamic globe — the rounded-full clip alone leaves a faint band
+          at the perimeter from the contact shadow + scene clearColor.
+          A radial mask fades the canvas to transparent past the
+          sphere silhouette, so the page bleeds through smoothly. */}
       <div
         className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden"
         style={{
           width: 'min(580px, 86vw)',
           height: 'min(580px, 86vw)',
           filter: 'saturate(0.92)',
+          maskImage:
+            'radial-gradient(circle at 50% 50%, black 56%, rgba(0,0,0,0.6) 68%, transparent 78%)',
+          WebkitMaskImage:
+            'radial-gradient(circle at 50% 50%, black 56%, rgba(0,0,0,0.6) 68%, transparent 78%)',
         }}
       >
         {globeReady && (
@@ -205,6 +227,38 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
             'radial-gradient(circle at 50% 54%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.55) 78%, rgba(255,255,255,0.85) 100%)',
         }}
       />
+    </div>
+  );
+}
+
+/* ─── Live rates strip ───────────────────────────────────────────────── */
+function RatesStrip({ corridors }: { corridors: Corridor[] }) {
+  // Show only CAD → PKR and CAD → INR (the launch corridors).
+  const launch = corridors
+    .filter((c) => c.fromCurrency === 'CAD' && (c.toCurrency === 'PKR' || c.toCurrency === 'INR'))
+    .sort((a, b) => a.toCurrency.localeCompare(b.toCurrency));
+  if (!launch.length) return null;
+  return (
+    <div className="mt-5 inline-flex items-center gap-2 sm:gap-3 px-4 py-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-elevated)]/70 backdrop-blur-md">
+      <span className="text-[9px] uppercase tracking-[0.25em] text-[var(--muted-foreground)] font-bold flex items-center gap-1.5">
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-[var(--mint)]"
+          style={{ animation: 'pulse-soft 1.8s ease-in-out infinite' }}
+        />
+        Live
+      </span>
+      {launch.map((c, i) => (
+        <span key={`${c.fromCurrency}-${c.toCurrency}`} className="flex items-center gap-2 text-xs">
+          {i > 0 && <span className="text-[var(--border-strong)]">·</span>}
+          <span className="text-[var(--muted-foreground)] font-semibold">
+            1 {c.fromCurrency}
+          </span>
+          <span className="text-[var(--foreground)] font-mono tabular font-bold">
+            {appliedRate(c).toFixed(2)}
+          </span>
+          <span className="text-[var(--accent)] font-semibold">{c.toCurrency}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -288,6 +342,19 @@ const DESTINATIONS: Destination[] = [
     label: 'Profile & ID',
     sub: 'Verification + settings.',
     icon: ShieldIcon,
+  },
+  {
+    href: '/refer',
+    label: 'Refer & earn',
+    sub: 'Get $15 in credit when a friend sends.',
+    icon: GiftIcon,
+    soon: true,
+  },
+  {
+    href: '/support',
+    label: 'Help & support',
+    sub: 'Live chat, phone, email — 24 / 7.',
+    icon: SupportIcon,
   },
 ];
 
@@ -416,6 +483,24 @@ function PhoneIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="7" y="2.5" width="10" height="19" rx="2.4" />
       <path d="M11 18 H13" />
+    </svg>
+  );
+}
+function GiftIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="9" width="18" height="11" rx="1.5" />
+      <path d="M3 13 H21 M12 9 V20" />
+      <path d="M12 9 C 9 9, 7 7, 8 5 a 2 2 0 0 1 4 0 a 2 2 0 0 1 4 0 c 1 2 -1 4 -4 4 Z" />
+    </svg>
+  );
+}
+function SupportIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9 9 a 3 3 0 0 1 6 0 c 0 2 -3 2 -3 4" />
+      <path d="M12 17 H12.01" />
     </svg>
   );
 }

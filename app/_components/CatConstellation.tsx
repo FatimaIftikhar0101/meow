@@ -1,24 +1,18 @@
 'use client';
 
 /**
- * Constellation cat — a face-on, perfectly symmetric celestial line-drawing.
- * Bright "named" stars at every face-anatomy point connect via thin faint
- * gold lines (Big-Dipper diagram style), surrounded by a sparse field of
- * sparkle stars and a single dashed celestial ring.
+ * Paw-print constellation — five glowing stars arranged as a cat's paw
+ * (one big main pad, four toe beans above), connected by thin faint
+ * gold lines. Surrounded by a sparse mirrored sparkle field and a
+ * dashed celestial ring.
  *
- * Every coordinate is mirrored across x=0 and the y range is balanced
- * around 0 — so the cat's visual center is the SVG origin. That means
- * the wrapper's translate(-50%, -50%) lines it up exactly on the globe
- * center with no eyeballing offsets.
+ * Replaces the face-on cat motif which read as eerie. Every coordinate
+ * is mirrored across x=0 and the average y is zero, so the visual
+ * centre lands exactly on the SVG origin — the wrapper's translate
+ * lines it up perfectly on the globe center with no eyeball offset.
  */
 
-type StarId =
-  | 'ear-l-tip' | 'ear-r-tip'
-  | 'ear-l-base' | 'ear-r-base' | 'forehead'
-  | 'eye-l' | 'eye-r'
-  | 'nose' | 'chin'
-  | 'cheek-l' | 'cheek-r'
-  | 'whisker-l' | 'whisker-r';
+type StarId = 'pad' | 'toe-1' | 'toe-2' | 'toe-3' | 'toe-4';
 
 interface Star {
   id: StarId;
@@ -27,73 +21,48 @@ interface Star {
   r: number;
   spike?: boolean;
   pulse?: boolean;
+  halo?: boolean;
 }
 
+/* Geometry — pad sits below the four toes in an arc. Coordinates
+ * chosen so the average y is 0 (perfect vertical centring). */
 const STARS: Star[] = [
-  // Ears — tall pointed pair at the top, mirrored
-  { id: 'ear-l-tip',  x: -52, y: -75, r: 2.6, spike: true },
-  { id: 'ear-r-tip',  x:  52, y: -75, r: 2.6, spike: true },
-  { id: 'ear-l-base', x: -28, y: -34, r: 1.3 },
-  { id: 'ear-r-base', x:  28, y: -34, r: 1.3 },
-  // Forehead — single star between ears (on the y-axis)
-  { id: 'forehead', x: 0, y: -32, r: 1.3 },
-  // Eyes — the two brightest, slowly twinkling
-  { id: 'eye-l', x: -26, y: 4, r: 2.8, spike: true, pulse: true },
-  { id: 'eye-r', x:  26, y: 4, r: 2.8, spike: true, pulse: true },
-  // Snout
-  { id: 'nose', x: 0, y: 32, r: 2.0 },
-  { id: 'chin', x: 0, y: 64, r: 1.4 },
-  // Cheeks
-  { id: 'cheek-l', x: -40, y: 38, r: 1.5 },
-  { id: 'cheek-r', x:  40, y: 38, r: 1.5 },
-  // Whisker tips — faint twinkling stars far to either side
-  { id: 'whisker-l', x: -92, y: 30, r: 1.6, pulse: true },
-  { id: 'whisker-r', x:  92, y: 30, r: 1.6, pulse: true },
+  // Big main pad (palm / heel) — bottom centre, brightest star
+  { id: 'pad', x: 0, y: 50, r: 4.6, spike: true, pulse: true, halo: true },
+  // Four toes arched above, mirrored
+  { id: 'toe-1', x: -55,  y:   2, r: 3.0, spike: true, halo: true },
+  { id: 'toe-2', x: -22,  y: -28, r: 3.0, spike: true, halo: true },
+  { id: 'toe-3', x:  22,  y: -28, r: 3.0, spike: true, halo: true },
+  { id: 'toe-4', x:  55,  y:   2, r: 3.0, spike: true, halo: true },
 ];
 
 const LINES: [StarId, StarId][] = [
-  // Ear edges
-  ['ear-l-tip', 'ear-l-base'],
-  ['ear-r-tip', 'ear-r-base'],
-  // Crown of head: left ear-base → forehead → right ear-base
-  ['ear-l-base', 'forehead'],
-  ['forehead', 'ear-r-base'],
-  // Face sides — from ears down to eyes
-  ['ear-l-base', 'eye-l'],
-  ['ear-r-base', 'eye-r'],
-  // Face triangle — eyes to nose
-  ['eye-l', 'nose'],
-  ['eye-r', 'nose'],
-  // Snout down to chin
-  ['nose', 'chin'],
-  // Cheek lines — eye down to cheek, cheek to chin
-  ['eye-l', 'cheek-l'],
-  ['eye-r', 'cheek-r'],
-  ['cheek-l', 'chin'],
-  ['cheek-r', 'chin'],
-  // Whisker rays
-  ['cheek-l', 'whisker-l'],
-  ['cheek-r', 'whisker-r'],
+  ['pad', 'toe-1'],
+  ['pad', 'toe-2'],
+  ['pad', 'toe-3'],
+  ['pad', 'toe-4'],
+  // Faint arc connecting toes to suggest the paw shape
+  ['toe-1', 'toe-2'],
+  ['toe-2', 'toe-3'],
+  ['toe-3', 'toe-4'],
 ];
 
-// Hand-placed sparkle field — symmetric-ish so it doesn't pull the eye.
+// Sparkle field — symmetric pairs only, so the eye stays on the centre.
 const SPARKLES: { x: number; y: number; r: number; o: number }[] = [
-  { x: -185, y: -150, r: 0.9, o: 0.55 },
-  { x:  185, y: -150, r: 0.9, o: 0.55 },
-  { x: -160, y:  -40, r: 0.7, o: 0.4  },
-  { x:  160, y:  -40, r: 0.7, o: 0.4  },
-  { x: -150, y:  120, r: 1.0, o: 0.55 },
-  { x:  150, y:  120, r: 1.0, o: 0.55 },
-  { x:  -75, y: -165, r: 0.8, o: 0.5  },
-  { x:   75, y: -165, r: 0.8, o: 0.5  },
-  { x:   -8, y: -185, r: 0.6, o: 0.4  },
-  { x:    8, y:  175, r: 0.6, o: 0.4  },
-  { x:  -55, y:  155, r: 0.6, o: 0.4  },
-  { x:   55, y:  155, r: 0.6, o: 0.4  },
-  { x: -180, y:   50, r: 0.7, o: 0.45 },
-  { x:  180, y:   50, r: 0.7, o: 0.45 },
-  { x: -110, y:  -90, r: 0.5, o: 0.35 },
-  { x:  110, y:  -90, r: 0.5, o: 0.35 },
+  { x: -185, y: -150, r: 0.9, o: 0.5  },
+  { x:  185, y: -150, r: 0.9, o: 0.5  },
+  { x: -165, y:  -35, r: 0.7, o: 0.4  },
+  { x:  165, y:  -35, r: 0.7, o: 0.4  },
+  { x: -150, y:  130, r: 1.0, o: 0.55 },
+  { x:  150, y:  130, r: 1.0, o: 0.55 },
+  { x:  -75, y: -175, r: 0.7, o: 0.45 },
+  { x:   75, y: -175, r: 0.7, o: 0.45 },
+  { x:  -10, y: -195, r: 0.5, o: 0.4  },
+  { x:   10, y:  180, r: 0.5, o: 0.4  },
+  { x: -180, y:   55, r: 0.7, o: 0.45 },
+  { x:  180, y:   55, r: 0.7, o: 0.45 },
+  { x: -110, y: -110, r: 0.5, o: 0.35 },
+  { x:  110, y: -110, r: 0.5, o: 0.35 },
 ];
 
 function getStar(id: StarId): Star {
@@ -120,7 +89,7 @@ export function CatConstellation({
       aria-hidden="true"
       role="presentation"
     >
-      {/* Soft outer celestial ring */}
+      {/* Dashed celestial ring */}
       <circle
         cx="0"
         cy="0"
@@ -139,8 +108,8 @@ export function CatConstellation({
         ))}
       </g>
 
-      {/* Constellation lines */}
-      <g stroke={stroke} strokeWidth="0.55" strokeLinecap="round" opacity="0.45" fill="none">
+      {/* Constellation lines — gentle, thin, only suggest the shape */}
+      <g stroke={stroke} strokeWidth="0.5" strokeLinecap="round" opacity="0.35" fill="none">
         {LINES.map(([a, b], i) => {
           const sa = getStar(a);
           const sb = getStar(b);
@@ -148,14 +117,14 @@ export function CatConstellation({
         })}
       </g>
 
-      {/* Stars — circle + 4-point spike on the major ones */}
+      {/* Stars — circle + 4-point spike + soft halo */}
       <g fill={stroke}>
         {STARS.map((s) => {
           const spike = s.spike ? s.r * 4.5 : 0;
           return (
             <g
               key={s.id}
-              opacity={s.pulse ? undefined : 0.95}
+              opacity={s.pulse ? undefined : 0.92}
               style={
                 s.pulse
                   ? {
@@ -168,29 +137,19 @@ export function CatConstellation({
               {s.spike && (
                 <>
                   <line
-                    x1={s.x - spike}
-                    y1={s.y}
-                    x2={s.x + spike}
-                    y2={s.y}
-                    stroke={stroke}
-                    strokeWidth="0.55"
-                    strokeLinecap="round"
-                    opacity="0.7"
+                    x1={s.x - spike} y1={s.y} x2={s.x + spike} y2={s.y}
+                    stroke={stroke} strokeWidth="0.55" strokeLinecap="round" opacity="0.7"
                   />
                   <line
-                    x1={s.x}
-                    y1={s.y - spike}
-                    x2={s.x}
-                    y2={s.y + spike}
-                    stroke={stroke}
-                    strokeWidth="0.55"
-                    strokeLinecap="round"
-                    opacity="0.7"
+                    x1={s.x} y1={s.y - spike} x2={s.x} y2={s.y + spike}
+                    stroke={stroke} strokeWidth="0.55" strokeLinecap="round" opacity="0.7"
                   />
                 </>
               )}
               <circle cx={s.x} cy={s.y} r={s.r} />
-              {s.spike && <circle cx={s.x} cy={s.y} r={s.r * 1.9} opacity="0.22" />}
+              {s.halo && (
+                <circle cx={s.x} cy={s.y} r={s.r * 2.1} opacity="0.18" />
+              )}
             </g>
           );
         })}
