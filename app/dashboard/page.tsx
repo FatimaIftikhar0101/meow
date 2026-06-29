@@ -147,13 +147,22 @@ export default function DashboardPage() {
             </Reveal>
           )}
 
-          {/* Destination tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {DESTINATIONS.map((d, i) => (
-              <Reveal key={d.href} delay={120 + i * 70}>
-                <Tile {...d} />
-              </Reveal>
-            ))}
+          {/* Destination tiles — bento layout. The Send tile is a 2x2
+              hero (lg only), the bottom row uses horizontal cards so
+              the page has clear visual rhythm instead of nine identical
+              squares stacked. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 auto-rows-[minmax(150px,auto)]">
+            {DESTINATIONS.map((d, i) => {
+              const span =
+                d.variant === 'hero'
+                  ? 'sm:col-span-2 lg:row-span-2'
+                  : '';
+              return (
+                <Reveal key={d.href} delay={120 + i * 60} className={span}>
+                  <Tile {...d} />
+                </Reveal>
+              );
+            })}
           </div>
         </main>
       </div>
@@ -274,137 +283,160 @@ function BalanceTicker({ amount, currency }: { amount: number; currency: string 
 }
 
 /* ─── Destination tiles ───────────────────────────────────────────────── */
+type Variant = 'hero' | 'standard' | 'horizontal';
+
 interface Destination {
   href: string;
   label: string;
   sub: string;
   icon: (props: { className?: string }) => React.JSX.Element;
-  highlight?: boolean;
-  soon?: boolean;
+  /** Optional corner badge — "Soon", "AI · Beta", etc. */
+  badge?: string;
+  /** Visual shape. Default 'standard'. */
+  variant?: Variant;
 }
 
+/* Order matters — the grid flows in document order. Send is the 2x2
+ * hero in the top-left; the bottom row (Profile / Refer / Support)
+ * uses horizontal cards for visual rhythm. */
 const DESTINATIONS: Destination[] = [
-  {
-    href: '/send',
-    label: 'Send money',
-    sub: 'A new transfer — locked rate.',
-    icon: PlaneIcon,
-    highlight: true,
-  },
-  {
-    href: '/send/recurring',
-    label: 'Recurring',
-    sub: 'Same family, every month.',
-    icon: RepeatIcon,
-    soon: true,
-  },
-  {
-    href: '/rate-alerts',
-    label: 'Rate alerts',
-    sub: 'Notify when CAD → PKR hits your target.',
-    icon: BellIcon,
-    soon: true,
-  },
-  {
-    href: '/wallet/fund',
-    label: 'Top up wallet',
-    sub: 'Add CAD so it’s ready to go.',
-    icon: CoinIcon,
-  },
-  {
-    href: '/recipients',
-    label: 'Recipients',
-    sub: 'The people you send to.',
-    icon: HeartIcon,
-  },
-  {
-    href: '/bill-pay',
-    label: 'Bill pay abroad',
-    sub: 'Pay PK / IN utilities directly.',
-    icon: ReceiptIcon,
-    soon: true,
-  },
-  {
-    href: '/mobile-recharge',
-    label: 'Mobile recharge',
-    sub: 'Top up their phone, instantly.',
-    icon: PhoneIcon,
-    soon: true,
-  },
-  {
-    href: '/wallet/transactions',
-    label: 'Activity',
-    sub: 'Every transfer, every cent.',
-    icon: PulseIcon,
-  },
-  {
-    href: '/profile',
-    label: 'Profile & ID',
-    sub: 'Verification + settings.',
-    icon: ShieldIcon,
-  },
-  {
-    href: '/refer',
-    label: 'Refer & earn',
-    sub: 'Get $15 in credit when a friend sends.',
-    icon: GiftIcon,
-    soon: true,
-  },
-  {
-    href: '/support',
-    label: 'Help & support',
-    sub: 'Live chat, phone, email — 24 / 7.',
-    icon: SupportIcon,
-  },
+  // Hero (2x2 on lg, full-width on sm)
+  { href: '/send', label: 'Send money', sub: 'A new transfer — rate locked the moment you tap send.', icon: PlaneIcon, variant: 'hero' },
+  // Top-right column (rows 1-2)
+  { href: '/wallet/fund', label: 'Top up wallet', sub: 'Add CAD so it’s ready to go.', icon: CoinIcon },
+  { href: '/recipients', label: 'Recipients', sub: 'The people you send to.', icon: HeartIcon },
+  // Middle row of 3
+  { href: '/budget', label: 'Budget Friend', sub: 'AI that learns your sends and budgets you.', icon: SparkleIcon, badge: 'AI · Beta' },
+  { href: '/rate-alerts', label: 'Rate alerts', sub: 'Notify when CAD → PKR hits your target.', icon: BellIcon, badge: 'Soon' },
+  { href: '/wallet/transactions', label: 'Activity', sub: 'Every transfer, every cent.', icon: PulseIcon },
+  // Bottom row — horizontal cards
+  { href: '/profile', label: 'Profile & ID', sub: 'Verification + settings.', icon: ShieldIcon, variant: 'horizontal' },
+  { href: '/refer', label: 'Refer & earn', sub: 'Get $15 when a friend sends.', icon: GiftIcon, variant: 'horizontal', badge: 'Soon' },
+  { href: '/support', label: 'Help & support', sub: '24/7 chat, call, email.', icon: SupportIcon, variant: 'horizontal' },
 ];
 
-function Tile({ href, label, sub, icon: Icon, highlight, soon }: Destination) {
+function Tile(props: Destination) {
+  if (props.variant === 'hero') return <HeroTile {...props} />;
+  if (props.variant === 'horizontal') return <HorizontalTile {...props} />;
+  return <StandardTile {...props} />;
+}
+
+/* Standard — the original vertical card. Icon top-left, arrow top-right,
+ * label + sub at the bottom. Used for everything not flagged otherwise. */
+function StandardTile({ href, label, sub, icon: Icon, badge }: Destination) {
   return (
     <MagneticButton strength={0.18} className="block h-full">
       <Link
         href={href}
-        className={`group relative block h-full rounded-3xl border bg-[var(--surface-elevated)]/85 backdrop-blur-md p-6 transition will-change-transform hover:-translate-y-1 ${
-          highlight
-            ? 'border-[var(--accent)]/55 hover:border-[var(--accent)] shadow-lg shadow-[var(--accent)]/15'
-            : 'border-[var(--border-strong)] hover:border-[var(--accent)]/55'
-        }`}
+        className="group relative block h-full rounded-3xl border border-[var(--border-strong)] hover:border-[var(--accent)]/55 bg-[var(--surface-elevated)]/85 backdrop-blur-md p-6 transition will-change-transform hover:-translate-y-1"
       >
-        {/* corner accent — slowly fills on hover */}
         <span
           className="absolute top-0 right-0 w-10 h-10 rounded-bl-3xl rounded-tr-3xl opacity-0 group-hover:opacity-100 transition"
-          style={{
-            background: 'radial-gradient(circle at top right, var(--accent-soft), transparent 70%)',
-          }}
+          style={{ background: 'radial-gradient(circle at top right, var(--accent-soft), transparent 70%)' }}
         />
-
-        {soon && (
+        {badge && (
           <span className="absolute top-3 right-3 text-[9px] uppercase tracking-[0.2em] font-bold px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30">
-            Soon
+            {badge}
           </span>
         )}
-
         <div className="flex items-start justify-between">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition ${
-              highlight
-                ? 'bg-[var(--accent)] text-[var(--ink)] border-[var(--accent)]'
-                : 'bg-[var(--background)] text-[var(--accent)] border-[var(--border-strong)] group-hover:border-[var(--accent)]'
-            }`}
-          >
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center border transition bg-[var(--background)] text-[var(--accent)] border-[var(--border-strong)] group-hover:border-[var(--accent)]">
             <Icon className="w-5 h-5" />
           </div>
-          {!soon && (
-            <span
-              className="text-[var(--muted-foreground)] group-hover:text-[var(--accent)] transition text-lg leading-none translate-x-0 group-hover:translate-x-1 transition-transform"
-              aria-hidden="true"
-            >
+          {!badge && (
+            <span className="text-[var(--muted-foreground)] group-hover:text-[var(--accent)] transition text-lg leading-none group-hover:translate-x-1 transition-transform" aria-hidden="true">
               →
             </span>
           )}
         </div>
-
         <p className="mt-6 text-lg font-bold tracking-tight text-[var(--foreground)]">{label}</p>
         <p className="mt-1 text-[13px] text-[var(--muted-foreground)] leading-snug">{sub}</p>
+      </Link>
+    </MagneticButton>
+  );
+}
+
+/* Hero — 2x2 on lg, dramatic gold accent + center-stage CTA. The
+ * primary action of the whole app. */
+function HeroTile({ href, label, sub, icon: Icon }: Destination) {
+  return (
+    <MagneticButton strength={0.2} className="block h-full">
+      <Link
+        href={href}
+        className="group relative flex flex-col h-full min-h-[260px] rounded-3xl border border-[var(--accent)]/55 hover:border-[var(--accent)] p-7 sm:p-9 transition will-change-transform hover:-translate-y-1 shadow-xl shadow-[var(--accent)]/15 overflow-hidden"
+        style={{
+          background:
+            'linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 55%, var(--accent-soft) 130%)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        {/* radial accent glow top-right */}
+        <span
+          className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, var(--accent-soft), transparent 65%)', animation: 'aurora 7s ease-in-out infinite' }}
+        />
+        {/* tiny pip dots top-right corner — premium signal */}
+        <span className="absolute top-5 right-6 flex items-center gap-1 pointer-events-none">
+          <span className="w-1 h-1 rounded-full bg-[var(--accent)]" />
+          <span className="w-1 h-1 rounded-full bg-[var(--accent)] opacity-60" />
+          <span className="w-1 h-1 rounded-full bg-[var(--accent)] opacity-30" />
+        </span>
+
+        <div className="relative w-16 h-16 rounded-2xl bg-[var(--accent)] text-[var(--ink)] border border-[var(--accent)] flex items-center justify-center shadow-lg shadow-[var(--accent)]/30">
+          <Icon className="w-7 h-7" />
+        </div>
+
+        <div className="relative mt-auto pt-8">
+          <p className="text-[10px] uppercase tracking-[0.32em] text-[var(--accent)] font-bold">
+            Primary action
+          </p>
+          <h3 className="mt-2 text-3xl sm:text-4xl font-extrabold text-[var(--foreground)] tracking-tight leading-tight">
+            {label}
+          </h3>
+          <p className="mt-3 text-sm text-[var(--muted-foreground)] leading-relaxed max-w-md">
+            {sub}
+          </p>
+          <p className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[var(--accent)] group-hover:gap-3 transition-all">
+            Start a transfer <span className="text-lg">→</span>
+          </p>
+        </div>
+      </Link>
+    </MagneticButton>
+  );
+}
+
+/* Horizontal — icon on the left, label + sub stacked on the right,
+ * arrow at the far right. Lower visual weight than vertical cards,
+ * good for utility destinations (profile / refer / support). */
+function HorizontalTile({ href, label, sub, icon: Icon, badge }: Destination) {
+  return (
+    <MagneticButton strength={0.14} className="block h-full">
+      <Link
+        href={href}
+        className="group flex items-center gap-4 h-full min-h-[110px] rounded-3xl border border-[var(--border-strong)] hover:border-[var(--accent)]/55 bg-[var(--surface-elevated)]/85 backdrop-blur-md px-5 py-4 transition will-change-transform hover:-translate-y-1"
+      >
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center border bg-[var(--background)] text-[var(--accent)] border-[var(--border-strong)] group-hover:border-[var(--accent)] shrink-0">
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-[15px] font-bold tracking-tight text-[var(--foreground)] truncate">
+              {label}
+            </p>
+            {badge && (
+              <span className="text-[8px] uppercase tracking-[0.2em] font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30 shrink-0">
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-[12px] text-[var(--muted-foreground)] truncate mt-0.5">{sub}</p>
+        </div>
+        <span
+          className="text-[var(--muted-foreground)] group-hover:text-[var(--accent)] group-hover:translate-x-1 transition-all text-lg shrink-0"
+          aria-hidden="true"
+        >
+          →
+        </span>
       </Link>
     </MagneticButton>
   );
@@ -454,14 +486,6 @@ function ShieldIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function RepeatIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 9 H17 L14 6 M4 9 L7 12" />
-      <path d="M20 15 H7 L10 18 M20 15 L17 12" />
-    </svg>
-  );
-}
 function BellIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -470,19 +494,14 @@ function BellIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function ReceiptIcon({ className }: { className?: string }) {
+function SparkleIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 3 H18 V21 L15.5 19 L13 21 L10.5 19 L8 21 L6 19 Z" />
-      <path d="M9 8 H15 M9 12 H15 M9 16 H13" />
-    </svg>
-  );
-}
-function PhoneIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="7" y="2.5" width="10" height="19" rx="2.4" />
-      <path d="M11 18 H13" />
+      {/* Central 4-point spark — Budget's "AI noticed" mark */}
+      <path d="M12 3 L13.6 10.4 L21 12 L13.6 13.6 L12 21 L10.4 13.6 L3 12 L10.4 10.4 Z" />
+      {/* Two small companion sparks */}
+      <path d="M18 5 L18.5 6.6 L20 7 L18.5 7.4 L18 9 L17.5 7.4 L16 7 L17.5 6.6 Z" />
+      <path d="M5.5 17 L6 18.2 L7 18.5 L6 18.8 L5.5 20 L5 18.8 L4 18.5 L5 18.2 Z" />
     </svg>
   );
 }
