@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { MagneticButton, Reveal, useCountUp } from '@/app/_components/motion';
 import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
-import { CatSkull } from '@/app/_components/CatSkull';
+import { CatConstellation } from '@/app/_components/CatConstellation';
 
 /* The globe sits in the background — passive, slow, low-density. It's a
  * mood-setter, not an interactive object. Lazy-imported so the launcher
@@ -156,14 +156,17 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
             'radial-gradient(circle at 50% 38%, rgba(255,234,178,0.55) 0%, rgba(255,255,255,0) 55%)',
         }}
       />
-      {/* dynamic globe — large, soft, behind everything */}
+      {/* dynamic globe — large, soft, behind everything. The wrapper is
+          a perfect circle so even if the canvas ever paints anything in
+          its corners (env reflections, contact shadow plane) it gets
+          clipped to the silhouette. The canvas itself is transparent. */}
       <div
-        className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2"
+        className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden"
         style={{
-          width: 'min(640px, 92vw)',
-          height: 'min(640px, 92vw)',
-          opacity: 0.55,
-          filter: 'saturate(0.9)',
+          width: 'min(620px, 90vw)',
+          height: 'min(620px, 90vw)',
+          opacity: 0.7,
+          filter: 'saturate(0.92)',
         }}
       >
         {globeReady && (
@@ -176,18 +179,17 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
           />
         )}
       </div>
-      {/* cat skull sketch overlaid in the middle */}
+      {/* constellation cat — celestial linework, sits above the globe */}
       <div
         className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2"
         style={{
-          width: 'min(440px, 70vw)',
-          height: 'min(440px, 70vw)',
-          opacity: 0.32,
-          filter: 'drop-shadow(0 0 18px rgba(224,178,89,0.35))',
-          animation: 'skull-drift 14s ease-in-out infinite',
+          width: 'min(520px, 82vw)',
+          height: 'min(520px, 82vw)',
+          filter: 'drop-shadow(0 0 14px rgba(224,178,89,0.25))',
+          animation: 'motif-drift 18s ease-in-out infinite',
         }}
       >
-        <CatSkull size={440} stroke="var(--accent)" className="w-full h-full" />
+        <CatConstellation size={520} stroke="var(--accent)" className="w-full h-full" />
       </div>
       {/* subtle vignette so tiles read clean over the motif */}
       <div
@@ -218,6 +220,7 @@ interface Destination {
   sub: string;
   icon: (props: { className?: string }) => React.JSX.Element;
   highlight?: boolean;
+  soon?: boolean;
 }
 
 const DESTINATIONS: Destination[] = [
@@ -227,6 +230,20 @@ const DESTINATIONS: Destination[] = [
     sub: 'A new transfer — locked rate.',
     icon: PlaneIcon,
     highlight: true,
+  },
+  {
+    href: '/send/recurring',
+    label: 'Recurring',
+    sub: 'Same family, every month.',
+    icon: RepeatIcon,
+    soon: true,
+  },
+  {
+    href: '/rate-alerts',
+    label: 'Rate alerts',
+    sub: 'Notify when CAD → PKR hits your target.',
+    icon: BellIcon,
+    soon: true,
   },
   {
     href: '/wallet/fund',
@@ -239,6 +256,20 @@ const DESTINATIONS: Destination[] = [
     label: 'Recipients',
     sub: 'The people you send to.',
     icon: HeartIcon,
+  },
+  {
+    href: '/bill-pay',
+    label: 'Bill pay abroad',
+    sub: 'Pay PK / IN utilities directly.',
+    icon: ReceiptIcon,
+    soon: true,
+  },
+  {
+    href: '/mobile-recharge',
+    label: 'Mobile recharge',
+    sub: 'Top up their phone, instantly.',
+    icon: PhoneIcon,
+    soon: true,
   },
   {
     href: '/wallet/transactions',
@@ -254,7 +285,7 @@ const DESTINATIONS: Destination[] = [
   },
 ];
 
-function Tile({ href, label, sub, icon: Icon, highlight }: Destination) {
+function Tile({ href, label, sub, icon: Icon, highlight, soon }: Destination) {
   return (
     <MagneticButton strength={0.18} className="block h-full">
       <Link
@@ -273,6 +304,12 @@ function Tile({ href, label, sub, icon: Icon, highlight }: Destination) {
           }}
         />
 
+        {soon && (
+          <span className="absolute top-3 right-3 text-[9px] uppercase tracking-[0.2em] font-bold px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/30">
+            Soon
+          </span>
+        )}
+
         <div className="flex items-start justify-between">
           <div
             className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition ${
@@ -283,12 +320,14 @@ function Tile({ href, label, sub, icon: Icon, highlight }: Destination) {
           >
             <Icon className="w-5 h-5" />
           </div>
-          <span
-            className="text-[var(--muted-foreground)] group-hover:text-[var(--accent)] transition text-lg leading-none translate-x-0 group-hover:translate-x-1 transition-transform"
-            aria-hidden="true"
-          >
-            →
-          </span>
+          {!soon && (
+            <span
+              className="text-[var(--muted-foreground)] group-hover:text-[var(--accent)] transition text-lg leading-none translate-x-0 group-hover:translate-x-1 transition-transform"
+              aria-hidden="true"
+            >
+              →
+            </span>
+          )}
         </div>
 
         <p className="mt-6 text-lg font-bold tracking-tight text-[var(--foreground)]">{label}</p>
@@ -339,6 +378,38 @@ function ShieldIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 3 L20 6 V12 C20 17, 16 20, 12 21 C8 20, 4 17, 4 12 V6 Z" />
       <path d="M9 12 L11 14 L15 10" />
+    </svg>
+  );
+}
+function RepeatIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9 H17 L14 6 M4 9 L7 12" />
+      <path d="M20 15 H7 L10 18 M20 15 L17 12" />
+    </svg>
+  );
+}
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 16 V11 a6 6 0 0 1 12 0 V16 L20 18 H4 Z" />
+      <path d="M10 21 a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+function ReceiptIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3 H18 V21 L15.5 19 L13 21 L10.5 19 L8 21 L6 19 Z" />
+      <path d="M9 8 H15 M9 12 H15 M9 16 H13" />
+    </svg>
+  );
+}
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="7" y="2.5" width="10" height="19" rx="2.4" />
+      <path d="M11 18 H13" />
     </svg>
   );
 }

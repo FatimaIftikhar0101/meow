@@ -351,7 +351,10 @@ export function Globe3D({
         }}
         shadows={false}
       >
-        <color attach="background" args={['#ffffff']} />
+        {/* No <color attach="background"> — gl.alpha is on, so the canvas
+            is transparent and the page (and any background motif) shows
+            through. Otherwise a white square shows up around the round
+            silhouette, especially over a tinted page wash. */}
 
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 5, 5]} intensity={1.5} />

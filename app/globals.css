@@ -188,23 +188,29 @@ body {
   50%      { opacity: 1;    transform: scale(1.18); }
 }
 
-/* Very slow drift for the background cat-skull motif on the launcher.
+/* Slow twinkle for the major stars in the constellation motif. */
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50%      { opacity: 1;    transform: scale(1.08); }
+}
+
+/* Very slow drift for the background motif on the launcher.
    Just enough movement that the page never feels static, never enough
    to distract from the tiles. translate(-50%, -50%) is preserved so
    the absolute-positioned wrapper stays centered. */
-@keyframes skull-drift {
+@keyframes motif-drift {
   0%, 100% {
-    transform: translate(-50%, -50%) rotate(-1.2deg) scale(1);
-    opacity: 0.32;
+    transform: translate(-50%, -50%) rotate(-0.6deg) scale(1);
+    opacity: 0.6;
   }
   50% {
-    transform: translate(-50%, -50%) rotate(1.2deg) scale(1.025);
-    opacity: 0.4;
+    transform: translate(-50%, -50%) rotate(0.6deg) scale(1.02);
+    opacity: 0.75;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [style*="skull-drift"] { animation: none !important; }
+  [style*="motif-drift"], [style*="star-twinkle"] { animation: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
