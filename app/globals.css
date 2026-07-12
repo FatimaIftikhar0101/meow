@@ -157,6 +157,17 @@ body {
   50%      { opacity: 0.85; }
 }
 
+/* Crossfade between two cat clips when the status changes — both videos
+   stay mounted for the duration so neither freezes or restarts. */
+@keyframes cat-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cat-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 @keyframes aurora {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%      { transform: translate(16px, -8px) scale(1.05); }

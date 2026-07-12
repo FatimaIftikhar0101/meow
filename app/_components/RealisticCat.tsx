@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { POSES } from './CatPoses';
 
 type Status = keyof typeof POSES;
@@ -91,24 +91,49 @@ interface Props {
   aspect?: number;
 }
 
+const CROSSFADE_MS = 480;
+
 export function RealisticCat({
   status,
   size = 80,
   transparent = 'none',
   aspect = transparent === 'alpha' ? 0.8 : 1,
 }: Props) {
+  // `asset` is the clip we're transitioning TO. `previous` is the clip
+  // we're fading OUT during a swap — both render simultaneously for
+  // CROSSFADE_MS so the cat dissolves between states instead of cutting.
   const [asset, setAsset] = useState<Asset | null>(null);
+  const [previous, setPrevious] = useState<Asset | null>(null);
   const [checked, setChecked] = useState(false);
+  // Track current via ref so the probe effect doesn't take `asset` as a dep
+  // (would cause a render loop).
+  const currentRef = useRef<Asset | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let prevTimer: ReturnType<typeof setTimeout> | undefined;
     probe(status).then((found) => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
+      // Same asset already on screen → nothing to do.
+      if (found && currentRef.current?.url === found.url) {
+        setChecked(true);
+        return;
+      }
+      // Start a crossfade: snapshot the outgoing asset, swap in the new one,
+      // then drop the snapshot once the fade has completed.
+      setPrevious(currentRef.current);
       setAsset(found);
+      currentRef.current = found;
       setChecked(true);
+      prevTimer = setTimeout(() => {
+        if (!cancelled) setPrevious(null);
+      }, CROSSFADE_MS);
     });
     return () => {
       cancelled = true;
+      if (prevTimer) clearTimeout(prevTimer);
     };
   }, [status]);
 
@@ -192,33 +217,60 @@ export function RealisticCat({
       media
     );
 
-  if (asset?.kind === 'video') {
-    return grounded(
-      <video
-        src={asset.url}
-        width={width}
-        height={height}
-        autoPlay
-        loop
-        muted
-        playsInline
-        className={showFrame ? 'object-cover bg-[var(--surface-elevated)]' : 'object-cover'}
-        style={{ width, height, borderRadius: radius, ...blendStyle }}
-      />,
-    );
-  }
-
-  if (asset?.kind === 'image') {
-    return grounded(
+  // The new asset fades in over CROSSFADE_MS; the previous (if any) fades
+  // out simultaneously underneath. Both elements keep playing while they
+  // overlap so neither one freezes or restarts mid-swap.
+  const baseMediaStyle: React.CSSProperties = {
+    width,
+    height,
+    borderRadius: radius,
+    objectFit: 'cover',
+    ...blendStyle,
+  };
+  const renderMedia = (a: Asset, phase: 'enter' | 'leave', stackable: boolean): React.ReactNode => {
+    const animation =
+      phase === 'enter'
+        ? `cat-fade-in ${CROSSFADE_MS}ms ease-out both`
+        : `cat-fade-out ${CROSSFADE_MS}ms ease-out both`;
+    const positioning: React.CSSProperties = stackable
+      ? { position: 'absolute', inset: 0 }
+      : { position: 'relative' };
+    if (a.kind === 'video') {
+      return (
+        <video
+          key={a.url}
+          src={a.url}
+          width={width}
+          height={height}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className={showFrame ? 'bg-[var(--surface-elevated)]' : undefined}
+          style={{ ...baseMediaStyle, ...positioning, animation }}
+        />
+      );
+    }
+    return (
       // eslint-disable-next-line @next/next/no-img-element -- local asset, tiny
       <img
-        src={asset.url}
+        key={a.url}
+        src={a.url}
         alt={status}
         width={width}
         height={height}
-        className={showFrame ? 'object-cover' : 'object-cover'}
-        style={{ width, height, borderRadius: radius, ...blendStyle }}
-      />,
+        style={{ ...baseMediaStyle, ...positioning, animation }}
+      />
+    );
+  };
+
+  if (asset) {
+    return grounded(
+      <div style={{ position: 'relative', width, height, display: 'inline-block' }}>
+        {previous && renderMedia(previous, 'leave', true)}
+        {renderMedia(asset, 'enter', false)}
+      </div>,
     );
   }
 
