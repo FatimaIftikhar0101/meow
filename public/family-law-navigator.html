@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Family Law Rules Navigator — O. Reg. 114/99 (Ontario)</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+/* ── Token system ─────────────────────────────────────────────────────── */
+:root {
+  --ground:       #ECEAE5;
+  --card:         #FFFFFF;
+  --card-sub:     #F5F4F1;
+  --ink:          #1B1D2B;
+  --parl:         #1B3E74;
+  --parl-hov:     #274E90;
+  --copper:       #7C5B20;
+  --copper-mid:   #B88A2C;
+  --copper-tint:  #FAF7EE;
+  --red:          #8C2422;
+  --red-bg:       #FBF1F0;
+  --red-border:   #F0CFCB;
+  --red-text:     #5C2A26;
+  --muted:        #6D707C;
+  --sub:          #9295A2;
+  --line:         #D5D3CD;
+  --serif:        'Palatino Linotype','Palatino','Book Antiqua',Georgia,serif;
+  --sans:         'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;
+  --mono:         'Courier New',Courier,monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground:       #13151E;
+    --card:         #1C1F2D;
+    --card-sub:     #181B29;
+    --ink:          #E2E3EE;
+    --parl:         #6090CE;
+    --parl-hov:     #7AAADE;
+    --copper:       #C4982E;
+    --copper-mid:   #DEB84A;
+    --copper-tint:  #1E1810;
+    --red:          #C4534C;
+    --red-bg:       #2A1514;
+    --red-border:   #4A2020;
+    --red-text:     #E8A09C;
+    --muted:        #9295A5;
+    --sub:          #666980;
+    --line:         #282C3E;
+  }
+}
+:root[data-theme="dark"] {
+  --ground:       #13151E;
+  --card:         #1C1F2D;
+  --card-sub:     #181B29;
+  --ink:          #E2E3EE;
+  --parl:         #6090CE;
+  --parl-hov:     #7AAADE;
+  --copper:       #C4982E;
+  --copper-mid:   #DEB84A;
+  --copper-tint:  #1E1810;
+  --red:          #C4534C;
+  --red-bg:       #2A1514;
+  --red-border:   #4A2020;
+  --red-text:     #E8A09C;
+  --muted:        #9295A5;
+  --sub:          #666980;
+  --line:         #282C3E;
+}
+:root[data-theme="light"] {
+  --ground:       #ECEAE5;
+  --card:         #FFFFFF;
+  --card-sub:     #F5F4F1;
+  --ink:          #1B1D2B;
+  --parl:         #1B3E74;
+  --parl-hov:     #274E90;
+  --copper:       #7C5B20;
+  --copper-mid:   #B88A2C;
+  --copper-tint:  #FAF7EE;
+  --red:          #8C2422;
+  --red-bg:       #FBF1F0;
+  --red-border:   #F0CFCB;
+  --red-text:     #5C2A26;
+  --muted:        #6D707C;
+  --sub:          #9295A2;
+  --line:         #D5D3CD;
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--ground); }
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+a { color: var(--parl); text-decoration: none; }
+a:hover { color: var(--parl-hov); text-decoration: underline; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--copper-mid);
+  outline-offset: 2px;
+}
+
+/* ── API key banner ───────────────────────────────────────────────────── */
+.key-banner {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.key-label {
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: .03em;
+}
+.key-field-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 160px;
+}
+.key-input {
+  flex: 1;
+  max-width: 310px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 9px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--ground);
+  color: var(--ink);
+  outline: none;
+  transition: border-color .15s;
+}
+.key-input:focus { border-color: var(--copper-mid); }
+.key-toggle {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: border-color .15s;
+}
+.key-toggle:hover { border-color: var(--copper-mid); }
+.key-status { font-size: 11px; color: #2F7A4F; font-weight: 600; white-space: nowrap; }
+.key-missing { font-size: 11px; color: var(--red); white-space: nowrap; }
+
+/* ── Page wrapper ─────────────────────────────────────────────────────── */
+.wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+/* ── Masthead ─────────────────────────────────────────────────────────── */
+.masthead {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--ink);
+}
+.crest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 80px;
+  height: 80px;
+  border: 1.5px solid var(--copper);
+  border-radius: 4px;
+  background: var(--card);
+  flex-shrink: 0;
+}
+.crest-reg {
+  font-size: 8.5px;
+  letter-spacing: .2em;
+  color: var(--copper);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.crest-num {
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.mast-text h1 {
+  font-family: var(--serif);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+}
+.mast-sub {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 4px;
+  max-width: 56ch;
+}
+
+/* ── Caution ──────────────────────────────────────────────────────────── */
+.caution {
+  display: flex;
+  gap: 8px;
+  border-left: 3px solid var(--red);
+  background: var(--red-bg);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  color: var(--red-text);
+  margin-top: 16px;
+}
+.caution strong { color: var(--red); }
+
+/* ── Search ───────────────────────────────────────────────────────────── */
+.search-section { margin-top: 22px; }
+.search-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(27,30,43,.06);
+}
+.search-textarea {
+  display: block;
+  width: 100%;
+  padding: 14px 16px 10px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--ink);
+  background: transparent;
+  min-height: 68px;
+}
+.search-textarea::placeholder { color: var(--sub); }
+.search-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--line);
+  background: var(--ground);
+  flex-wrap: wrap;
+}
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-label input { accent-color: var(--copper); width: 14px; height: 14px; }
+.btn-go {
+  background: var(--parl);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 9px 20px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.btn-go:hover:not(:disabled) { background: var(--parl-hov); }
+.btn-go:disabled { opacity: .55; cursor: default; }
+
+.starters { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.chip {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-size: 12px;
+  color: var(--parl);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  text-align: left;
+  font-family: var(--sans);
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--copper-mid);
+  background: var(--copper-tint);
+  color: var(--copper);
+}
+.chip:disabled { opacity: .5; cursor: default; }
+.hint { margin-top: 8px; font-size: 11px; color: var(--sub); }
+
+/* ── Status panels ────────────────────────────────────────────────────── */
+.panel {
+  margin-top: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+.loading-panel { display: flex; align-items: center; gap: 16px; }
+.spinner {
+  width: 26px; height: 26px;
+  border: 3px solid var(--line);
+  border-top-color: var(--copper);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-title { font-weight: 600; font-size: 14.5px; }
+.loading-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+.error-panel {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+}
+.error-title { font-weight: 700; color: var(--red); margin-bottom: 4px; }
+.error-body { font-size: 13.5px; color: var(--red-text); }
+.btn-retry {
+  margin-top: 10px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--sans);
+}
+
+.raw-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+pre.raw {
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+
+/* ── Result card ──────────────────────────────────────────────────────── */
+.result {
+  margin-top: 22px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(27,30,43,.08);
+  animation: rise .22s ease;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.result-head {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card-sub);
+}
+.big-num {
+  font-family: var(--serif);
+  font-size: 68px;
+  font-weight: 700;
+  color: var(--copper);
+  line-height: .85;
+  flex-shrink: 0;
+  letter-spacing: -.02em;
+  opacity: .8;
+  min-width: 1.1ch;
+  text-align: right;
+}
+.result-head-text { flex: 1; min-width: 0; }
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--copper);
+  font-weight: 700;
+}
+.result-head-text h2 {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  margin: 3px 0 12px;
+  text-wrap: balance;
+}
+
+.src-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.src-btn {
+  font-size: 12px;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: var(--parl);
+  background: var(--card);
+  transition: border-color .15s, background .15s;
+  white-space: nowrap;
+}
+.src-btn:hover { border-color: var(--copper-mid); background: var(--copper-tint); text-decoration: none; }
+.src-btn.primary { background: var(--parl); color: #fff; border-color: var(--parl); }
+.src-btn.primary:hover { background: var(--parl-hov); border-color: var(--parl-hov); }
+
+.memo-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.memo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--copper);
+  border: 1px solid var(--copper-mid);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  font-family: var(--sans);
+}
+.memo-btn:hover { background: var(--copper); color: #fff; border-color: var(--copper); }
+.copied { font-size: 12px; color: #2F7A4F; font-weight: 600; }
+
+/* ── Result sections ──────────────────────────────────────────────────── */
+.block {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.block:last-child { border-bottom: none; }
+.block-h {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--sans);
+}
+.verify-tag {
+  font-size: 9px;
+  letter-spacing: .06em;
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid var(--red-border);
+  border-radius: 20px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.summary-text {
+  font-size: 14.5px;
+  line-height: 1.65;
+  max-width: 70ch;
+}
+
+/* Tests */
+.test-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 9px;
+  background: var(--card-sub);
+}
+.test-card:last-child { margin-bottom: 0; }
+.test-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 7px;
+}
+.test-name { font-weight: 700; font-size: 14px; }
+.test-src { font-family: var(--mono); font-size: 11px; color: var(--copper); }
+.elements { padding-left: 19px; }
+.elements li { font-size: 13.5px; margin: 4px 0; line-height: 1.55; }
+
+/* Cases */
+.cases { display: flex; flex-direction: column; gap: 9px; }
+.case-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--copper-mid);
+  border-radius: 7px;
+  padding: 12px 14px;
+  background: var(--card);
+}
+.case-main { flex: 1; min-width: 0; }
+.case-name { font-family: var(--serif); font-size: 15.5px; font-weight: 700; }
+.case-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.case-hold { font-size: 13px; margin-top: 6px; line-height: 1.5; }
+.case-side { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
+.conf { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.conf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.verify-btn {
+  font-size: 11px;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 9px;
+  color: var(--parl);
+  background: var(--card);
+  white-space: nowrap;
+  transition: border-color .15s;
+}
+.verify-btn:hover { border-color: var(--copper-mid); text-decoration: none; }
+.not-grounded { margin-top: 9px; font-size: 12px; color: var(--red); font-weight: 600; }
+
+/* Notes */
+.notes { padding-left: 19px; }
+.notes li { font-size: 13.5px; margin: 4px 0; line-height: 1.55; }
+
+/* Related */
+.related { display: flex; flex-wrap: wrap; gap: 7px; }
+.rel-chip {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.rel-chip b { color: var(--parl); }
+.rel-chip:hover { border-color: var(--copper-mid); background: var(--copper-tint); }
+
+/* Cite line */
+.citeline {
+  padding: 11px 24px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  background: var(--card-sub);
+  font-variant-numeric: tabular-nums;
+  overflow-x: auto;
+}
+
+/* ── Rule index ───────────────────────────────────────────────────────── */
+.index-wrap { margin-top: 30px; }
+.index-toggle {
+  background: none;
+  border: none;
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 6px 0;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.index-arrow { color: var(--copper); transition: transform .2s; }
+.index-arrow.open { transform: rotate(90deg); }
+.index-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 14px;
+}
+.index-head {
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--copper);
+  font-weight: 700;
+  font-family: var(--sans);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 5px;
+  margin-bottom: 5px;
+}
+.index-col ul { list-style: none; }
+.index-col li { margin: 1px 0; }
+.rule-link {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 5px;
+  transition: background .12s;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.rule-link:hover { background: var(--copper-tint); }
+.rule-n {
+  font-family: var(--serif);
+  font-weight: 700;
+  color: var(--copper);
+  min-width: 2.8ch;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.rule-t { font-size: 13px; color: var(--ink); }
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.foot {
+  margin-top: 32px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--sub);
+  text-align: center;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 580px) {
+  .masthead { flex-direction: column; text-align: center; }
+  .mast-sub { margin: 4px auto 0; }
+  .index-grid { grid-template-columns: 1fr; }
+  .big-num { font-size: 50px; }
+  .result-head { flex-direction: column; gap: 10px; }
+  .case-card { flex-direction: column; }
+  .case-side { flex-direction: row; align-items: center; }
+  .key-banner { gap: 6px; }
+  .key-field-wrap { min-width: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  .result { animation: none; }
+  .index-arrow { transition: none; }
+}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect } = React;
+
+/* ── Constants ─────────────────────────────────────────────────────────── */
+const ELAWS  = "https://www.ontario.ca/laws/regulation/990114";
+const CANLII = "https://www.canlii.org/en/on/laws/regu/o-reg-114-99/latest/o-reg-114-99.html";
+
+const RULES = [
+  { n:"1",    t:"General",                                              g:"Getting started" },
+  { n:"2",    t:"Interpretation",                                       g:"Getting started" },
+  { n:"3",    t:"Time",                                                 g:"Getting started" },
+  { n:"4",    t:"Representation",                                       g:"Getting started" },
+  { n:"5",    t:"Where a case starts and is to be heard",               g:"Getting started" },
+  { n:"6",    t:"Service of documents",                                 g:"Getting started" },
+  { n:"7",    t:"Parties and joining of claims and parties",             g:"Getting started" },
+  { n:"8",    t:"Starting a case",                                      g:"Getting started" },
+  { n:"8.1",  t:"Mandatory Information Program",                        g:"Getting started" },
+  { n:"9",    t:"Continuing record",                                    g:"Getting started" },
+  { n:"10",   t:"Answering a case",                                     g:"Pleadings & disclosure" },
+  { n:"11",   t:"Amending an application, answer or reply",             g:"Pleadings & disclosure" },
+  { n:"12",   t:"Withdrawing, combining or splitting cases",            g:"Pleadings & disclosure" },
+  { n:"13",   t:"Financial statements",                                 g:"Pleadings & disclosure" },
+  { n:"19",   t:"Document disclosure",                                  g:"Pleadings & disclosure" },
+  { n:"20",   t:"Questioning a witness and disclosure",                 g:"Pleadings & disclosure" },
+  { n:"22",   t:"Requests for admission",                               g:"Pleadings & disclosure" },
+  { n:"14",   t:"Motions for temporary orders",                         g:"Motions, conferences & settlement" },
+  { n:"15",   t:"Motion to change a final order or agreement",          g:"Motions, conferences & settlement" },
+  { n:"16",   t:"Summary judgment",                                     g:"Motions, conferences & settlement" },
+  { n:"17",   t:"Conferences",                                          g:"Motions, conferences & settlement" },
+  { n:"18",   t:"Offers to settle",                                     g:"Motions, conferences & settlement" },
+  { n:"20.1", t:"Alternative dispute resolution",                       g:"Motions, conferences & settlement" },
+  { n:"20.2", t:"Expert opinion evidence",                              g:"Evidence, trial & experts" },
+  { n:"23",   t:"Evidence and trial",                                   g:"Evidence, trial & experts" },
+  { n:"21",   t:"Decision-making responsibility, parenting time & guardianship", g:"Parenting & children" },
+  { n:"35.1", t:"Decision-making / parenting affidavit requirements",   g:"Parenting & children" },
+  { n:"33",   t:"Child protection",                                     g:"Parenting & children" },
+  { n:"34",   t:"Adoption",                                             g:"Parenting & children" },
+  { n:"24",   t:"Costs",                                                g:"Orders, costs & enforcement" },
+  { n:"25",   t:"Orders: general",                                      g:"Orders, costs & enforcement" },
+  { n:"26",   t:"Enforcement of orders",                                g:"Orders, costs & enforcement" },
+  { n:"27",   t:"Requiring financial information",                      g:"Orders, costs & enforcement" },
+  { n:"28",   t:"Writ of seizure and sale",                             g:"Orders, costs & enforcement" },
+  { n:"29",   t:"Garnishment",                                          g:"Orders, costs & enforcement" },
+  { n:"30",   t:"Default hearing",                                      g:"Orders, costs & enforcement" },
+  { n:"31",   t:"Contempt of order",                                    g:"Orders, costs & enforcement" },
+  { n:"32",   t:"Arrest and bail",                                      g:"Orders, costs & enforcement" },
+  { n:"36",   t:"Divorce",                                              g:"Divorce, appeals & case management" },
+  { n:"37",   t:"Interjurisdictional support orders",                   g:"Divorce, appeals & case management" },
+  { n:"38",   t:"Appeals",                                              g:"Divorce, appeals & case management" },
+  { n:"39",   t:"Case management — Family Court (SCJ)",                 g:"Divorce, appeals & case management" },
+  { n:"40",   t:"Case management — Ontario Court of Justice",           g:"Divorce, appeals & case management" },
+  { n:"41",   t:"Case management — Superior Court of Justice",          g:"Divorce, appeals & case management" },
+  { n:"42",   t:"Transition",                                           g:"Divorce, appeals & case management" },
+];
+
+const GROUP_ORDER = [
+  "Getting started",
+  "Pleadings & disclosure",
+  "Motions, conferences & settlement",
+  "Evidence, trial & experts",
+  "Parenting & children",
+  "Orders, costs & enforcement",
+  "Divorce, appeals & case management",
+];
+
+const STARTERS = [
+  "Opposing counsel served a motion before any conference — is that allowed?",
+  "What is the test to change a final parenting order?",
+  "Deadline to serve and file an answer?",
+  "How do costs work after a rejected offer to settle?",
+  "Can I get summary judgment in a family case?",
+  "When is a case conference required before a motion?",
+];
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+const canliiCase = (name, cite) =>
+  "https://www.canlii.org/en/#search/text=" + encodeURIComponent([name, cite].filter(Boolean).join(" "));
+
+function ruleMeta(num) {
+  const clean = String(num || "").replace(/[^0-9.]/g, "");
+  const found  = RULES.find(r => r.n === clean);
+  const whole  = /^\d+$/.test(clean);
+  return {
+    title:  found ? found.t : "",
+    elaws:  ELAWS,
+    canlii: whole ? `${CANLII}#sec${clean}` : CANLII,
+  };
+}
+
+function extractJSON(raw) {
+  if (!raw) return null;
+  const text  = raw.replace(/```json/gi, "").replace(/```/g, "");
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc)        esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"')  inStr = false;
+    } else if (c === '"') inStr = true;
+    else if (c === "{")   depth++;
+    else if (c === "}") {
+      if (--depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); } catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
+const SYSTEM = `You are a precise legal-research assistant specialised in the Ontario Family Law Rules (O. Reg. 114/99), made under the Courts of Justice Act. Your user is a licensed Ontario family law lawyer. Tune to general Ontario family practice covering both the Superior Court of Justice and the Ontario Court of Justice.
+
+For each question:
+- Identify the single most relevant Family Law Rule number, plus up to 3 related rules.
+- Give a concise, accurate plain-language summary of what that rule governs.
+- State the operative legal test(s) with their elements, tied to the rule/subrule number or the leading authority.
+- Surface leading Ontario/Canadian authorities ONLY when you are confident they are real and correctly named. Prefer appellate or well-settled authorities. Give name, citation if known, court, year, and a one-line holding.
+
+Anti-fabrication rules (critical):
+- NEVER invent a case, citation, quotation, or subrule number.
+- If you are not confident a citation is exactly right, set "confidence":"low" and note it must be verified, or omit the case.
+- When web search is available, use it to verify case names, citations, and any recent amendments before answering.
+
+Keep it compact: at most 3 cases; each holding <= 25 words.
+
+Output ONLY one valid JSON object, no markdown, no preamble, exactly this shape:
+{
+ "primaryRule": {"number":"14","title":"Motions for temporary orders"},
+ "relatedRules": [{"number":"17","title":"Conferences"}],
+ "summary": "plain-language overview",
+ "legalTests": [{"name":"","elements":["",""],"source":"r. 14(4.2)"}],
+ "caseLaw": [{"name":"","citation":"","court":"","year":"","holding":"","confidence":"high|medium|low"}],
+ "practiceNotes": ["short actionable note"],
+ "ruleCitations": ["r. 14(4)","r. 14(4.2)"]
+}
+If a field is unknown use an empty string or empty array.`;
+
+/* ── API call ───────────────────────────────────────────────────────────── */
+async function askClaude(question, grounded, apiKey) {
+  if (!apiKey || !apiKey.trim()) {
+    throw new Error("Enter your Anthropic API key in the banner at the top of the page.");
+  }
+  const body = {
+    model: "claude-sonnet-4-6",
+    max_tokens: 1000,
+    system: SYSTEM,
+    messages: [{
+      role: "user",
+      content: `Question: ${question}\n\nReturn only the JSON object described in your instructions.`,
+    }],
+  };
+  if (grounded) body.tools = [{ type: "web_search_20250305", name: "web_search" }];
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey.trim(),
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-calls": "true",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.error?.message || ""; } catch {}
+    throw new Error(`Request failed (${res.status}). ${detail}`.trim());
+  }
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  return { parsed: extractJSON(text), raw: text };
+}
+
+/* ── Memo builder ───────────────────────────────────────────────────────── */
+function buildMemo(data, grounded, question) {
+  const p     = data.primaryRule || {};
+  const meta  = ruleMeta(p.number);
+  const title = p.title || meta.title;
+  const L = [];
+  const push = (...lines) => L.push(...lines);
+  const today = new Date().toLocaleDateString("en-CA", { year:"numeric", month:"long", day:"numeric" });
+
+  push("MEMORANDUM", "");
+  if (question) push(`Re:   ${question}`);
+  push(`Rule: Rule ${p.number} — ${title} (O. Reg. 114/99)`);
+  push(`Date: ${today}`, "");
+
+  if (data.summary) push("SUMMARY", data.summary, "");
+
+  if (Array.isArray(data.legalTests) && data.legalTests.length) {
+    push("LEGAL TEST");
+    data.legalTests.forEach(t => {
+      push(`${t.name}${t.source ? `  (${t.source})` : ""}`);
+      (t.elements || []).forEach((el, i) => push(`   ${i + 1}. ${el}`));
+      push("");
+    });
+  }
+  if (Array.isArray(data.caseLaw) && data.caseLaw.length) {
+    push("LEADING AUTHORITIES  — verify every citation before relying on it");
+    data.caseLaw.forEach(c => {
+      const line = [c.name, c.citation, c.court, c.year].filter(Boolean).join(", ");
+      push(`- ${line}${c.confidence ? ` [${c.confidence}]` : ""}`);
+      if (c.holding) push(`  Holding: ${c.holding}`);
+    });
+    push("");
+  }
+  if (Array.isArray(data.practiceNotes) && data.practiceNotes.length) {
+    push("PRACTICE NOTES");
+    data.practiceNotes.forEach(n => push(`- ${n}`));
+    push("");
+  }
+  if (Array.isArray(data.relatedRules) && data.relatedRules.length) {
+    push("RELATED RULES");
+    data.relatedRules.forEach(r => push(`- r. ${r.number} — ${r.title || ruleMeta(r.number).title}`));
+    push("");
+  }
+  if (Array.isArray(data.ruleCitations) && data.ruleCitations.length)
+    push(`Provisions cited: ${data.ruleCitations.join(", ")}`, "");
+
+  push(`Sources: CanLII ${meta.canlii} | Ontario e-Laws ${meta.elaws}`, "");
+  push(`Prepared with AI assistance${grounded ? " (web-grounded)" : ""}. Case law and citations must be independently verified before use. Not legal advice.`);
+  return L.join("\n");
+}
+
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta); return ok;
+  } catch { return false; }
+}
+
+/* ── Small components ───────────────────────────────────────────────────── */
+const CONF_META = {
+  high:   { c: "#2F7A4F", label: "widely cited" },
+  medium: { c: "#B8842B", label: "verify" },
+  low:    { c: "#A6362F", label: "verify carefully" },
+};
+
+function ConfidenceDot({ level }) {
+  const m = CONF_META[level] || CONF_META.medium;
+  return (
+    <span className="conf" title={`Reliability: ${m.label}`}>
+      <span className="conf-dot" style={{ background: m.c }} />
+      {m.label}
+    </span>
+  );
+}
+
+function SourceLinks({ number }) {
+  const m = ruleMeta(number);
+  return (
+    <div className="src-row">
+      <a className="src-btn primary" href={m.canlii} target="_blank" rel="noreferrer">Rule {number} on CanLII ↗</a>
+      <a className="src-btn" href={m.elaws} target="_blank" rel="noreferrer">Ontario e-Laws ↗</a>
+    </div>
+  );
+}
+
+function ApiKeyBanner({ apiKey, setApiKey }) {
+  const [visible, setVisible] = useState(false);
+  const hasKey = apiKey.trim().length > 8;
+  return (
+    <div className="key-banner">
+      <span className="key-label">Anthropic API key</span>
+      <div className="key-field-wrap">
+        <input
+          className="key-input"
+          type={visible ? "text" : "password"}
+          placeholder="sk-ant-…"
+          value={apiKey}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={e => {
+            setApiKey(e.target.value);
+            try { sessionStorage.setItem("flrn_apikey", e.target.value); } catch {}
+          }}
+        />
+        <button className="key-toggle" type="button" onClick={() => setVisible(v => !v)}>
+          {visible ? "Hide" : "Show"}
+        </button>
+      </div>
+      {hasKey
+        ? <span className="key-status">✓ Key set</span>
+        : <span className="key-missing">Enter a key to enable search</span>
+      }
+    </div>
+  );
+}
+
+/* ── ResultView ─────────────────────────────────────────────────────────── */
+function ResultView({ data, grounded, question, onRule }) {
+  const [copied, setCopied] = useState("");
+  async function handleCopy() {
+    const ok = await copyText(buildMemo(data, grounded, question));
+    setCopied(ok ? "Copied to clipboard" : "Copy failed — select the text manually");
+    setTimeout(() => setCopied(""), 2600);
+  }
+  const p     = data.primaryRule || {};
+  const meta  = ruleMeta(p.number);
+  const title = p.title || meta.title;
+
+  return (
+    <div className="result">
+      <div className="result-head">
+        <div className="big-num" aria-hidden="true">{p.number}</div>
+        <div className="result-head-text">
+          <div className="eyebrow">Governing rule · O. Reg. 114/99</div>
+          <h2>Rule {p.number} — {title}</h2>
+          <SourceLinks number={p.number} />
+          <div className="memo-bar">
+            <button className="memo-btn" onClick={handleCopy}>
+              <span aria-hidden="true">▤</span> Copy to memo
+            </button>
+            {copied && <span className="copied">{copied}</span>}
+          </div>
+        </div>
+      </div>
+
+      {data.summary && (
+        <div className="block">
+          <h4 className="block-h">In plain terms</h4>
+          <p className="summary-text">{data.summary}</p>
+        </div>
+      )}
+
+      {Array.isArray(data.legalTests) && data.legalTests.length > 0 && (
+        <div className="block">
+          <h4 className="block-h">Legal test</h4>
+          {data.legalTests.map((t, i) => (
+            <div className="test-card" key={i}>
+              <div className="test-top">
+                <span className="test-name">{t.name}</span>
+                {t.source && <span className="test-src">{t.source}</span>}
+              </div>
+              {Array.isArray(t.elements) && t.elements.length > 0 && (
+                <ol className="elements">
+                  {t.elements.map((el, j) => <li key={j}>{el}</li>)}
+                </ol>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {Array.isArray(data.caseLaw) && data.caseLaw.length > 0 && (
+        <div className="block">
+          <h4 className="block-h">
+            Leading authorities
+            <span className="verify-tag">verify before citing</span>
+          </h4>
+          <div className="cases">
+            {data.caseLaw.map((c, i) => (
+              <div className="case-card" key={i}>
+                <div className="case-main">
+                  <div className="case-name">{c.name}</div>
+                  <div className="case-meta">{[c.citation, c.court, c.year].filter(Boolean).join(" · ")}</div>
+                  {c.holding && <div className="case-hold">{c.holding}</div>}
+                </div>
+                <div className="case-side">
+                  <ConfidenceDot level={c.confidence} />
+                  <a className="verify-btn" href={canliiCase(c.name, c.citation)} target="_blank" rel="noreferrer">
+                    Verify ↗
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+          {!grounded && (
+            <p className="not-grounded">
+              Fast mode: citations come from the model's memory. Enable grounding or verify each on CanLII.
+            </p>
+          )}
+        </div>
+      )}
+
+      {Array.isArray(data.practiceNotes) && data.practiceNotes.length > 0 && (
+        <div className="block">
+          <h4 className="block-h">Practice notes</h4>
+          <ul className="notes">
+            {data.practiceNotes.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {Array.isArray(data.relatedRules) && data.relatedRules.length > 0 && (
+        <div className="block">
+          <h4 className="block-h">Related rules</h4>
+          <div className="related">
+            {data.relatedRules.map((r, i) => (
+              <button key={i} className="rel-chip" onClick={() => onRule(r.number)}>
+                <b>r. {r.number}</b> {r.title || ruleMeta(r.number).title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {Array.isArray(data.ruleCitations) && data.ruleCitations.length > 0 && (
+        <div className="citeline">
+          Provisions cited: {data.ruleCitations.join(", ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── App ────────────────────────────────────────────────────────────────── */
+function App() {
+  const [apiKey, setApiKey]         = useState(() => { try { return sessionStorage.getItem("flrn_apikey") || ""; } catch { return ""; } });
+  const [query, setQuery]           = useState("");
+  const [grounded, setGrounded]     = useState(true);
+  const [loading, setLoading]       = useState(false);
+  const [result, setResult]         = useState(null);
+  const [rawFallback, setRawFallback] = useState("");
+  const [error, setError]           = useState("");
+  const [openIndex, setOpenIndex]   = useState(false);
+  const inputRef = useRef(null);
+
+  async function run(q) {
+    const question = (q ?? query).trim();
+    if (!question || loading) return;
+    setQuery(question);
+    setLoading(true);
+    setError("");
+    setResult(null);
+    setRawFallback("");
+    try {
+      const { parsed, raw } = await askClaude(question, grounded, apiKey);
+      if (parsed && parsed.primaryRule) setResult(parsed);
+      else setRawFallback(raw || "No readable answer returned. Try rephrasing, or disable grounding for a shorter reply.");
+    } catch (e) {
+      setError(e.message || "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  return (
+    <div>
+      <ApiKeyBanner apiKey={apiKey} setApiKey={setApiKey} />
+
+      <div className="wrap">
+        <header className="masthead">
+          <div className="crest">
+            <span className="crest-reg">O. Reg.</span>
+            <span className="crest-num">114/99</span>
+          </div>
+          <div className="mast-text">
+            <h1>Family Law Rules Navigator</h1>
+            <p className="mast-sub">
+              Ask in plain language — jump to the governing Rule, its test, and the leading authorities.
+            </p>
+          </div>
+        </header>
+
+        <div className="caution" role="note">
+          <strong>Research aid, not authority.</strong>&ensp;AI-surfaced case law can be wrong or fabricated.
+          Read the rule text and confirm every citation on CanLII before you rely on or cite it.
+        </div>
+
+        <section className="search-section">
+          <div className="search-card">
+            <textarea
+              ref={inputRef}
+              className="search-textarea"
+              rows={2}
+              value={query}
+              placeholder="e.g. Opposing counsel wants to bring a motion to dismiss for delay — which rule governs?"
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
+            />
+            <div className="search-footer">
+              <label className="toggle-label" title="Runs a live web search to verify citations. Slower but more accurate.">
+                <input type="checkbox" checked={grounded} onChange={e => setGrounded(e.target.checked)} />
+                <span>{grounded ? "Grounded (web-verified)" : "Fast (from model)"}</span>
+              </label>
+              <button className="btn-go" onClick={() => run()} disabled={loading}>
+                {loading ? "Researching…" : "Find the rule"}
+              </button>
+            </div>
+          </div>
+
+          <div className="starters">
+            {STARTERS.map(s => (
+              <button key={s} className="chip" onClick={() => run(s)} disabled={loading}>{s}</button>
+            ))}
+          </div>
+          <div className="hint">⌘ / Ctrl + Enter to search</div>
+        </section>
+
+        {loading && (
+          <div className="panel loading-panel">
+            <div className="spinner" />
+            <div>
+              <div className="loading-title">Reading the Rules{grounded ? " and checking authorities" : ""}…</div>
+              <div className="loading-sub">Routing your question to O. Reg. 114/99.</div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="panel error-panel">
+            <div className="error-title">Couldn't complete the search</div>
+            <div className="error-body">{error}</div>
+            <button className="btn-retry" onClick={() => run(query)}>Try again</button>
+          </div>
+        )}
+
+        {rawFallback && !result && (
+          <div className="panel">
+            <div className="raw-label">Unstructured reply</div>
+            <pre className="raw">{rawFallback}</pre>
+          </div>
+        )}
+
+        {result && (
+          <ResultView
+            data={result}
+            grounded={grounded}
+            question={query}
+            onRule={n => run(`Give me an overview of Rule ${n} of the Family Law Rules.`)}
+          />
+        )}
+
+        <section className="index-wrap">
+          <button className="index-toggle" onClick={() => setOpenIndex(v => !v)}>
+            <span className={`index-arrow${openIndex ? " open" : ""}`}>▶</span>
+            Browse all rules by stage of a case
+          </button>
+          {openIndex && (
+            <div className="index-grid">
+              {GROUP_ORDER.map(g => (
+                <div className="index-col" key={g}>
+                  <h3 className="index-head">{g}</h3>
+                  <ul>
+                    {RULES.filter(r => r.g === g).map(r => (
+                      <li key={r.n}>
+                        <button
+                          className="rule-link"
+                          onClick={() => run(`Give me an overview of Rule ${r.n} (${r.t}) of the Family Law Rules — summary, legal test, and leading cases.`)}
+                        >
+                          <span className="rule-n">{r.n}</span>
+                          <span className="rule-t">{r.t}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <footer className="foot">
+          Sources link to{" "}
+          <a href={ELAWS} target="_blank" rel="noreferrer">Ontario e-Laws</a> and{" "}
+          <a href={CANLII} target="_blank" rel="noreferrer">CanLII</a>.
+          Not legal advice; verify against the current consolidated regulation.
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
