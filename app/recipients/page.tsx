@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { BrandWordmark } from '@/app/_components/Brand';
+import { BrandWordmark, BackLink } from '@/app/_components/Brand';
 
 interface Recipient {
   id: string;
@@ -114,7 +114,7 @@ export default function RecipientsPage() {
     <div className="min-h-screen bg-[var(--background)]">
       <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BackLink />
           <BrandWordmark size={24} />
         </div>
         <span className="text-sm text-[var(--muted-foreground)]">Recipients</span>
@@ -183,11 +183,14 @@ export default function RecipientsPage() {
               <Field label="Bank account">
                 <input
                   required
+                  minLength={4}
+                  maxLength={40}
                   value={form.bankAccount}
                   onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
                   placeholder="IBAN or local account number"
                   className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
+                <p className="text-[11px] text-[var(--muted-foreground)] mt-1">IBAN (e.g. PK36 SCBL 0000 0011 2345 6702) or local account number · 4–40 characters</p>
               </Field>
               <Field label="Bank name" optional>
                 <input
@@ -211,8 +214,11 @@ export default function RecipientsPage() {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+92 300 1234567"
+                  pattern="^\+?[0-9 ()\-]{6,20}$"
+                  title="Include country code, e.g. +92 300 1234567"
                   className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 />
+                <p className="text-[11px] text-[var(--muted-foreground)] mt-1">Include country code · e.g. +92 300 1234567 or +91 98765 43210</p>
               </Field>
               <div className="flex gap-3 pt-2">
                 <button

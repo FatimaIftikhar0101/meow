@@ -204,7 +204,7 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
           <Globe3D
             mode="passive"
             height="100%"
-            samples={6500}
+            samples={2500}
             autoRotateSpeed={0.18}
             arcs={MEOW_CORRIDORS}
           />

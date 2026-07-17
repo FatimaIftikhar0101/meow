@@ -38,3 +38,17 @@ export function BrandWordmark({ size = 24 }: { size?: number }) {
     </Link>
   );
 }
+
+export function BackLink({ href = '/dashboard' }: { href?: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label="Go back"
+      className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 3L5 8l5 5" />
+      </svg>
+    </Link>
+  );
+}

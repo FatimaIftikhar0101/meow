@@ -4,7 +4,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { io } from 'socket.io-client';
 import { getToken } from '@/lib/auth';
-import { BrandWordmark } from '@/app/_components/Brand';
+import { BrandWordmark, BackLink } from '@/app/_components/Brand';
 import { WorldMap } from '@/app/_components/WorldMap';
 import { CatTimeline } from '@/app/_components/CatTimeline';
 
@@ -90,7 +90,7 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
     <div className="min-h-screen bg-[var(--background)]">
       <nav className="bg-[var(--surface)]/80 backdrop-blur border-b border-[var(--border)] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--accent-deep)] text-lg">←</Link>
+          <BackLink />
           <BrandWordmark size={24} />
         </div>
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted-foreground)]">Tracking</span>
@@ -140,31 +140,46 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
 
         {/* Receipt — shown when delivered */}
         {isDelivered && (
-          <div
-            className="relative rounded-3xl p-6 overflow-hidden border"
-            style={{
-              background: 'linear-gradient(135deg, var(--mint-soft), var(--gold-soft))',
-              borderColor: 'var(--mint)',
-            }}
-          >
-            <h2 className="font-bold text-[var(--foreground)] mb-4 flex items-center gap-2 text-lg">
-              <span className="text-2xl">🎉</span> Done! Here&apos;s your receipt
-            </h2>
-            <div className="space-y-2 text-sm">
-              <Row label="Transfer ID" value={<span className="font-mono text-[var(--muted-foreground)] text-xs">{transfer.id}</span>} />
-              <Row label="Recipient" value={transfer.recipient?.name} />
-              <Row label="You sent" value={`${parseFloat(transfer.amount).toFixed(2)} ${transfer.sendCurrency}`} />
-              <Row label="They received" value={<span className="text-[var(--mint)] font-bold">{parseFloat(transfer.receiveAmount).toFixed(2)} {transfer.receiveCurrency}</span>} />
-              <Row label="Exchange rate" value={`1 ${transfer.sendCurrency} = ${parseFloat(transfer.fxRateApplied).toFixed(4)} ${transfer.receiveCurrency}`} />
-              <Row label="Date" value={new Date(transfer.createdAt).toLocaleString()} />
-            </div>
-            <button
-              onClick={() => window.print()}
-              className="mt-5 w-full bg-[var(--ink)] text-white hover:bg-[var(--brand-deep)] font-semibold py-2.5 rounded-full transition text-sm"
+          <>
+            <style>{`
+              @media print {
+                body > * { display: none !important; }
+                #meow-receipt { display: block !important; position: static !important; width: 100% !important; }
+                #meow-receipt-print-hide { display: none !important; }
+              }
+            `}</style>
+            <div
+              id="meow-receipt"
+              className="relative rounded-3xl p-6 overflow-hidden border"
+              style={{
+                background: 'linear-gradient(135deg, var(--mint-soft), var(--gold-soft))',
+                borderColor: 'var(--mint)',
+              }}
             >
-              Print receipt
-            </button>
-          </div>
+              <h2 className="font-bold text-[var(--foreground)] mb-4 flex items-center gap-2 text-lg">
+                <span className="text-2xl">🎉</span> Done! Here&apos;s your receipt
+              </h2>
+              <div className="mb-2 text-center print:block hidden">
+                <p className="text-xs text-[var(--muted-foreground)] font-semibold tracking-widest uppercase">Meow · Official Transfer Receipt</p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <Row label="Transfer ID" value={<span className="font-mono text-[var(--muted-foreground)] text-xs">{transfer.id}</span>} />
+                <Row label="Recipient" value={transfer.recipient?.name} />
+                <Row label="Bank account" value={<span className="font-mono text-xs">{transfer.recipient?.bankAccount}</span>} />
+                <Row label="You sent" value={`${parseFloat(transfer.amount).toFixed(2)} ${transfer.sendCurrency}`} />
+                <Row label="They received" value={<span className="text-[var(--mint)] font-bold">{parseFloat(transfer.receiveAmount).toFixed(2)} {transfer.receiveCurrency}</span>} />
+                <Row label="Exchange rate" value={`1 ${transfer.sendCurrency} = ${parseFloat(transfer.fxRateApplied).toFixed(4)} ${transfer.receiveCurrency}`} />
+                <Row label="Date" value={new Date(transfer.createdAt).toLocaleString()} />
+              </div>
+              <button
+                id="meow-receipt-print-hide"
+                onClick={() => window.print()}
+                className="mt-5 w-full bg-[var(--ink)] text-white hover:bg-[var(--brand-deep)] font-semibold py-2.5 rounded-full transition text-sm"
+              >
+                Print / Save as PDF
+              </button>
+            </div>
+          </>
         )}
 
         {/* Cancel button */}

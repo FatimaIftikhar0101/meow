@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { BrandWordmark } from '@/app/_components/Brand';
+import { BrandWordmark, BackLink } from '@/app/_components/Brand';
 
 interface Transaction {
   id: string;
@@ -52,7 +52,7 @@ export default function TransactionsPage() {
     <div className="min-h-screen bg-[var(--background)]">
       <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BackLink />
           <BrandWordmark size={24} />
         </div>
         <span className="text-sm text-[var(--muted-foreground)]">Activity</span>

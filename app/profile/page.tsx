@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { logout, setToken } from '@/lib/auth';
-import { BrandWordmark } from '@/app/_components/Brand';
+import { BrandWordmark, BackLink } from '@/app/_components/Brand';
 
 interface Profile {
   userId: string;
@@ -84,16 +84,21 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <nav className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[var(--background)] relative">
+      {/* golden warm wash — matches dashboard */}
+      <div
+        className="absolute inset-x-0 top-0 h-48 pointer-events-none"
+        style={{ background: 'linear-gradient(180deg, rgba(255,232,176,0.5) 0%, rgba(255,255,255,0) 100%)' }}
+      />
+      <nav className="relative bg-transparent border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-[var(--muted-foreground)] hover:text-[var(--brand)]">←</Link>
+          <BackLink />
           <BrandWordmark size={24} />
         </div>
         <span className="text-sm text-[var(--muted-foreground)]">Profile</span>
       </nav>
 
-      <div className="max-w-xl mx-auto px-4 py-10 space-y-4">
+      <div className="relative max-w-xl mx-auto px-4 py-10 space-y-4">
         {/* Account card */}
         <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
           <div className="flex items-center gap-4">
