@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { ContactShadows, Environment, OrbitControls } from '@react-three/drei';
+import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { useSpring, a } from '@react-spring/three';
 import { geoContains } from 'd3-geo';
 import { feature } from 'topojson-client';
@@ -10,6 +10,7 @@ import type { Feature, MultiPolygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import landTopo from 'world-atlas/land-110m.json';
 import * as THREE from 'three';
+import { PRECOMPUTED_DOTS } from './globeDots.data';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Build a land Feature once at module scope so every Globe3D instance and
@@ -28,6 +29,14 @@ function landDots(count: number, radius: number): Float32Array {
   const key = `${count}:${radius}`;
   const cached = DOT_CACHE.get(key);
   if (cached) return cached;
+
+  // Fast path: the dashboard's fixed (2500, 1.003) dots are precomputed and
+  // shipped as static data, so we skip the ~4.5s geoContains sweep entirely.
+  const baked = PRECOMPUTED_DOTS[key];
+  if (baked) {
+    DOT_CACHE.set(key, baked);
+    return baked;
+  }
 
   const phi = Math.PI * (Math.sqrt(5) - 1); // golden angle
   const RAD2DEG = 180 / Math.PI;
@@ -102,36 +111,37 @@ function GlobeDots({ samples = 11000, radius = 1.003, size = 0.0085 }: DotsProps
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, count]} frustumCulled={false}>
       <circleGeometry args={[size, 6]} />
-      <meshPhysicalMaterial
+      {/* meshStandardMaterial (not physical) — no env map needed, so it
+          compiles a far lighter shader.  Silvery look comes from a bright
+          diffuse colour + emissive lift rather than metal reflections. */}
+      <meshStandardMaterial
         color="#c3c8d2"
-        metalness={1}
-        roughness={0.18}
-        envMapIntensity={1.8}
-        emissive="#9aa1ad"
-        emissiveIntensity={0.22}
-        toneMapped
+        metalness={0.15}
+        roughness={0.5}
+        emissive="#aab2c0"
+        emissiveIntensity={0.4}
       />
     </instancedMesh>
   );
 }
 
 /* ─── Glass shell ─────────────────────────────────────────────────────── */
+/* Was a meshPhysicalMaterial with transmission=0.95 — gorgeous, but
+ * transmission forces the renderer to render the whole scene to a separate
+ * target every single frame AND compiles a monster shader (the ~3.9s
+ * main-thread freeze on mount).  A transparent Phong shell gives a similar
+ * soft glassy sheen (specular highlight + faint fill) for almost nothing. */
 function GlassSphere() {
   return (
     <mesh>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshPhysicalMaterial
-        transmission={0.95}
-        thickness={0.55}
-        roughness={0.07}
-        metalness={0}
-        ior={1.45}
-        clearcoat={1}
-        clearcoatRoughness={0.08}
-        attenuationColor="#f4f7fc"
-        attenuationDistance={2.6}
-        color="#ffffff"
+      <sphereGeometry args={[1, 48, 48]} />
+      <meshPhongMaterial
+        color="#eef2f8"
         transparent
+        opacity={0.08}
+        specular="#ffffff"
+        shininess={80}
+        depthWrite={false}
       />
     </mesh>
   );
@@ -357,12 +367,16 @@ export function Globe3D({
             a rounded-full / overflow-hidden parent to clip the rect. */}
         <color attach="background" args={['#ffffff']} />
 
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[5, 5, 5]} intensity={1.5} />
-        <directionalLight position={[-4, 2, -3]} intensity={0.45} color="#dfe5f0" />
+        {/* No <Environment> — the drei studio preset ran a synchronous PMREM
+            prefilter (and an HDR fetch) on mount, a big chunk of the freeze.
+            These three lights carry the scene instead; the extra hemisphere
+            fill replaces the soft ambient bounce the env map used to give. */}
+        <ambientLight intensity={0.7} />
+        <hemisphereLight args={['#ffffff', '#c8cfdd', 0.6]} />
+        <directionalLight position={[5, 5, 5]} intensity={1.7} />
+        <directionalLight position={[-4, 2, -3]} intensity={0.55} color="#dfe5f0" />
 
         <Suspense fallback={null}>
-          <Environment preset="studio" />
           <GlobeGroup
             interactive={interactive}
             autoRotateSpeed={speed}
