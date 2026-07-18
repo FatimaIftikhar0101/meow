@@ -1,19 +1,22 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// import dynamic from 'next/dynamic';
+import dynamic from 'next/dynamic';
 import api from '@/lib/api';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { MagneticButton, Reveal, useCountUp } from '@/app/_components/motion';
-// import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
+import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
 import { CatConstellation } from '@/app/_components/CatConstellation';
 
-/* Globe3D disabled for perf testing — re-enable by uncommenting the three imports below */
-// const Globe3D = dynamic(() => import('@/app/_components/Globe3D'), {
-//   ssr: false,
-//   loading: () => null,
-// });
+/* Lazy-load the entire Three.js chunk — it's large and blocking.
+ * The component is only *mounted* once the browser reports idle (see
+ * the requestIdleCallback in DashboardPage), so shader compilation
+ * never races with the initial paint or user interaction. */
+const Globe3D = dynamic(() => import('@/app/_components/Globe3D'), {
+  ssr: false,
+  loading: () => null,
+});
 
 const IN_FLIGHT = new Set([
   'initiated',
@@ -44,8 +47,26 @@ export default function DashboardPage() {
   const [name, setName] = useState('');
   const [kycPassed, setKycPassed] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
-  // const [globeReady, setGlobeReady] = useState(false);
+  const [globeReady, setGlobeReady] = useState(false);
   const [corridors, setCorridors] = useState<Corridor[]>([]);
+
+  // Mount the globe only when the browser is genuinely idle so WebGL
+  // init never competes with the first paint or user interaction.
+  // requestIdleCallback fires after the event loop drains; the inner
+  // rAF adds one more frame so the idle callback's own overhead settles
+  // before React starts the heavy Three.js render.  startTransition
+  // marks the state flip as non-urgent — React can yield mid-render.
+  useEffect(() => {
+    let rICId: number;
+    let rafId: number;
+    const go = () => { rafId = requestAnimationFrame(() => { startTransition(() => setGlobeReady(true)); }); };
+    if ('requestIdleCallback' in window) {
+      rICId = window.requestIdleCallback(go, { timeout: 5000 });
+      return () => { window.cancelIdleCallback(rICId); cancelAnimationFrame(rafId); };
+    }
+    const t = setTimeout(go, 1500);
+    return () => { clearTimeout(t); cancelAnimationFrame(rafId); };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -88,7 +109,7 @@ export default function DashboardPage() {
   return (
     <div className="relative min-h-screen bg-[var(--background)] overflow-hidden">
       {/* ─── Background layers (globe + skull + warm wash) ─── */}
-      <BackgroundMotif />
+      <BackgroundMotif globeReady={globeReady} />
 
       {/* ─── Foreground (nav + greeting + tiles) ─── */}
       <div className="relative z-10">
@@ -163,7 +184,7 @@ export default function DashboardPage() {
 }
 
 /* ─── Background composition ──────────────────────────────────────────── */
-function BackgroundMotif() {
+function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
       {/* Warm wash — top band only, kept clear of the globe centre so
@@ -192,15 +213,15 @@ function BackgroundMotif() {
             'radial-gradient(circle at 50% 50%, black 56%, rgba(0,0,0,0.6) 68%, transparent 78%)',
         }}
       >
-        {/* Globe3D disabled for perf testing — uncomment to restore:
-        <Globe3D
-          mode="passive"
-          height="100%"
-          samples={2500}
-          autoRotateSpeed={0.18}
-          arcs={MEOW_CORRIDORS}
-        />
-        */}
+        {globeReady && (
+          <Globe3D
+            mode="passive"
+            height="100%"
+            samples={2500}
+            autoRotateSpeed={0.18}
+            arcs={MEOW_CORRIDORS}
+          />
+        )}
       </div>
 
       {/* Constellation cat — celestial accent on top of the globe.

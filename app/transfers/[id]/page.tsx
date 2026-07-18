@@ -143,41 +143,117 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
           <>
             <style>{`
               @media print {
-                body > * { display: none !important; }
-                #meow-receipt { display: block !important; position: static !important; width: 100% !important; }
-                #meow-receipt-print-hide { display: none !important; }
+                /* visibility:hidden lets a child override with visibility:visible —
+                   display:none on a parent cannot be overridden by children, which
+                   is why the old body>*{display:none} trick produced a blank page. */
+                body { visibility: hidden; }
+                #meow-receipt {
+                  visibility: visible;
+                  position: fixed !important;
+                  top: 0 !important; left: 0 !important;
+                  width: 100% !important;
+                  background: white !important;
+                  padding: 48px !important;
+                  border: none !important;
+                  border-radius: 0 !important;
+                  box-shadow: none !important;
+                }
+                #meow-receipt-screen { display: none !important; }
+                #meow-receipt-print  { display: block !important; }
               }
             `}</style>
-            <div
-              id="meow-receipt"
-              className="relative rounded-3xl p-6 overflow-hidden border"
-              style={{
-                background: 'linear-gradient(135deg, var(--mint-soft), var(--gold-soft))',
-                borderColor: 'var(--mint)',
-              }}
-            >
-              <h2 className="font-bold text-[var(--foreground)] mb-4 flex items-center gap-2 text-lg">
-                <span className="text-2xl">🎉</span> Done! Here&apos;s your receipt
-              </h2>
-              <div className="mb-2 text-center print:block hidden">
-                <p className="text-xs text-[var(--muted-foreground)] font-semibold tracking-widest uppercase">Meow · Official Transfer Receipt</p>
-              </div>
-              <div className="space-y-2 text-sm">
-                <Row label="Transfer ID" value={<span className="font-mono text-[var(--muted-foreground)] text-xs">{transfer.id}</span>} />
-                <Row label="Recipient" value={transfer.recipient?.name} />
-                <Row label="Bank account" value={<span className="font-mono text-xs">{transfer.recipient?.bankAccount}</span>} />
-                <Row label="You sent" value={`${parseFloat(transfer.amount).toFixed(2)} ${transfer.sendCurrency}`} />
-                <Row label="They received" value={<span className="text-[var(--mint)] font-bold">{parseFloat(transfer.receiveAmount).toFixed(2)} {transfer.receiveCurrency}</span>} />
-                <Row label="Exchange rate" value={`1 ${transfer.sendCurrency} = ${parseFloat(transfer.fxRateApplied).toFixed(4)} ${transfer.receiveCurrency}`} />
-                <Row label="Date" value={new Date(transfer.createdAt).toLocaleString()} />
-              </div>
-              <button
-                id="meow-receipt-print-hide"
-                onClick={() => window.print()}
-                className="mt-5 w-full bg-[var(--ink)] text-white hover:bg-[var(--brand-deep)] font-semibold py-2.5 rounded-full transition text-sm"
+
+            <div id="meow-receipt">
+              {/* ── Screen card ───────────────────────────────────────────── */}
+              <div
+                id="meow-receipt-screen"
+                className="relative rounded-3xl p-6 overflow-hidden border"
+                style={{
+                  background: 'linear-gradient(135deg, var(--mint-soft), var(--gold-soft))',
+                  borderColor: 'var(--mint)',
+                }}
               >
-                Print / Save as PDF
-              </button>
+                <h2 className="font-bold text-[var(--foreground)] mb-4 flex items-center gap-2 text-lg">
+                  <span className="text-2xl">🎉</span> Done! Here&apos;s your receipt
+                </h2>
+                <div className="space-y-2 text-sm">
+                  <Row label="Transfer ID" value={<span className="font-mono text-[var(--muted-foreground)] text-xs">{transfer.id}</span>} />
+                  <Row label="Recipient"   value={transfer.recipient?.name} />
+                  <Row label="Bank account" value={<span className="font-mono text-xs">{transfer.recipient?.bankAccount}</span>} />
+                  <Row label="You sent"    value={`${parseFloat(transfer.amount).toFixed(2)} ${transfer.sendCurrency}`} />
+                  <Row label="They received" value={<span className="text-[var(--mint)] font-bold">{parseFloat(transfer.receiveAmount).toFixed(2)} {transfer.receiveCurrency}</span>} />
+                  <Row label="Exchange rate" value={`1 ${transfer.sendCurrency} = ${parseFloat(transfer.fxRateApplied).toFixed(4)} ${transfer.receiveCurrency}`} />
+                  <Row label="Date"        value={new Date(transfer.createdAt).toLocaleString()} />
+                </div>
+                <button
+                  onClick={() => window.print()}
+                  className="mt-5 w-full bg-[var(--ink)] text-white hover:bg-[var(--brand-deep)] font-semibold py-2.5 rounded-full transition text-sm"
+                >
+                  Print / Save as PDF
+                </button>
+              </div>
+
+              {/* ── Print-only professional receipt ───────────────────────── */}
+              <div id="meow-receipt-print" style={{ display: 'none', fontFamily: 'Georgia, serif', color: '#111' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', paddingBottom: '20px', borderBottom: '2px solid #111' }}>
+                  <div>
+                    <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px', fontFamily: 'Arial, sans-serif' }}>meow</div>
+                    <div style={{ fontSize: '11px', color: '#666', marginTop: '2px', fontFamily: 'Arial, sans-serif' }}>meow.finance · International money transfer</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.5px' }}>Transfer Receipt</div>
+                    <div style={{ fontSize: '11px', color: '#555', marginTop: '6px', fontFamily: 'monospace' }}>Ref: {transfer.id.slice(0, 12).toUpperCase()}</div>
+                    <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>{new Date(transfer.createdAt).toLocaleString()}</div>
+                  </div>
+                </div>
+
+                {/* Status banner */}
+                <div style={{ border: '1.5px solid #1a9e5c', borderRadius: '6px', padding: '10px 16px', marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '10px', background: '#f0faf5' }}>
+                  <span style={{ fontSize: '18px', color: '#1a9e5c', fontWeight: 700 }}>✓</span>
+                  <div>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#1a9e5c' }}>Delivered</span>
+                    <span style={{ fontSize: '12px', color: '#444', marginLeft: '8px' }}>Funds successfully credited to recipient&apos;s bank account</span>
+                  </div>
+                </div>
+
+                {/* Transaction summary */}
+                <div style={{ border: '1px solid #d1d5db', borderRadius: '6px', overflow: 'hidden', marginBottom: '20px' }}>
+                  <div style={{ background: '#f3f4f6', padding: '8px 16px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1.5px', color: '#6b7280', fontFamily: 'Arial, sans-serif' }}>
+                    Transaction Summary
+                  </div>
+                  <div style={{ padding: '16px' }}>
+                    <PrintRow label="You sent"      value={`${parseFloat(transfer.amount).toFixed(2)} ${transfer.sendCurrency}`} large />
+                    <PrintRow label="They received" value={`${parseFloat(transfer.receiveAmount).toFixed(2)} ${transfer.receiveCurrency}`} large accent />
+                    <div style={{ borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />
+                    <PrintRow label="Exchange rate" value={`1 ${transfer.sendCurrency} = ${parseFloat(transfer.fxRateApplied).toFixed(4)} ${transfer.receiveCurrency}`} />
+                  </div>
+                </div>
+
+                {/* Recipient details */}
+                <div style={{ border: '1px solid #d1d5db', borderRadius: '6px', overflow: 'hidden', marginBottom: '20px' }}>
+                  <div style={{ background: '#f3f4f6', padding: '8px 16px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1.5px', color: '#6b7280', fontFamily: 'Arial, sans-serif' }}>
+                    Recipient
+                  </div>
+                  <div style={{ padding: '16px' }}>
+                    <PrintRow label="Full name"    value={transfer.recipient?.name} />
+                    <PrintRow label="Bank account" value={transfer.recipient?.bankAccount} mono />
+                    <PrintRow label="Country"      value={transfer.recipient?.country} />
+                  </div>
+                </div>
+
+                {/* Reference */}
+                <div style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '12px 16px', marginBottom: '28px' }}>
+                  <PrintRow label="Transfer ID" value={transfer.id} mono small />
+                  <PrintRow label="Date &amp; time" value={new Date(transfer.createdAt).toLocaleString()} small />
+                </div>
+
+                {/* Footer */}
+                <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '16px', fontSize: '10px', color: '#9ca3af', lineHeight: '1.7', fontFamily: 'Arial, sans-serif' }}>
+                  <p>This document confirms a transfer processed through meow.finance. Retain for your records.</p>
+                  <p style={{ marginTop: '4px' }}>meow.finance · support@meow.finance · This is not a tax document. Issued {new Date().toLocaleDateString()}.</p>
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -210,6 +286,23 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex justify-between items-center">
       <span className="text-[var(--muted-foreground)]">{label}</span>
       <span className="text-[var(--foreground)] font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function PrintRow({ label, value, large, mono, small, accent }: {
+  label: string; value: React.ReactNode;
+  large?: boolean; mono?: boolean; small?: boolean; accent?: boolean;
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '5px 0' }}>
+      <span style={{ color: '#6b7280', fontSize: small ? '11px' : '13px', fontFamily: 'Arial, sans-serif' }}>{label}</span>
+      <span style={{
+        fontFamily: mono ? 'monospace' : 'Arial, sans-serif',
+        fontSize: large ? '17px' : small ? '11px' : '13px',
+        fontWeight: large ? 700 : 600,
+        color: accent ? '#1a9e5c' : '#111827',
+      }}>{value}</span>
     </div>
   );
 }
