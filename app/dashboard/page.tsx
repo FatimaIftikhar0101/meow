@@ -2,20 +2,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
+// import dynamic from 'next/dynamic';
 import api from '@/lib/api';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { MagneticButton, Reveal, useCountUp } from '@/app/_components/motion';
-import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
+// import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
 import { CatConstellation } from '@/app/_components/CatConstellation';
 
-/* The globe sits in the background — passive, slow, low-density. It's a
- * mood-setter, not an interactive object. Lazy-imported so the launcher
- * paints first; the three.js chunk arrives just after. */
-const Globe3D = dynamic(() => import('@/app/_components/Globe3D'), {
-  ssr: false,
-  loading: () => null,
-});
+/* Globe3D disabled for perf testing — re-enable by uncommenting the three imports below */
+// const Globe3D = dynamic(() => import('@/app/_components/Globe3D'), {
+//   ssr: false,
+//   loading: () => null,
+// });
 
 const IN_FLIGHT = new Set([
   'initiated',
@@ -46,14 +44,8 @@ export default function DashboardPage() {
   const [name, setName] = useState('');
   const [kycPassed, setKycPassed] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
-  const [globeReady, setGlobeReady] = useState(false);
+  // const [globeReady, setGlobeReady] = useState(false);
   const [corridors, setCorridors] = useState<Corridor[]>([]);
-
-  // Defer mounting the globe past the launcher's first paint.
-  useEffect(() => {
-    const id = window.setTimeout(() => setGlobeReady(true), 80);
-    return () => window.clearTimeout(id);
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -96,7 +88,7 @@ export default function DashboardPage() {
   return (
     <div className="relative min-h-screen bg-[var(--background)] overflow-hidden">
       {/* ─── Background layers (globe + skull + warm wash) ─── */}
-      <BackgroundMotif globeReady={globeReady} />
+      <BackgroundMotif />
 
       {/* ─── Foreground (nav + greeting + tiles) ─── */}
       <div className="relative z-10">
@@ -171,7 +163,7 @@ export default function DashboardPage() {
 }
 
 /* ─── Background composition ──────────────────────────────────────────── */
-function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
+function BackgroundMotif() {
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
       {/* Warm wash — top band only, kept clear of the globe centre so
@@ -200,15 +192,15 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
             'radial-gradient(circle at 50% 50%, black 56%, rgba(0,0,0,0.6) 68%, transparent 78%)',
         }}
       >
-        {globeReady && (
-          <Globe3D
-            mode="passive"
-            height="100%"
-            samples={2500}
-            autoRotateSpeed={0.18}
-            arcs={MEOW_CORRIDORS}
-          />
-        )}
+        {/* Globe3D disabled for perf testing — uncomment to restore:
+        <Globe3D
+          mode="passive"
+          height="100%"
+          samples={2500}
+          autoRotateSpeed={0.18}
+          arcs={MEOW_CORRIDORS}
+        />
+        */}
       </div>
 
       {/* Constellation cat — celestial accent on top of the globe.
