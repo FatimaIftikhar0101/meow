@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import type { GoogleProfile } from './google.strategy';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -74,12 +75,80 @@ export class AuthService {
     return this.signToken(user.id, user.email, user.role);
   }
 
+  async googleLogin(profile: GoogleProfile) {
+    let user = await this.prisma.user.findUnique({
+      where: { googleId: profile.googleId },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.findUnique({
+        where: { email: profile.email },
+      });
+
+      if (user) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId: profile.googleId,
+            authProvider: user.authProvider === 'local' ? 'local+google' : user.authProvider,
+            firstName: user.firstName || profile.firstName || null,
+            avatarUrl: user.avatarUrl || profile.avatarUrl || null,
+          },
+        });
+      } else {
+        const role = this.isAdminEmail(profile.email) ? 'admin' : 'customer';
+        user = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: {
+              email: profile.email,
+              authProvider: 'google',
+              googleId: profile.googleId,
+              firstName: profile.firstName || null,
+              avatarUrl: profile.avatarUrl || null,
+              role,
+            },
+          });
+          await tx.wallet.create({
+            data: { userId: created.id, currency: 'CAD' },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: created.id,
+              action: 'auth.google_register',
+              entityType: 'user',
+              entityId: created.id,
+            },
+          });
+          return created;
+        });
+      }
+    }
+
+    if (user.suspended) {
+      throw new ForbiddenException('Account suspended');
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'auth.google_login',
+        entityType: 'user',
+        entityId: user.id,
+      },
+    });
+
+    return this.signToken(user.id, user.email, user.role);
+  }
+
   async login(dto: LoginDto, expectedRole?: UserRole) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+    if (!user.passwordHash) {
+      throw new UnauthorizedException('This account uses Google sign-in');
     }
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) {
@@ -143,6 +212,9 @@ export class AuthService {
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
+    if (!user.passwordHash) {
+      throw new BadRequestException('This account uses Google sign-in and has no password to change');
+    }
     const ok = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!ok) throw new BadRequestException('Current password is incorrect');
     if (dto.currentPassword === dto.newPassword) {

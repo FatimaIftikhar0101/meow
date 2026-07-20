@@ -60,14 +60,22 @@ function landDots(count: number, radius: number): Float32Array {
   return out;
 }
 
-/* lat/lng → 3D point on a sphere of the given radius (Y-up, standard equirect). */
+/* lat/lng → 3D point on a sphere of the given radius.
+ *
+ * MUST match landDots()'s convention exactly, or the corridor arcs land in
+ * the wrong place relative to the land geography.  landDots derives lat/lng
+ * from a 3D point as lat = asin(y), lng = atan2(z, x), so the forward map is:
+ *   x = cos(lat)·cos(lng),  y = sin(lat),  z = cos(lat)·sin(lng)
+ * (The previous version flipped the z sign, mirroring every endpoint east↔west
+ * — Toronto's −79° rendered near +79°, out in the ocean.) */
 function latLngToVec3(lat: number, lng: number, r: number): THREE.Vector3 {
-  const phi = ((90 - lat) * Math.PI) / 180;
-  const theta = ((lng + 180) * Math.PI) / 180;
+  const latR = (lat * Math.PI) / 180;
+  const lngR = (lng * Math.PI) / 180;
+  const cosLat = Math.cos(latR);
   return new THREE.Vector3(
-    -r * Math.sin(phi) * Math.cos(theta),
-    r * Math.cos(phi),
-    r * Math.sin(phi) * Math.sin(theta),
+    r * cosLat * Math.cos(lngR),
+    r * Math.sin(latR),
+    r * cosLat * Math.sin(lngR),
   );
 }
 
@@ -133,17 +141,35 @@ function GlobeDots({ samples = 11000, radius = 1.003, size = 0.0085 }: DotsProps
  * soft glassy sheen (specular highlight + faint fill) for almost nothing. */
 function GlassSphere() {
   return (
-    <mesh>
-      <sphereGeometry args={[1, 48, 48]} />
-      <meshPhongMaterial
-        color="#eef2f8"
-        transparent
-        opacity={0.08}
-        specular="#ffffff"
-        shininess={80}
-        depthWrite={false}
-      />
-    </mesh>
+    <group>
+      {/* Soft grey body — gives the globe the silvery shade it had before,
+          without the expensive transmission path.  Sits just inside the dot
+          shell (r=1.003) so the front dots read over it and the back dots
+          are gently veiled for depth. */}
+      <mesh>
+        <sphereGeometry args={[0.999, 48, 48]} />
+        <meshPhongMaterial
+          color="#bcc3ce"
+          transparent
+          opacity={0.32}
+          specular="#ffffff"
+          shininess={40}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Thin glossy rim highlight on top for a hint of glass sheen. */}
+      <mesh>
+        <sphereGeometry args={[1.001, 48, 48]} />
+        <meshPhongMaterial
+          color="#f2f5fa"
+          transparent
+          opacity={0.06}
+          specular="#ffffff"
+          shininess={90}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
   );
 }
 

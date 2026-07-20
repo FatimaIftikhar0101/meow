@@ -22,8 +22,12 @@ datasource db {
 model User {
   id                 String    @id @default(uuid())
   email              String    @unique
-  passwordHash       String
+  passwordHash       String?
   passwordChangedAt  DateTime  @default(now())
+  authProvider       String    @default("local")
+  googleId           String?   @unique
+  firstName          String?
+  avatarUrl          String?
   country            String?
   role               UserRole  @default(customer)
   suspended          Boolean   @default(false)

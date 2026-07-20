@@ -50,22 +50,21 @@ export default function DashboardPage() {
   const [globeReady, setGlobeReady] = useState(false);
   const [corridors, setCorridors] = useState<Corridor[]>([]);
 
-  // Mount the globe only when the browser is genuinely idle so WebGL
-  // init never competes with the first paint or user interaction.
-  // requestIdleCallback fires after the event loop drains; the inner
-  // rAF adds one more frame so the idle callback's own overhead settles
-  // before React starts the heavy Three.js render.  startTransition
-  // marks the state flip as non-urgent — React can yield mid-render.
+  // Defer the globe mount just past first paint so the cards/greeting show
+  // instantly, then bring in the (now-cheap) WebGL scene.  Uses
+  // requestIdleCallback with a timeout so it still fires under load, and a
+  // setTimeout fallback otherwise.  Deliberately NO requestAnimationFrame:
+  // rAF is paused in hidden/background tabs, which would leave the globe
+  // permanently unmounted for anyone who opens the dashboard in a bg tab.
+  // startTransition keeps the state flip non-urgent so React can yield.
   useEffect(() => {
-    let rICId: number;
-    let rafId: number;
-    const go = () => { rafId = requestAnimationFrame(() => { startTransition(() => setGlobeReady(true)); }); };
-    if ('requestIdleCallback' in window) {
-      rICId = window.requestIdleCallback(go, { timeout: 5000 });
-      return () => { window.cancelIdleCallback(rICId); cancelAnimationFrame(rafId); };
+    const show = () => startTransition(() => setGlobeReady(true));
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(show, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
     }
-    const t = setTimeout(go, 1500);
-    return () => { clearTimeout(t); cancelAnimationFrame(rafId); };
+    const t = setTimeout(show, 600);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {

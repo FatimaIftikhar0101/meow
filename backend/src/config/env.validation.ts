@@ -21,4 +21,7 @@ export const envSchema = Joi.object({
   TRANSFER_DAILY_LIMIT: Joi.number().min(0).default(10000),
   TRANSFER_TICK_MS: Joi.number().integer().min(1000).default(5000),
   ADMIN_EMAILS: Joi.string().allow('').default(''),
+  GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
+  GOOGLE_CALLBACK_URL: Joi.string().uri().default('http://localhost:3000/auth/google/callback'),
 }).unknown(true);
