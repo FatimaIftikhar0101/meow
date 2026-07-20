@@ -228,6 +228,11 @@ body {
   .pill-shimmer { animation: none; background-image: none; background-color: var(--accent-soft); }
 }
 
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Soft top-of-section accent line. */
 .gold-rule {
   height: 1px;

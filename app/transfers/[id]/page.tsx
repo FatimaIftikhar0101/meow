@@ -50,7 +50,8 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    const socket = io('http://localhost:3000/transfers', {
+    const wsUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const socket = io(`${wsUrl}/transfers`, {
       auth: { token: `Bearer ${getToken()}` },
     });
 

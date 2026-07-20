@@ -8,6 +8,8 @@ import { BrandWordmark } from '@/app/_components/Brand';
 import { MagneticButton, Reveal, useCountUp } from '@/app/_components/motion';
 import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
 import { CatConstellation } from '@/app/_components/CatConstellation';
+import { NotificationBell } from '@/app/_components/NotificationBell';
+import { useNotifications } from '@/lib/useNotifications';
 
 /* Lazy-load the entire Three.js chunk — it's large and blocking.
  * The component is only *mounted* once the browser reports idle (see
@@ -52,6 +54,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [globeReady, setGlobeReady] = useState(false);
   const [corridors, setCorridors] = useState<Corridor[]>([]);
+  const { notifications: notifs, unreadCount, toasts, markRead, markAllRead, dismissToast } = useNotifications();
 
   // Defer the globe mount just past first paint so the cards/greeting show
   // instantly, then bring in the (now-cheap) WebGL scene.  Uses
@@ -118,12 +121,22 @@ export default function DashboardPage() {
       <div className="relative z-10">
         <nav className="px-6 py-5 flex items-center justify-between">
           <BrandWordmark />
-          <Link
-            href="/profile"
-            className="w-10 h-10 rounded-full bg-[var(--surface-elevated)]/80 backdrop-blur-md border border-[var(--border-strong)] flex items-center justify-center text-[var(--foreground)] text-sm font-bold hover:border-[var(--accent)] transition"
-          >
-            {name ? name[0].toUpperCase() : '·'}
-          </Link>
+          <div className="flex items-center gap-2">
+            <NotificationBell
+              notifications={notifs}
+              unreadCount={unreadCount}
+              toasts={toasts}
+              onMarkRead={markRead}
+              onMarkAllRead={markAllRead}
+              onDismissToast={dismissToast}
+            />
+            <Link
+              href="/profile"
+              className="w-10 h-10 rounded-full bg-[var(--surface-elevated)]/80 backdrop-blur-md border border-[var(--border-strong)] flex items-center justify-center text-[var(--foreground)] text-sm font-bold hover:border-[var(--accent)] transition"
+            >
+              {name ? name[0].toUpperCase() : '·'}
+            </Link>
+          </div>
         </nav>
 
         <main className="max-w-5xl mx-auto px-5 sm:px-8 pt-6 pb-20">

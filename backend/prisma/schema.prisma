@@ -235,6 +235,24 @@ model KycRecord {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Notifications — real-time alerts pushed to the user via WebSocket
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // transfer_status, rate_alert, system
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Audit log — required for FINTRAC compliance. Every state-changing action
 // must produce an entry here.
 // ─────────────────────────────────────────────────────────────────────────────

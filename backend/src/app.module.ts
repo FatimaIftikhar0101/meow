@@ -14,6 +14,7 @@ import { CorridorsModule } from './corridors/corridors.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RecipientsModule } from './recipients/recipients.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { WalletModule } from './wallet/wallet.module';
 
@@ -40,6 +41,7 @@ import { WalletModule } from './wallet/wallet.module';
     CorridorsModule,
     ComplianceModule,
     TransfersModule,
+    NotificationsModule,
     HealthModule,
     AdminModule,
   ],

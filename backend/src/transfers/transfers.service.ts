@@ -13,6 +13,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { TransfersGateway } from './transfers.gateway';
 
@@ -52,6 +53,7 @@ export class TransfersService {
     private readonly corridors: CorridorsService,
     private readonly compliance: ComplianceService,
     private readonly gateway: TransfersGateway,
+    private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -213,6 +215,12 @@ export class TransfersService {
     });
 
     this.gateway.emitStatus(userId, transfer.id, 'initiated');
+    this.notifications.create(
+      userId, 'transfer_status',
+      'Transfer initiated',
+      `Your ${sendCurrency} ${sendAmount} transfer to ${recipient.name} has been initiated.`,
+      { transferId: transfer.id, status: 'initiated' },
+    ).catch(() => {});
     return this.get(userId, transfer.id);
   }
 
@@ -318,6 +326,12 @@ export class TransfersService {
       },
     });
     this.gateway.emitStatus(transfer.userId, transfer.id, next);
+    this.notifications.create(
+      transfer.userId, 'transfer_status',
+      notificationTitle(next),
+      `${messageFor(next)} — transfer ${transfer.id.slice(0, 8)}`,
+      { transferId: transfer.id, status: next },
+    ).catch(() => {});
     this.logger.log(`transfer ${transfer.id}: ${transfer.status} -> ${next}`);
   }
 
@@ -390,6 +404,12 @@ export class TransfersService {
       });
     });
     this.gateway.emitStatus(transfer.userId, transferId, toStatus);
+    this.notifications.create(
+      transfer.userId, 'transfer_status',
+      notificationTitle(toStatus),
+      `${message} — transfer ${transferId.slice(0, 8)}`,
+      { transferId, status: toStatus },
+    ).catch(() => {});
     this.logger.log(
       `transfer ${transferId}: ${fromStatus} -> ${toStatus} (${reason})`,
     );
@@ -485,6 +505,15 @@ function serialiseSummary(t: TransferSummary) {
     createdAt: t.createdAt,
     recipient: t.recipient,
   };
+}
+
+function notificationTitle(status: TransferStatus): string {
+  switch (status) {
+    case 'delivered': return 'Transfer delivered';
+    case 'failed': return 'Transfer failed';
+    case 'cancelled': return 'Transfer cancelled';
+    default: return 'Transfer update';
+  }
 }
 
 function serialiseDetail(t: TransferDetail) {
