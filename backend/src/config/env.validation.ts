@@ -24,4 +24,9 @@ export const envSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
   GOOGLE_CALLBACK_URL: Joi.string().uri().default('http://localhost:3000/auth/google/callback'),
+  SMTP_HOST: Joi.string().default('smtp.gmail.com'),
+  SMTP_PORT: Joi.number().integer().default(587),
+  SMTP_USER: Joi.string().allow('').default(''),
+  SMTP_PASS: Joi.string().allow('').default(''),
+  SMTP_FROM: Joi.string().email().allow('').default(''),
 }).unknown(true);

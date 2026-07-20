@@ -9,13 +9,17 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import type { GoogleProfile } from './google.strategy';
 
 const BCRYPT_ROUNDS = 10;
+const VERIFY_TOKEN_BYTES = 32;
+const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Map ISO country (or country name) to the user's home wallet currency.
 // Defaults to CAD since our launch corridor is Canada -> Pakistan.
@@ -35,6 +39,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -48,6 +53,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const currency = homeCurrencyFor(dto.country);
     const role = this.isAdminEmail(dto.email) ? 'admin' : 'customer';
+    const verifyToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
 
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -56,6 +62,8 @@ export class AuthService {
           passwordHash,
           country: dto.country?.trim() || null,
           role,
+          emailVerifyToken: verifyToken,
+          emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
         },
       });
       await tx.wallet.create({
@@ -71,6 +79,8 @@ export class AuthService {
       });
       return created;
     });
+
+    this.mail.sendVerificationEmail(user.email, verifyToken).catch(() => {});
 
     return this.signToken(user.id, user.email, user.role);
   }
@@ -91,6 +101,7 @@ export class AuthService {
           data: {
             googleId: profile.googleId,
             authProvider: user.authProvider === 'local' ? 'local+google' : user.authProvider,
+            emailVerified: true,
             firstName: user.firstName || profile.firstName || null,
             avatarUrl: user.avatarUrl || profile.avatarUrl || null,
           },
@@ -103,6 +114,7 @@ export class AuthService {
               email: profile.email,
               authProvider: 'google',
               googleId: profile.googleId,
+              emailVerified: true,
               firstName: profile.firstName || null,
               avatarUrl: profile.avatarUrl || null,
               role,
@@ -194,6 +206,7 @@ export class AuthService {
         email: true,
         country: true,
         role: true,
+        emailVerified: true,
         createdAt: true,
       },
     });
@@ -205,6 +218,7 @@ export class AuthService {
       email: user.email,
       country: user.country,
       role: user.role,
+      emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     };
   }
@@ -239,6 +253,58 @@ export class AuthService {
     // Issue a fresh token so the caller doesn't get logged out on its next
     // request (old tokens are invalidated by the passwordChangedAt check).
     return this.signToken(updated.id, updated.email, updated.role);
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { emailVerifyToken: token },
+    });
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification link');
+    }
+    if (user.emailVerified) {
+      return { message: 'Email already verified' };
+    }
+    if (user.emailVerifyExpires && user.emailVerifyExpires < new Date()) {
+      throw new BadRequestException('Verification link has expired — request a new one');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: true,
+          emailVerifyToken: null,
+          emailVerifyExpires: null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'auth.email_verified',
+          entityType: 'user',
+          entityId: user.id,
+        },
+      });
+    });
+    return { message: 'Email verified successfully' };
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    if (user.emailVerified) {
+      return { message: 'Email already verified' };
+    }
+    const verifyToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerifyToken: verifyToken,
+        emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
+      },
+    });
+    await this.mail.sendVerificationEmail(user.email, verifyToken);
+    return { message: 'Verification email sent' };
   }
 
   private isAdminEmail(email: string): boolean {

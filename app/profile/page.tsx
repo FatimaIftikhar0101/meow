@@ -10,6 +10,7 @@ interface Profile {
   userId: string;
   email: string;
   country: string | null;
+  emailVerified?: boolean;
 }
 
 interface KycStatus {
@@ -24,6 +25,8 @@ export default function ProfilePage() {
   const [kyc, setKyc] = useState<KycStatus | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [emailResending, setEmailResending] = useState(false);
+  const [emailResent, setEmailResent] = useState(false);
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' });
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
@@ -126,6 +129,49 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Email verification */}
+        {profile.emailVerified === false && (
+          <div className="bg-[var(--accent-soft)] border border-[var(--accent)]/30 rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-1">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M22 4 12 13 2 4" />
+              </svg>
+              <h3 className="font-semibold text-[var(--accent)]">Verify your email</h3>
+            </div>
+            <p className="text-sm text-[var(--accent)] mb-4">
+              {emailResent
+                ? 'Check your inbox — we just sent a new verification link.'
+                : 'We sent a verification link to your email. Click it to verify your account.'}
+            </p>
+            {!emailResent && (
+              <button
+                onClick={async () => {
+                  setEmailResending(true);
+                  try {
+                    await api.post('/auth/resend-verification');
+                    setEmailResent(true);
+                  } catch { /* rate limited */ }
+                  finally { setEmailResending(false); }
+                }}
+                disabled={emailResending}
+                className="bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-semibold px-5 py-2.5 rounded-full text-sm transition disabled:opacity-50 shadow"
+              >
+                {emailResending ? 'Sending…' : 'Resend verification email'}
+              </button>
+            )}
+          </div>
+        )}
+        {profile.emailVerified && (
+          <div className="flex items-center gap-2 px-5 py-3 bg-[var(--mint-soft)] rounded-2xl border border-[var(--mint)]/30">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mint)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 12 L11 14 L15 10" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+            <span className="text-sm font-semibold text-[var(--mint)]">Email verified</span>
+          </div>
+        )}
 
         {/* KYC */}
         {!isVerified && (

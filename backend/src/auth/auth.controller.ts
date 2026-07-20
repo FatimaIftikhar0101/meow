@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -60,6 +61,19 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
     return this.auth.changePassword(user.id, dto);
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.auth.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  resendVerification(@CurrentUser() user: AuthUser) {
+    return this.auth.resendVerification(user.id);
   }
 
   @Get('google')

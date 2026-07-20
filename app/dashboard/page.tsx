@@ -46,6 +46,9 @@ export default function DashboardPage() {
   const [inFlight, setInFlight] = useState(0);
   const [name, setName] = useState('');
   const [kycPassed, setKycPassed] = useState<boolean | null>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [globeReady, setGlobeReady] = useState(false);
   const [corridors, setCorridors] = useState<Corridor[]>([]);
@@ -85,6 +88,7 @@ export default function DashboardPage() {
           profileRes.data.name ||
           (profileRes.data.email ? profileRes.data.email.split('@')[0] : '');
         setName(first);
+        setEmailVerified(profileRes.data.emailVerified ?? null);
         setKycPassed(kycRes.data.status === 'passed');
         setInFlight(
           (transfersRes.data as { status: string }[]).filter((t) => IN_FLIGHT.has(t.status)).length,
@@ -146,6 +150,38 @@ export default function DashboardPage() {
               {corridors.length > 0 && <RatesStrip corridors={corridors} />}
             </header>
           </Reveal>
+
+          {emailVerified === false && (
+            <Reveal delay={60}>
+              <div className="flex items-center justify-between bg-[var(--surface-elevated)]/85 backdrop-blur-md border border-[var(--accent)]/40 text-[var(--accent)] rounded-2xl px-5 py-3.5 mb-4">
+                <div className="flex items-center gap-3">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="M22 4 12 13 2 4" />
+                  </svg>
+                  <span className="text-sm font-semibold">
+                    {resent ? 'Verification email sent — check your inbox' : 'Verify your email to unlock all features'}
+                  </span>
+                </div>
+                {!resent && (
+                  <button
+                    onClick={async () => {
+                      setResending(true);
+                      try {
+                        await api.post('/auth/resend-verification');
+                        setResent(true);
+                      } catch { /* rate-limited or already verified */ }
+                      finally { setResending(false); }
+                    }}
+                    disabled={resending}
+                    className="text-sm font-bold hover:underline shrink-0 disabled:opacity-50"
+                  >
+                    {resending ? 'Sending…' : 'Resend'}
+                  </button>
+                )}
+              </div>
+            </Reveal>
+          )}
 
           {kycPassed === false && (
             <Reveal delay={80}>

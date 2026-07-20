@@ -28,6 +28,9 @@ model User {
   googleId           String?   @unique
   firstName          String?
   avatarUrl          String?
+  emailVerified      Boolean   @default(false)
+  emailVerifyToken   String?
+  emailVerifyExpires DateTime?
   country            String?
   role               UserRole  @default(customer)
   suspended          Boolean   @default(false)
