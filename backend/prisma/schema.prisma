@@ -31,6 +31,8 @@ model User {
   emailVerified      Boolean   @default(false)
   emailVerifyToken   String?
   emailVerifyExpires DateTime?
+  pwResetToken       String?
+  pwResetExpires     DateTime?
   country            String?
   role               UserRole  @default(customer)
   suspended          Boolean   @default(false)

@@ -119,12 +119,17 @@ export default function LoginPage() {
               {loading ? 'Signing in…' : 'Sign in →'}
             </button>
           </form>
-          <p className="text-center text-sm text-[var(--muted-foreground)] mt-6">
-            New here?{' '}
-            <Link href="/register" className="text-[var(--accent)] hover:text-[var(--accent-deep)] font-bold">
-              Create account
+          <div className="flex items-center justify-between mt-6">
+            <Link href="/forgot-password" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--accent)] font-medium transition">
+              Forgot password?
             </Link>
-          </p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              New here?{' '}
+              <Link href="/register" className="text-[var(--accent)] hover:text-[var(--accent-deep)] font-bold">
+                Create account
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

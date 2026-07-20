@@ -20,6 +20,33 @@ export class MailService {
     });
   }
 
+  async sendPasswordResetEmail(to: string, token: string) {
+    const frontend =
+      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
+    const link = `${frontend}/auth/reset-password?token=${token}`;
+
+    await this.transporter.sendMail({
+      from: `"Meow" <${this.from}>`,
+      to,
+      subject: 'Reset your password — Meow',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+          <h2 style="color: #1a1a1a; font-size: 22px; margin-bottom: 8px;">Reset your password</h2>
+          <p style="color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 28px;">
+            We received a request to reset your Meow password. Tap the button below to choose a new one.
+          </p>
+          <a href="${link}"
+             style="display: inline-block; background: #E0B259; color: #1a1a1a; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
+            Reset password
+          </a>
+          <p style="color: #999; font-size: 13px; margin-top: 32px; line-height: 1.5;">
+            This link expires in 1 hour. If you didn't request this, you can safely ignore this email — your password won't change.
+          </p>
+        </div>
+      `,
+    });
+  }
+
   async sendVerificationEmail(to: string, token: string) {
     const frontend =
       this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';

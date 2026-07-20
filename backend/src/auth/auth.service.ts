@@ -13,13 +13,16 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import type { GoogleProfile } from './google.strategy';
 
 const BCRYPT_ROUNDS = 10;
 const VERIFY_TOKEN_BYTES = 32;
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 // Map ISO country (or country name) to the user's home wallet currency.
 // Defaults to CAD since our launch corridor is Canada -> Pakistan.
@@ -253,6 +256,67 @@ export class AuthService {
     // Issue a fresh token so the caller doesn't get logged out on its next
     // request (old tokens are invalidated by the passwordChangedAt check).
     return this.signToken(updated.id, updated.email, updated.role);
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    // Always return success to prevent email enumeration
+    if (!user || !user.passwordHash) {
+      return { message: 'If that email is registered, a reset link has been sent' };
+    }
+    const resetToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        pwResetToken: resetToken,
+        pwResetExpires: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'auth.forgot_password',
+        entityType: 'user',
+        entityId: user.id,
+      },
+    });
+    this.mail.sendPasswordResetEmail(user.email, resetToken).catch(() => {});
+    return { message: 'If that email is registered, a reset link has been sent' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { pwResetToken: dto.token },
+    });
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset link');
+    }
+    if (user.pwResetExpires && user.pwResetExpires < new Date()) {
+      throw new BadRequestException('Reset link has expired — request a new one');
+    }
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          passwordChangedAt: new Date(),
+          pwResetToken: null,
+          pwResetExpires: null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'auth.reset_password',
+          entityType: 'user',
+          entityId: user.id,
+        },
+      });
+    });
+    return { message: 'Password reset successfully' };
   }
 
   async verifyEmail(token: string) {
