@@ -1,0 +1,33 @@
+Open **three terminals** in the project root `F:\Maam fatima\finance app\meow`:
+
+**Terminal 1 — Postgres (run once, then leave it)**
+```powershell
+docker compose up -d
+```
+*(If already running, this is a no-op — safe to run anyway)*
+
+**Terminal 2 — Backend**
+```powershell
+cd backend
+npm run start:dev
+```
+Wait until you see: `Nest application successfully started`
+
+**Terminal 3 — Frontend**
+```powershell
+npm run dev
+```
+Wait until you see: `✓ Ready in ...`
+
+---
+
+**URLs once everything is up:**
+
+| What | URL |
+|------|-----|
+| Frontend | http://localhost:3001 |
+| Admin portal | http://localhost:3001/admin/login |
+| Backend API | http://localhost:3000 |
+| Health check | http://localhost:3000/health |
+
+**No migration or seed needed** — the database already has all tables and corridor data from the previous run. Docker preserves the volume (`meow_pg_data`) between restarts.
