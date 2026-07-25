@@ -1,11 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { BrandWordmark } from '@/app/_components/Brand';
 
-export default function VerifyEmailPage() {
+function VerifyEmailInner() {
   const params = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
@@ -86,5 +86,23 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)] px-6">
+          <BrandWordmark size={28} />
+          <div className="mt-10 w-full max-w-sm text-center space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
+            <p className="text-[var(--muted-foreground)] text-sm">Verifying your email...</p>
+          </div>
+        </div>
+      }
+    >
+      <VerifyEmailInner />
+    </Suspense>
   );
 }

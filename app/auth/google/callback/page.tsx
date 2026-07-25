@@ -1,9 +1,9 @@
 'use client';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { setToken } from '@/lib/auth';
 
-export default function GoogleCallbackPage() {
+function CallbackHandler() {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -17,8 +17,15 @@ export default function GoogleCallbackPage() {
     }
   }, [params, router]);
 
+  return null;
+}
+
+export default function GoogleCallbackPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+      <Suspense>
+        <CallbackHandler />
+      </Suspense>
       <p className="text-[var(--muted-foreground)] text-sm tracking-widest uppercase">
         Signing you in...
       </p>
