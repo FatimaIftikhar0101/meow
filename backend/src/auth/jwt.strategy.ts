@@ -9,6 +9,7 @@ export interface JwtPayload {
   sub: string; // userId
   email: string;
   role: UserRole;
+  sid: string; // session id
   iat?: number;
   exp?: number;
 }
@@ -33,16 +34,35 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        suspended: true,
-        passwordChangedAt: true,
+    if (!payload.sid) {
+      throw new UnauthorizedException('Session expired, please sign in again');
+    }
+
+    const session = await this.prisma.session.findUnique({
+      where: { id: payload.sid },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            suspended: true,
+            passwordChangedAt: true,
+          },
+        },
       },
     });
+    if (!session) {
+      throw new UnauthorizedException('Session expired, please sign in again');
+    }
+    if (session.revokedAt) {
+      throw new UnauthorizedException('Session revoked, please sign in again');
+    }
+    if (session.expiresAt < new Date()) {
+      throw new UnauthorizedException('Session expired, please sign in again');
+    }
+
+    const user = session.user;
     if (!user) {
       throw new UnauthorizedException();
     }
@@ -55,6 +75,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Session ended, please sign in again');
       }
     }
-    return { id: user.id, email: user.email, role: user.role };
+
+    // Best-effort lastSeenAt update (throttled to ~5 min)
+    const fiveMin = 5 * 60 * 1000;
+    if (Date.now() - session.lastSeenAt.getTime() > fiveMin) {
+      this.prisma.session.updateMany({
+        where: { id: session.id },
+        data: { lastSeenAt: new Date() },
+      }).catch(() => {});
+    }
+
+    return { id: user.id, email: user.email, role: user.role, sid: session.id };
   }
 }

@@ -29,4 +29,5 @@ export const envSchema = Joi.object({
   SMTP_USER: Joi.string().allow('').default(''),
   SMTP_PASS: Joi.string().allow('').default(''),
   SMTP_FROM: Joi.string().email().allow('').default(''),
+  REFERRAL_REWARD_AMOUNT: Joi.number().min(0).default(15),
 }).unknown(true);

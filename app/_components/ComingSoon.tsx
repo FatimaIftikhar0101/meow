@@ -30,7 +30,7 @@ export function ComingSoon({
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(circle at 50% 28%, rgba(255,234,178,0.45) 0%, rgba(255,255,255,0) 60%)',
+            'radial-gradient(circle at 50% 28%, var(--comingsoon-wash) 0%, transparent 60%)',
         }}
       />
 

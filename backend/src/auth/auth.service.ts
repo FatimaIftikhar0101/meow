@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -12,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -23,6 +26,12 @@ const BCRYPT_ROUNDS = 10;
 const VERIFY_TOKEN_BYTES = 32;
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+export interface RequestContext {
+  ip?: string;
+  userAgent?: string;
+}
 
 // Map ISO country (or country name) to the user's home wallet currency.
 // Defaults to CAD since our launch corridor is Canada -> Pakistan.
@@ -43,9 +52,11 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mail: MailService,
+    @Inject(forwardRef(() => ReferralsService))
+    private readonly referrals: ReferralsService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, ctx?: RequestContext) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -85,10 +96,15 @@ export class AuthService {
 
     this.mail.sendVerificationEmail(user.email, verifyToken).catch(() => {});
 
-    return this.signToken(user.id, user.email, user.role);
+    if (dto.referralCode) {
+      this.referrals.attachReferral(user.id, dto.referralCode).catch(() => {});
+    }
+
+    const session = await this.createSession(user.id, ctx);
+    return this.signToken(user.id, user.email, user.role, session.id);
   }
 
-  async googleLogin(profile: GoogleProfile) {
+  async googleLogin(profile: GoogleProfile, ctx?: RequestContext) {
     let user = await this.prisma.user.findUnique({
       where: { googleId: profile.googleId },
     });
@@ -152,10 +168,11 @@ export class AuthService {
       },
     });
 
-    return this.signToken(user.id, user.email, user.role);
+    const session = await this.createSession(user.id, ctx);
+    return this.signToken(user.id, user.email, user.role, session.id);
   }
 
-  async login(dto: LoginDto, expectedRole?: UserRole) {
+  async login(dto: LoginDto, expectedRole?: UserRole, ctx?: RequestContext) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -198,7 +215,8 @@ export class AuthService {
         entityId: user.id,
       },
     });
-    return this.signToken(user.id, user.email, user.role);
+    const session = await this.createSession(user.id, ctx);
+    return this.signToken(user.id, user.email, user.role, session.id);
   }
 
   async profile(userId: string) {
@@ -226,7 +244,7 @@ export class AuthService {
     };
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto) {
+  async changePassword(userId: string, dto: ChangePasswordDto, ctx?: RequestContext) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
     if (!user.passwordHash) {
@@ -243,6 +261,10 @@ export class AuthService {
         where: { id: userId },
         data: { passwordHash, passwordChangedAt: new Date() },
       });
+      await tx.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       await tx.auditLog.create({
         data: {
           userId,
@@ -253,9 +275,8 @@ export class AuthService {
       });
       return u;
     });
-    // Issue a fresh token so the caller doesn't get logged out on its next
-    // request (old tokens are invalidated by the passwordChangedAt check).
-    return this.signToken(updated.id, updated.email, updated.role);
+    const session = await this.createSession(updated.id, ctx);
+    return this.signToken(updated.id, updated.email, updated.role, session.id);
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
@@ -306,6 +327,10 @@ export class AuthService {
           pwResetToken: null,
           pwResetExpires: null,
         },
+      });
+      await tx.session.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
       });
       await tx.auditLog.create({
         data: {
@@ -371,6 +396,96 @@ export class AuthService {
     return { message: 'Verification email sent' };
   }
 
+  async listSessions(userId: string, currentSid: string) {
+    const sessions = await this.prisma.session.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { lastSeenAt: 'desc' },
+    });
+    return sessions.map((s) => ({
+      id: s.id,
+      current: s.id === currentSid,
+      userAgent: s.userAgent,
+      ipAddress: s.ipAddress,
+      lastSeenAt: s.lastSeenAt,
+      createdAt: s.createdAt,
+    }));
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session || session.userId !== userId) {
+      throw new BadRequestException('Session not found');
+    }
+    if (session.revokedAt) {
+      return { message: 'Session already revoked' };
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.update({
+        where: { id: sessionId },
+        data: { revokedAt: new Date() },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: 'auth.session_revoke',
+          entityType: 'session',
+          entityId: sessionId,
+        },
+      });
+    });
+    return { message: 'Session revoked' };
+  }
+
+  async revokeOtherSessions(userId: string, currentSid: string) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.updateMany({
+        where: { userId, revokedAt: null, id: { not: currentSid } },
+        data: { revokedAt: new Date() },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: 'auth.session_revoke_others',
+          entityType: 'user',
+          entityId: userId,
+        },
+      });
+    });
+    return { message: 'All other sessions revoked' };
+  }
+
+  private async createSession(userId: string, ctx?: RequestContext) {
+    const expiresIn = this.config.get<string>('JWT_EXPIRES_IN') ?? '7d';
+    const ttlMs = this.parseExpiresIn(expiresIn);
+    return this.prisma.session.create({
+      data: {
+        userId,
+        userAgent: ctx?.userAgent ?? null,
+        ipAddress: ctx?.ip ?? null,
+        expiresAt: new Date(Date.now() + ttlMs),
+      },
+    });
+  }
+
+  private parseExpiresIn(val: string): number {
+    const match = val.match(/^(\d+)([smhd])$/);
+    if (!match) return DEFAULT_SESSION_TTL_MS;
+    const n = parseInt(match[1], 10);
+    switch (match[2]) {
+      case 's': return n * 1000;
+      case 'm': return n * 60 * 1000;
+      case 'h': return n * 60 * 60 * 1000;
+      case 'd': return n * 24 * 60 * 60 * 1000;
+      default: return DEFAULT_SESSION_TTL_MS;
+    }
+  }
+
   private isAdminEmail(email: string): boolean {
     const list = (this.config.get<string>('ADMIN_EMAILS') ?? '')
       .split(',')
@@ -379,8 +494,8 @@ export class AuthService {
     return list.includes(email.trim().toLowerCase());
   }
 
-  private signToken(userId: string, email: string, role: UserRole) {
-    const access_token = this.jwt.sign({ sub: userId, email, role });
+  private signToken(userId: string, email: string, role: UserRole, sid: string) {
+    const access_token = this.jwt.sign({ sub: userId, email, role, sid });
     return { access_token };
   }
 }

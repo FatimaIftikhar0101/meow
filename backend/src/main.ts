@@ -11,6 +11,7 @@ async function bootstrap() {
   const config = app.get(ConfigService);
 
   app.use(helmet());
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.enableCors({
     origin: config.get<string>('FRONTEND_ORIGIN') ?? 'http://localhost:3001',
     credentials: true,

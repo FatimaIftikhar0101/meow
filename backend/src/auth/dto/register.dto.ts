@@ -28,4 +28,11 @@ export class RegisterDto {
   @IsString()
   @Length(2, 60)
   country?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  @Transform(({ value }: TransformFnParams): unknown =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value)
+  referralCode?: string;
 }

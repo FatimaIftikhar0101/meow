@@ -36,6 +36,55 @@
 
   --brand: var(--foreground);
   --brand-deep: var(--foreground);
+
+  /* Theme-aware gradients (replaced in .dark) */
+  --wash-warm: rgba(255, 232, 176, 0.45);
+  --wash-warm-end: rgba(255, 255, 255, 0);
+  --vignette-center: rgba(255, 255, 255, 0);
+  --vignette-mid: rgba(255, 255, 255, 0.55);
+  --vignette-edge: rgba(255, 255, 255, 0.85);
+  --profile-wash: rgba(255, 232, 176, 0.5);
+  --comingsoon-wash: rgba(255, 234, 178, 0.45);
+}
+
+/* ─── Dark theme ─────────────────────────────────────────────────────── */
+.dark {
+  --background: #0a0e17;
+  --background-deep: #060a12;
+  --surface: #111827;
+  --surface-elevated: #1a2236;
+  --surface-glass: rgba(255, 255, 255, 0.04);
+  --foreground: #f0f2f5;
+  --ink: #f0f2f5;
+  --ink-soft: #c0c8d8;
+  --muted: #1e2a3a;
+  --muted-foreground: #7b8ba4;
+  --border: #1e2a3a;
+  --border-strong: #2a3a50;
+
+  --accent: #daa740;
+  --accent-deep: #c2932f;
+  --accent-soft: rgba(218, 167, 64, 0.16);
+
+  --mint: #2cc9a3;
+  --mint-soft: rgba(44, 201, 163, 0.14);
+
+  --gold: #e0b24a;
+  --gold-soft: rgba(224, 178, 74, 0.18);
+
+  --danger: #e8475e;
+  --danger-soft: rgba(232, 71, 94, 0.14);
+
+  --brand: var(--foreground);
+  --brand-deep: var(--foreground);
+
+  --wash-warm: rgba(218, 167, 64, 0.12);
+  --wash-warm-end: rgba(10, 14, 23, 0);
+  --vignette-center: rgba(10, 14, 23, 0);
+  --vignette-mid: rgba(10, 14, 23, 0.55);
+  --vignette-edge: rgba(10, 14, 23, 0.85);
+  --profile-wash: rgba(218, 167, 64, 0.1);
+  --comingsoon-wash: rgba(218, 167, 64, 0.1);
 }
 
 @theme inline {

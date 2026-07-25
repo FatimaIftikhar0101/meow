@@ -1,15 +1,30 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { WorldMap } from '@/app/_components/WorldMap';
 
+function RefCodeReader({ onCode }: { onCode: (c: string) => void }) {
+  const sp = useSearchParams();
+  const ref = sp.get('ref') ?? '';
+  useEffect(() => {
+    if (ref) onCode(ref.toUpperCase());
+  }, [ref, onCode]);
+  return null;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: '', password: '', country: 'CA' });
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    country: 'CA',
+    referralCode: '',
+  });
+  const [hasRefParam, setHasRefParam] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +33,13 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/register', form);
+      const payload: Record<string, string> = {
+        email: form.email,
+        password: form.password,
+        country: form.country,
+      };
+      if (form.referralCode.trim()) payload.referralCode = form.referralCode.trim();
+      const res = await api.post('/auth/register', payload);
       setToken(res.data.access_token);
       router.push('/dashboard');
     } catch (err) {
@@ -32,6 +53,14 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[1.2fr_1fr] bg-[var(--background)]">
+      <Suspense>
+        <RefCodeReader
+          onCode={(c) => {
+            setForm((f) => ({ ...f, referralCode: c }));
+            setHasRefParam(true);
+          }}
+        />
+      </Suspense>
       <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden border-r border-[var(--border)]">
         <BrandWordmark size={28} />
         <div className="relative">
@@ -116,6 +145,25 @@ export default function RegisterPage() {
                 <option value="US">United States · USD</option>
                 <option value="GB">United Kingdom · GBP</option>
               </select>
+            </Field>
+            <Field label="Referral code (optional)">
+              <div className="relative">
+                <input
+                  type="text"
+                  maxLength={20}
+                  value={form.referralCode}
+                  onChange={(e) =>
+                    setForm({ ...form, referralCode: e.target.value.toUpperCase() })
+                  }
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition uppercase tracking-wider"
+                  placeholder="e.g. MEOW1234"
+                />
+                {hasRefParam && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wider bg-[var(--mint-soft)] text-[var(--mint)] px-2 py-0.5 rounded-full border border-[var(--mint)]/30">
+                    Invited
+                  </span>
+                )}
+              </div>
             </Field>
             <button
               type="submit"

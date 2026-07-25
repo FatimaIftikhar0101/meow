@@ -5,6 +5,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { logout, setToken } from '@/lib/auth';
 import { BrandWordmark, BackLink } from '@/app/_components/Brand';
+import { ThemeToggleFull } from '@/app/_components/ThemeToggle';
 
 interface Profile {
   userId: string;
@@ -32,14 +33,29 @@ export default function ProfilePage() {
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
 
+  interface SessionInfo {
+    id: string;
+    current: boolean;
+    userAgent: string | null;
+    ipAddress: string | null;
+    lastSeenAt: string;
+    createdAt: string;
+  }
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [revokingAll, setRevokingAll] = useState(false);
+
   useEffect(() => {
     Promise.all([
       api.get('/auth/profile'),
       api.get('/compliance/status'),
+      api.get('/auth/sessions'),
     ])
-      .then(([profileRes, kycRes]) => {
+      .then(([profileRes, kycRes, sessionsRes]) => {
         setProfile(profileRes.data);
         setKyc(kycRes.data);
+        setSessions(sessionsRes.data);
+        setSessionsLoading(false);
       })
       .catch(() => router.push('/login'));
   }, [router]);
@@ -91,7 +107,7 @@ export default function ProfilePage() {
       {/* golden warm wash — matches dashboard */}
       <div
         className="absolute inset-x-0 top-0 h-48 pointer-events-none"
-        style={{ background: 'linear-gradient(180deg, rgba(255,232,176,0.5) 0%, rgba(255,255,255,0) 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--profile-wash) 0%, var(--wash-warm-end) 100%)' }}
       />
       <nav className="relative bg-transparent border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -240,6 +256,79 @@ export default function ProfilePage() {
           </form>
         </div>
 
+        {/* Appearance */}
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
+          <h3 className="font-semibold text-[var(--foreground)] mb-3">Appearance</h3>
+          <ThemeToggleFull />
+        </div>
+
+        {/* Devices & sessions */}
+        <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-[var(--foreground)]">Devices & sessions</h3>
+            {sessions.length > 1 && (
+              <button
+                onClick={async () => {
+                  setRevokingAll(true);
+                  try {
+                    await api.post('/auth/sessions/revoke-others');
+                    const res = await api.get('/auth/sessions');
+                    setSessions(res.data);
+                  } catch { /* */ }
+                  finally { setRevokingAll(false); }
+                }}
+                disabled={revokingAll}
+                className="text-[11px] font-bold text-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-50"
+              >
+                {revokingAll ? 'Revoking…' : 'Sign out all others'}
+              </button>
+            )}
+          </div>
+          {sessionsLoading ? (
+            <p className="text-sm text-[var(--muted-foreground)]">Loading…</p>
+          ) : sessions.length === 0 ? (
+            <p className="text-sm text-[var(--muted-foreground)]">No active sessions</p>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between bg-[var(--muted)]/50 rounded-xl px-4 py-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-[var(--foreground)] truncate">
+                        {parseUA(s.userAgent)}
+                      </p>
+                      {s.current && (
+                        <span className="text-[9px] uppercase tracking-[0.15em] font-bold px-2 py-0.5 rounded-full bg-[var(--mint-soft)] text-[var(--mint)] border border-[var(--mint)]/30 shrink-0">
+                          This device
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                      {s.ipAddress ?? 'Unknown IP'} · Last active {timeAgo(s.lastSeenAt)}
+                    </p>
+                  </div>
+                  {!s.current && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.delete(`/auth/sessions/${s.id}`);
+                          setSessions((prev) => prev.filter((x) => x.id !== s.id));
+                        } catch { /* */ }
+                      }}
+                      className="text-xs font-bold text-[var(--danger)] hover:underline shrink-0 ml-3"
+                    >
+                      Sign out
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Quick links */}
         <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] divide-y divide-[var(--border)] overflow-hidden">
           <ProfileLink href="/wallet/transactions" label="Transaction history" />
@@ -256,6 +345,36 @@ export default function ProfilePage() {
       </div>
     </div>
   );
+}
+
+function parseUA(ua: string | null): string {
+  if (!ua) return 'Unknown device';
+  const browser =
+    ua.match(/Edg\//i) ? 'Edge' :
+    ua.match(/OPR\//i) ? 'Opera' :
+    ua.match(/Chrome\//i) ? 'Chrome' :
+    ua.match(/Safari\//i) ? 'Safari' :
+    ua.match(/Firefox\//i) ? 'Firefox' :
+    'Browser';
+  const os =
+    ua.match(/Windows/i) ? 'Windows' :
+    ua.match(/Mac OS/i) ? 'macOS' :
+    ua.match(/Android/i) ? 'Android' :
+    ua.match(/iPhone|iPad/i) ? 'iOS' :
+    ua.match(/Linux/i) ? 'Linux' :
+    '';
+  return os ? `${browser} · ${os}` : browser;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 function ProfileLink({ href, label }: { href: string; label: string }) {

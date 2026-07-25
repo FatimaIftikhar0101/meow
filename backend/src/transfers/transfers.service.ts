@@ -14,6 +14,7 @@ import { CorridorsService } from '../corridors/corridors.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { TransfersGateway } from './transfers.gateway';
 
@@ -54,6 +55,7 @@ export class TransfersService {
     private readonly compliance: ComplianceService,
     private readonly gateway: TransfersGateway,
     private readonly notifications: NotificationsService,
+    private readonly referrals: ReferralsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -332,6 +334,11 @@ export class TransfersService {
       `${messageFor(next)} — transfer ${transfer.id.slice(0, 8)}`,
       { transferId: transfer.id, status: next },
     ).catch(() => {});
+    if (next === 'delivered') {
+      this.referrals
+        .onTransferDelivered(transfer.userId, transfer.id)
+        .catch((err) => this.logger.error(`Referral reward failed: ${err.message}`));
+    }
     this.logger.log(`transfer ${transfer.id}: ${transfer.status} -> ${next}`);
   }
 

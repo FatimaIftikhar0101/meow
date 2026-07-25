@@ -9,6 +9,7 @@ import { MagneticButton, Reveal, useCountUp } from '@/app/_components/motion';
 import { MEOW_CORRIDORS } from '@/app/_components/Globe3D';
 import { CatConstellation } from '@/app/_components/CatConstellation';
 import { NotificationBell } from '@/app/_components/NotificationBell';
+import { ThemeToggleCompact } from '@/app/_components/ThemeToggle';
 import { useNotifications } from '@/lib/useNotifications';
 
 /* Lazy-load the entire Three.js chunk — it's large and blocking.
@@ -122,6 +123,7 @@ export default function DashboardPage() {
         <nav className="px-6 py-5 flex items-center justify-between">
           <BrandWordmark />
           <div className="flex items-center gap-2">
+            <ThemeToggleCompact />
             <NotificationBell
               notifications={notifs}
               unreadCount={unreadCount}
@@ -241,7 +243,7 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
         className="absolute inset-x-0 top-0 h-[40vh]"
         style={{
           background:
-            'linear-gradient(180deg, rgba(255,232,176,0.45) 0%, rgba(255,255,255,0) 100%)',
+            'linear-gradient(180deg, var(--wash-warm) 0%, var(--wash-warm-end) 100%)',
         }}
       />
 
@@ -294,7 +296,7 @@ function BackgroundMotif({ globeReady }: { globeReady: boolean }) {
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 54%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.55) 78%, rgba(255,255,255,0.85) 100%)',
+            'radial-gradient(circle at 50% 54%, var(--vignette-center) 45%, var(--vignette-mid) 78%, var(--vignette-edge) 100%)',
         }}
       />
     </div>
@@ -372,7 +374,7 @@ const DESTINATIONS: Destination[] = [
   { href: '/wallet/transactions', label: 'Activity', sub: 'Every transfer, every cent.', icon: PulseIcon },
   // Bottom row — horizontal cards
   { href: '/profile', label: 'Profile & ID', sub: 'Verification + settings.', icon: ShieldIcon, variant: 'horizontal' },
-  { href: '/refer', label: 'Refer & earn', sub: 'Get $15 when a friend sends.', icon: GiftIcon, variant: 'horizontal', badge: 'Soon' },
+  { href: '/refer', label: 'Refer & earn', sub: 'Get $15 when a friend sends.', icon: GiftIcon, variant: 'horizontal' },
   { href: '/support', label: 'Help & support', sub: '24/7 chat, call, email.', icon: SupportIcon, variant: 'horizontal' },
 ];
 

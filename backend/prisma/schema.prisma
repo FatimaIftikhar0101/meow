@@ -39,11 +39,16 @@ model User {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
+  referralCode String? @unique
+
   wallets    Wallet[]
   recipients Recipient[]
   transfers  Transfer[]
   kycRecords KycRecord[]
   auditLogs  AuditLog[]
+  sessions   Session[]
+  referralsMade    Referral[] @relation("ReferrerReferrals")
+  referredBy       Referral?  @relation("RefereeReferral")
 }
 
 enum UserRole {
@@ -186,6 +191,7 @@ enum LedgerEntryType {
   transfer_refund
   fee
   fx_conversion
+  referral_bonus
 }
 
 model LedgerEntry {
@@ -250,6 +256,52 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sessions — per-device JWT tracking for revocation
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Referrals — invite tracking and reward state machine
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ReferralStatus {
+  pending
+  rewarded
+}
+
+model Referral {
+  id                   String         @id @default(uuid())
+  referrerId           String
+  refereeId            String         @unique
+  code                 String
+  status               ReferralStatus @default(pending)
+  rewardAmount         Decimal?       @db.Decimal(20, 4)
+  rewardCurrency       String?
+  qualifyingTransferId String?
+  rewardedAt           DateTime?
+  createdAt            DateTime       @default(now())
+
+  referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User @relation("RefereeReferral", fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

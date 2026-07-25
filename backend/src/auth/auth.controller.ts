@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
@@ -25,6 +27,13 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { GoogleProfile } from './google.strategy';
 
+function extractCtx(req: Request) {
+  return {
+    ip: req.ip ?? undefined,
+    userAgent: req.headers['user-agent'] ?? undefined,
+  };
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -34,22 +43,22 @@ export class AuthController {
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.auth.register(dto, extractCtx(req));
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto, 'customer');
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.auth.login(dto, 'customer', extractCtx(req));
   }
 
   @Post('admin/login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  adminLogin(@Body() dto: LoginDto) {
-    return this.auth.login(dto, 'admin');
+  adminLogin(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.auth.login(dto, 'admin', extractCtx(req));
   }
 
   @Get('profile')
@@ -61,8 +70,8 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
-    return this.auth.changePassword(user.id, dto);
+  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @Req() req: Request) {
+    return this.auth.changePassword(user.id, dto, extractCtx(req));
   }
 
   @Post('forgot-password')
@@ -101,8 +110,29 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const { access_token } = await this.auth.googleLogin(req.user as GoogleProfile);
+    const { access_token } = await this.auth.googleLogin(req.user as GoogleProfile, extractCtx(req));
     const frontend = this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
     res.redirect(`${frontend}/auth/google/callback?token=${access_token}`);
+  }
+
+  // ─── Session management ──────────────────────────────────────────────
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  listSessions(@CurrentUser() user: AuthUser) {
+    return this.auth.listSessions(user.id, user.sid);
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  revokeSession(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.auth.revokeSession(user.id, id);
+  }
+
+  @Post('sessions/revoke-others')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  revokeOtherSessions(@CurrentUser() user: AuthUser) {
+    return this.auth.revokeOtherSessions(user.id, user.sid);
   }
 }
