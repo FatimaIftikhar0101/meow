@@ -8,6 +8,7 @@ import { getToken } from '@/lib/auth';
 import { BrandWordmark, BackLink } from '@/app/_components/Brand';
 import { WorldMap } from '@/app/_components/WorldMap';
 import { CatTimeline } from '@/app/_components/CatTimeline';
+import { shareReceipt } from '@/lib/receipt';
 
 interface TimelineEntry {
   id: string;
@@ -44,6 +45,8 @@ function TransferPageInner() {
   const id = useSearchParams().get('id') ?? '';
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
 
   useEffect(() => {
     api.get(`/transfers/${id}`)
@@ -188,11 +191,30 @@ function TransferPageInner() {
                   <Row label="Date"        value={new Date(transfer.createdAt).toLocaleString()} />
                 </div>
                 <button
-                  onClick={() => window.print()}
-                  className="mt-5 w-full bg-[var(--ink)] text-white hover:bg-[var(--brand-deep)] font-semibold py-2.5 rounded-full transition text-sm"
+                  onClick={async () => {
+                    setReceiptBusy(true);
+                    setReceiptError('');
+                    try {
+                      await shareReceipt(transfer);
+                    } catch (err) {
+                      // A native share cancelled by the user rejects too;
+                      // don't shout about it.
+                      const msg = err instanceof Error ? err.message : '';
+                      if (!/cancel/i.test(msg)) {
+                        setReceiptError('Could not generate the receipt.');
+                      }
+                    } finally {
+                      setReceiptBusy(false);
+                    }
+                  }}
+                  disabled={receiptBusy}
+                  className="mt-5 w-full bg-[var(--ink)] text-white hover:bg-[var(--brand-deep)] font-semibold py-2.5 rounded-full transition text-sm disabled:opacity-50"
                 >
-                  Print / Save as PDF
+                  {receiptBusy ? 'Preparing…' : 'Save / share receipt (PDF)'}
                 </button>
+                {receiptError && (
+                  <p className="mt-2 text-xs text-[var(--danger)] text-center">{receiptError}</p>
+                )}
               </div>
 
               {/* ── Print-only professional receipt ───────────────────────── */}
