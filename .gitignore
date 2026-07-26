@@ -28,8 +28,9 @@
 .DS_Store
 *.pem
 
-# local-only working notes — never committed
+# local-only working notes and filled-in env templates — never committed
 *.local.md
+*.local.json
 
 # debug
 npm-debug.log*
