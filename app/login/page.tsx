@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { GOOGLE_ENABLED, GOOGLE_AUTH_URL } from '@/lib/google';
 import { setToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { WorldMap } from '@/app/_components/WorldMap';
@@ -74,21 +75,25 @@ export default function LoginPage() {
             <div className="mt-6 bg-[var(--danger-soft)] text-[var(--danger)] text-sm px-4 py-3 rounded-xl border border-[var(--danger)]/30">{error}</div>
           )}
 
-          <div className="mt-7">
-            <a
-              href="http://localhost:3000/auth/google"
-              className="w-full flex items-center justify-center gap-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent)]/55 text-[var(--foreground)] font-semibold py-3.5 rounded-xl transition hover:bg-[var(--surface-elevated)]"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </a>
-          </div>
+          {GOOGLE_ENABLED && (
+            <>
+              <div className="mt-7">
+                <a
+                  href={GOOGLE_AUTH_URL}
+                  className="w-full flex items-center justify-center gap-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent)]/55 text-[var(--foreground)] font-semibold py-3.5 rounded-xl transition hover:bg-[var(--surface-elevated)]"
+                >
+                  <GoogleIcon />
+                  Continue with Google
+                </a>
+              </div>
 
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-[var(--border)]" />
-            <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] font-bold">or</span>
-            <div className="flex-1 h-px bg-[var(--border)]" />
-          </div>
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-[var(--border)]" />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-foreground)] font-bold">or</span>
+                <div className="flex-1 h-px bg-[var(--border)]" />
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Email">
