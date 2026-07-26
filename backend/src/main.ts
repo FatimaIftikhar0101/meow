@@ -12,10 +12,21 @@ async function bootstrap() {
 
   app.use(helmet());
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
-  app.enableCors({
-    origin: config.get<string>('FRONTEND_ORIGIN') ?? 'http://localhost:3001',
-    credentials: true,
-  });
+  // CORS_ORIGINS is a comma-separated allowlist and is separate from
+  // FRONTEND_ORIGIN on purpose: FRONTEND_ORIGIN is the *browser-reachable*
+  // base used to build email links and the post-OAuth redirect, while the
+  // allowlist also has to admit the Capacitor origins the mobile shell sends
+  // (capacitor://localhost on iOS, http(s)://localhost on Android), which are
+  // not valid link targets. Falls back to FRONTEND_ORIGIN when unset.
+  const corsOrigins = (
+    config.get<string>('CORS_ORIGINS') ||
+    config.get<string>('FRONTEND_ORIGIN') ||
+    'http://localhost:3001'
+  )
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors({ origin: corsOrigins, credentials: true });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

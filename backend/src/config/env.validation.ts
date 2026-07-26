@@ -15,7 +15,15 @@ export const envSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string()
     .pattern(/^\d+[smhd]$/)
     .default('7d'),
+  /* Browser-reachable base for email links and the post-OAuth redirect.
+     Must be a real http(s) URL — a capacitor:// scheme is not clickable
+     from an email client. */
   FRONTEND_ORIGIN: Joi.string().uri().default('http://localhost:3001'),
+  /* Comma-separated CORS allowlist. Left empty it falls back to
+     FRONTEND_ORIGIN. The mobile shell needs its Capacitor origin listed here
+     or every API call is blocked, e.g.
+       https://app.example.com,capacitor://localhost,http://localhost */
+  CORS_ORIGINS: Joi.string().allow('').default(''),
   THROTTLE_TTL_MS: Joi.number().integer().min(1000).default(60000),
   THROTTLE_LIMIT: Joi.number().integer().min(1).default(100),
   TRANSFER_DAILY_LIMIT: Joi.number().min(0).default(10000),
