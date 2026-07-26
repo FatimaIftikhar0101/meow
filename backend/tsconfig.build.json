@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  // `prisma` must stay excluded: prisma/seed.ts is run through ts-node, never
+  // compiled. Including it makes the common source root the package root
+  // rather than src/, which shifts the emit to dist/src/main.js and breaks
+  // `start:prod` (node dist/main). Type checking of seed.ts still happens via
+  // the root tsconfig.json on `tsc --noEmit`.
+  "exclude": ["node_modules", "test", "dist", "prisma", "**/*spec.ts"]
 }
