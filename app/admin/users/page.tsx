@@ -79,7 +79,7 @@ export default function AdminUsersPage() {
               data.items.map((u) => (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/users/${u.id}`} className="text-blue-600 hover:underline">
+                    <Link href={`/admin/users/detail?id=${u.id}`} className="text-blue-600 hover:underline">
                       {u.email}
                     </Link>
                   </td>

@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState, use } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { io } from 'socket.io-client';
@@ -39,8 +40,8 @@ const steps = [
 
 const stepOrder = steps.map((s) => s.key);
 
-export default function TransferPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function TransferPageInner() {
+  const id = useSearchParams().get('id') ?? '';
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -305,5 +306,23 @@ function PrintRow({ label, value, large, mono, small, accent }: {
         color: accent ? '#1a9e5c' : '#111827',
       }}>{value}</span>
     </div>
+  );
+}
+
+// Reads the transfer id from ?id= rather than a [id] path segment: a static
+// export has no server to resolve arbitrary path params, and the app is
+// exported as static files for both the web build and the Capacitor shell.
+// useSearchParams needs a Suspense boundary to prerender.
+export default function TransferPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+          <p className="text-[var(--muted-foreground)]">Loading…</p>
+        </div>
+      }
+    >
+      <TransferPageInner />
+    </Suspense>
   );
 }

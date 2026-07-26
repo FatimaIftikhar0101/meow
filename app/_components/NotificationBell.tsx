@@ -126,7 +126,7 @@ function NotificationRow({
 
   if (transferId) {
     return (
-      <Link href={`/transfers/${transferId}`} onClick={onClose}>
+      <Link href={`/transfers/detail?id=${transferId}`} onClick={onClose}>
         {inner}
       </Link>
     );

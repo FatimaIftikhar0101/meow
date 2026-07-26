@@ -83,7 +83,7 @@ export default function AdminTransfersPage() {
               data.items.map((t) => (
                 <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/transfers/${t.id}`} className="text-blue-600 hover:underline">
+                    <Link href={`/admin/transfers/detail?id=${t.id}`} className="text-blue-600 hover:underline">
                       {t.userEmail}
                     </Link>
                   </td>

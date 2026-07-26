@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState, use } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import AdminShell from '../../AdminShell';
@@ -27,8 +28,8 @@ interface TransferDetail {
 
 const TERMINAL = new Set(['delivered', 'failed', 'cancelled']);
 
-export default function AdminTransferDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function AdminTransferDetailInner() {
+  const id = useSearchParams().get('id') ?? '';
   const [transfer, setTransfer] = useState<TransferDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -105,7 +106,7 @@ export default function AdminTransferDetailPage({ params }: { params: Promise<{ 
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <h2 className="font-semibold text-slate-900 mb-3">Customer</h2>
               <p className="text-sm">
-                <Link href={`/admin/users/${transfer.user.id}`} className="text-blue-600 hover:underline">{transfer.user.email}</Link>
+                <Link href={`/admin/users/detail?id=${transfer.user.id}`} className="text-blue-600 hover:underline">{transfer.user.email}</Link>
               </p>
               <p className="text-xs text-slate-500 mt-1">{transfer.user.country ?? '—'}</p>
             </div>
@@ -155,5 +156,16 @@ export default function AdminTransferDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
     </AdminShell>
+  );
+}
+
+// ?id= instead of a [id] path segment — a static export has no server to
+// resolve arbitrary path params. useSearchParams needs a Suspense boundary
+// to prerender; the shell stays visible while the content suspends.
+export default function AdminTransferDetailPage() {
+  return (
+    <Suspense fallback={<AdminShell><p className="text-slate-500">Loading…</p></AdminShell>}>
+      <AdminTransferDetailInner />
+    </Suspense>
   );
 }

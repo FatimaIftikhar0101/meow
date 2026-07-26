@@ -81,7 +81,7 @@ export default function SendPage() {
         sendCurrency,
         receiveCurrency,
       });
-      router.push(`/transfers/${res.data.id}`);
+      router.push(`/transfers/detail?id=${res.data.id}`);
     } catch (err) {
       const e = err as { response?: { status?: number; data?: { message?: string | string[] } } };
       if (e.response?.status === 403) {

@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState, use } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import AdminShell from '../../AdminShell';
@@ -25,8 +26,8 @@ interface UserDetail {
   transferCount: number;
 }
 
-export default function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function AdminUserDetailInner() {
+  const id = useSearchParams().get('id') ?? '';
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -171,5 +172,16 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
         </div>
       )}
     </AdminShell>
+  );
+}
+
+// ?id= instead of a [id] path segment — a static export has no server to
+// resolve arbitrary path params. useSearchParams needs a Suspense boundary
+// to prerender; the shell stays visible while the content suspends.
+export default function AdminUserDetailPage() {
+  return (
+    <Suspense fallback={<AdminShell><p className="text-slate-500">Loading…</p></AdminShell>}>
+      <AdminUserDetailInner />
+    </Suspense>
   );
 }
