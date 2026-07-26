@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from './auth.service';
+import { AuthService, splitName } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { ReferralsService } from '../referrals/referrals.service';
@@ -77,7 +77,7 @@ describe('AuthService', () => {
       prisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
       const result = await service.register(
-        { email: 'test@test.com', password: 'Password123' } as any,
+        { email: 'test@test.com', password: 'Password123', fullName: 'Ada Lovelace' } as any,
       );
 
       expect(result).toEqual({ access_token: 'test-jwt-token' });
@@ -90,7 +90,7 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
 
       await expect(
-        service.register({ email: 'dup@test.com', password: 'Password123' } as any),
+        service.register({ email: 'dup@test.com', password: 'Password123', fullName: 'Dup User' } as any),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -239,6 +239,30 @@ describe('AuthService', () => {
           newPassword: 'NewPass456',
         } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+});
+
+describe('splitName', () => {
+  it('splits a two-part name into given name and the rest', () => {
+    expect(splitName('Ada Lovelace')).toEqual({ firstName: 'Ada', lastName: 'Lovelace' });
+  });
+
+  it('keeps every token after the first as the last name', () => {
+    expect(splitName('Muhammad Farman Ali')).toEqual({
+      firstName: 'Muhammad',
+      lastName: 'Farman Ali',
+    });
+  });
+
+  it('returns a null lastName for a single-token name rather than duplicating it', () => {
+    expect(splitName('Prince')).toEqual({ firstName: 'Prince', lastName: null });
+  });
+
+  it('collapses runs of whitespace and trims', () => {
+    expect(splitName('  Ada   Lovelace  ')).toEqual({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
     });
   });
 });

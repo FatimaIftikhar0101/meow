@@ -20,6 +20,7 @@ function RefCodeReader({ onCode }: { onCode: (c: string) => void }) {
 export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({
+    fullName: '',
     email: '',
     password: '',
     country: 'CA',
@@ -35,6 +36,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const payload: Record<string, string> = {
+        fullName: form.fullName.trim(),
         email: form.email,
         password: form.password,
         country: form.country,
@@ -119,6 +121,21 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* One field rather than first/last: name structure varies by
+                culture, and the backend only splits it for the greeting. */}
+            <Field label="Full name">
+              <input
+                type="text"
+                required
+                minLength={2}
+                maxLength={100}
+                autoComplete="name"
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
+                placeholder="As it appears on your ID"
+              />
+            </Field>
             <Field label="Email">
               <input
                 type="email"

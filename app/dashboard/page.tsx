@@ -92,11 +92,15 @@ export default function DashboardPage() {
         setCorridors(corridorsRes.data);
         setBalance(parseFloat(walletRes.data.balance) || 0);
         setCurrency(walletRes.data.currency);
-        const first =
+        // firstName is null for accounts created before full name was
+        // collected, and for Google sign-ins that returned no given name.
+        // Fall back to the email local-part so the greeting is never blank.
+        setName(
           profileRes.data.firstName ||
-          profileRes.data.name ||
-          (profileRes.data.email ? profileRes.data.email.split('@')[0] : '');
-        setName(first);
+            (profileRes.data.email
+              ? profileRes.data.email.split('@')[0]
+              : ''),
+        );
         setEmailVerified(profileRes.data.emailVerified ?? null);
         setKycPassed(kycRes.data.status === 'passed');
         setInFlight(

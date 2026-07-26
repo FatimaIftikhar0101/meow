@@ -10,6 +10,10 @@ import { ThemeToggleFull } from '@/app/_components/ThemeToggle';
 interface Profile {
   userId: string;
   email: string;
+  /** Null on accounts created before full name was collected. */
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
   country: string | null;
   emailVerified?: boolean;
 }
@@ -122,10 +126,19 @@ export default function ProfilePage() {
         <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-[var(--brand)] flex items-center justify-center text-white text-xl font-bold">
-              {profile.email[0].toUpperCase()}
+              {(profile.fullName || profile.email)[0].toUpperCase()}
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-[var(--foreground)]">{profile.email}</p>
+            <div className="flex-1 min-w-0">
+              {/* Name is the identity; email demotes to a secondary line.
+                  Accounts with no name on file still lead with the email. */}
+              <p className="font-semibold text-[var(--foreground)] truncate">
+                {profile.fullName || profile.email}
+              </p>
+              {profile.fullName && (
+                <p className="text-xs text-[var(--muted-foreground)] mt-0.5 truncate">
+                  {profile.email}
+                </p>
+              )}
               <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
                 {profile.country ?? '—'} · Account {profile.userId?.slice(0, 8)}…
               </p>

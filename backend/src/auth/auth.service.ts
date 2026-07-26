@@ -35,6 +35,27 @@ export interface RequestContext {
 
 // Map ISO country (or country name) to the user's home wallet currency.
 // Defaults to CAD since our launch corridor is Canada -> Pakistan.
+/**
+ * Split a free-text full name into a display first name and the remainder.
+ *
+ * Deliberately naive: first token is the given name, everything after it is
+ * the rest. That is wrong for plenty of naming conventions, which is exactly
+ * why the *stored* value people typed is never reconstructed from these two
+ * fields — `fullName` is what the user wrote, and firstName/lastName exist
+ * only so the UI can greet someone by their given name. A single-token name
+ * ("Prince") yields a null lastName rather than duplicating the value.
+ */
+export function splitName(fullName: string): {
+  firstName: string;
+  lastName: string | null;
+} {
+  const parts = fullName.replace(/\s+/g, ' ').trim().split(' ');
+  return {
+    firstName: parts[0],
+    lastName: parts.length > 1 ? parts.slice(1).join(' ') : null,
+  };
+}
+
 function homeCurrencyFor(country?: string): string {
   if (!country) return 'CAD';
   const c = country.trim().toLowerCase();
@@ -65,6 +86,7 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+    const { firstName, lastName } = splitName(dto.fullName);
     const currency = homeCurrencyFor(dto.country);
     const role = this.isAdminEmail(dto.email) ? 'admin' : 'customer';
     const verifyToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
@@ -74,6 +96,8 @@ export class AuthService {
         data: {
           email: dto.email,
           passwordHash,
+          firstName,
+          lastName,
           country: dto.country?.trim() || null,
           role,
           emailVerifyToken: verifyToken,
@@ -225,6 +249,8 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        firstName: true,
+        lastName: true,
         country: true,
         role: true,
         emailVerified: true,
@@ -237,6 +263,13 @@ export class AuthService {
     return {
       userId: user.id,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      // Pre-joined so callers don't each reimplement the null handling. Null
+      // (not the email) when no name is on file, so the UI can decide how to
+      // fall back rather than rendering a half-name.
+      fullName:
+        [user.firstName, user.lastName].filter(Boolean).join(' ') || null,
       country: user.country,
       role: user.role,
       emailVerified: user.emailVerified,

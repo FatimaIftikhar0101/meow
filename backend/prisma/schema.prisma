@@ -26,7 +26,12 @@ model User {
   passwordChangedAt  DateTime  @default(now())
   authProvider       String    @default("local")
   googleId           String?   @unique
+  // firstName drives the greeting; lastName completes the legal name shown on
+  // receipts. Both nullable: accounts created before full name was collected
+  // (and Google sign-ups, which only yield a given name) have no value, and
+  // the UI falls back to the email local-part.
   firstName          String?
+  lastName           String?
   avatarUrl          String?
   emailVerified      Boolean   @default(false)
   emailVerifyToken   String?
