@@ -1,0 +1,151 @@
+name: Build Android APK
+
+# Builds an installable debug APK in CI so no Android SDK is needed locally.
+# Download the artifact from the run summary and open it on the phone — no
+# cable, no emulator.
+#
+# ONE-TIME SETUP — Settings → Secrets and variables → Actions → Variables:
+#   NEXT_PUBLIC_API_URL = https://your-backend.up.railway.app
+#
+# It is a repository *variable*, not a secret: it is a public URL, and secrets
+# are masked in logs which makes a wrong value hard to debug. The build fails
+# fast if it is missing — NEXT_PUBLIC_* is inlined at build time, so an APK
+# built without it would silently point at localhost (i.e. at the handset)
+# and fail every request on the device. Better to break the build than to
+# hand someone an APK aimed at the wrong backend.
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Override the API URL for this build (blank = repo variable)"
+        required: false
+        type: string
+  push:
+    branches: [mobile/capacitor]
+    # Native shell, web app, or build config only — skip doc-only pushes.
+    paths:
+      - "app/**"
+      - "lib/**"
+      - "public/**"
+      - "android/**"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.ts"
+      - "capacitor.config.ts"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  # A superseded build is wasted minutes; cancel it.
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve API URL
+        id: api
+        run: |
+          URL="${{ inputs.api_url || vars.NEXT_PUBLIC_API_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::NEXT_PUBLIC_API_URL is not set. Add it under Settings → Secrets and variables → Actions → Variables, or pass api_url when dispatching. NEXT_PUBLIC_* is inlined at build time, so an APK built without it would point at the device itself."
+            exit 1
+          fi
+          case "$URL" in
+            https://*) ;;
+            *) echo "::error::NEXT_PUBLIC_API_URL must be https — Android blocks cleartext traffic by default. Got: $URL"; exit 1 ;;
+          esac
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Building against $URL"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # AGP 8.13 requires JDK 17+; 21 matches what the app is developed against.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+
+      # Respects .npmrc (legacy-peer-deps) — required because react-simple-maps@3
+      # declares a react <=18 peer while the app runs React 19.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static export
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.api.outputs.url }}
+        run: npm run build
+
+      - name: Fail if the API URL did not make it into the bundle
+        env:
+          API_URL: ${{ steps.api.outputs.url }}
+        run: |
+          if ! grep -rq "$API_URL" out/; then
+            echo "::error::The API URL is absent from the built bundle — the app would fall back to localhost on the device."
+            exit 1
+          fi
+          if grep -rq "localhost:3000" out/; then
+            echo "::error::Found localhost:3000 in the bundle; a request would resolve to the handset itself."
+            exit 1
+          fi
+          echo "Bundle points at $API_URL"
+
+      - name: Sync web assets into the Android project
+        run: npx cap sync android
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Belt and braces: the repo now stores gradlew as 100755, but a
+      # re-add from Windows can drop the bit again and the failure
+      # ("Permission denied") is opaque.
+      - name: Build debug APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Name the APK after the commit
+        id: apk
+        run: |
+          SRC=android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$SRC" || { echo "::error::APK not found at $SRC"; exit 1; }
+          NAME="meow-${GITHUB_REF_NAME//\//-}-$(git rev-parse --short HEAD).apk"
+          cp "$SRC" "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.name }}
+          # Debug builds are throwaway; do not hoard storage.
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          {
+            echo "### APK ready"
+            echo ""
+            echo "**File:** \`${{ steps.apk.outputs.name }}\`"
+            echo "**API:** ${{ steps.api.outputs.url }}"
+            echo ""
+            echo "Download it from the Artifacts section of this run, open it on the phone, and allow installation from unknown sources."
+            echo ""
+            echo "> Debug build, signed with the shared Android debug key. Fine for testing, not for distribution."
+          } >> "$GITHUB_STEP_SUMMARY"
