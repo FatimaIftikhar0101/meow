@@ -26,6 +26,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { GoogleProfile } from './google.strategy';
+import { GoogleEnabledGuard } from './google-enabled.guard';
 
 function extractCtx(req: Request) {
   return {
@@ -102,13 +103,13 @@ export class AuthController {
   }
 
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleEnabledGuard, AuthGuard('google'))
   googleAuth() {
     // Passport redirects to Google — this body never runs.
   }
 
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleEnabledGuard, AuthGuard('google'))
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const { access_token } = await this.auth.googleLogin(req.user as GoogleProfile, extractCtx(req));
     const frontend = this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
