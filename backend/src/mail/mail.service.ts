@@ -43,14 +43,27 @@ export class MailService {
       this.logger.warn(
         'RESEND_API_KEY not set — falling back to SMTP. Note that most managed hosts block outbound SMTP ports, so this will time out in production.',
       );
+      const host = config.get<string>('SMTP_HOST') || 'smtp.gmail.com';
+      const port = Number(config.get('SMTP_PORT') ?? 587);
+      // 465 is implicit TLS (TLS from the first byte); 587 is STARTTLS, which
+      // begins in the clear and upgrades. Getting this wrong hangs rather than
+      // erroring cleanly, because each side waits for the other to speak.
+      const secure = port === 465;
+
+      this.logger.log(`Mail transport: SMTP ${host}:${port} (secure=${secure})`);
       this.transporter = nodemailer.createTransport({
-        host: config.get<string>('SMTP_HOST') || 'smtp.gmail.com',
-        port: config.get<number>('SMTP_PORT') || 587,
-        secure: false,
+        host,
+        port,
+        secure,
         auth: {
           user: config.get<string>('SMTP_USER') || '',
           pass: config.get<string>('SMTP_PASS') || '',
         },
+        // Without these, a blocked port hangs for ~2 minutes before failing,
+        // which makes the request look wedged rather than refused.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
       });
     }
   }
