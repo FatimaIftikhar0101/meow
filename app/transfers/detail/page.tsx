@@ -197,8 +197,8 @@ function TransferPageInner() {
                     try {
                       await shareReceipt(transfer);
                     } catch (err) {
-                      // A native share cancelled by the user rejects too;
-                      // don't shout about it.
+                      // A user-cancelled export rejects like a failure; don't
+                      // surface that as an error.
                       const msg = err instanceof Error ? err.message : '';
                       if (!/cancel/i.test(msg)) {
                         setReceiptError('Could not generate the receipt.');
@@ -331,9 +331,8 @@ function PrintRow({ label, value, large, mono, small, accent }: {
   );
 }
 
-// Reads the transfer id from ?id= rather than a [id] path segment: a static
-// export has no server to resolve arbitrary path params, and the app is
-// exported as static files for both the web build and the Capacitor shell.
+// Reads the transfer id from ?id= rather than a [id] path segment: the app is
+// a static export, which has no server to resolve arbitrary path params.
 // useSearchParams needs a Suspense boundary to prerender.
 export default function TransferPage() {
   return (

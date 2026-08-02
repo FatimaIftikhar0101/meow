@@ -122,8 +122,10 @@ Configuration:
 - [ ] Set `UV_THREADPOOL_SIZE=8` as a real platform variable and confirm it
       applied.
 - [ ] Rotate `JWT_SECRET` — the dev value must never reach production.
-- [ ] `FRONTEND_ORIGIN` → real domain, plus the Capacitor origins
-      (`capacitor://localhost`, `https://localhost`) once the mobile app ships.
+- [ ] `FRONTEND_ORIGIN` → real domain, and `CORS_ORIGINS` → every browser
+      origin that calls the API (web app, admin, preview deployments). The
+      native app needs no entry: CORS is a browser mechanism and a native
+      client sends no `Origin`.
 - [ ] `GOOGLE_CALLBACK_URL` → real domain, and registered in Google Cloud
       Console.
 - [ ] Move off Gmail SMTP (rate-limited) to Resend / Postmark / SES.

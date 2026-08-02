@@ -1,5 +1,3 @@
-import { isNative } from './platform';
-
 export interface ReceiptData {
   id: string;
   amount: string;
@@ -22,9 +20,10 @@ export interface ReceiptData {
  * of the device's viewport — a screenshot of a 375px-wide phone layout makes a
  * poor A4 receipt.
  *
- * Replaces `window.print()`, which silently does nothing in an Android
- * WebView: there is no print dialog there, so the button appeared to be broken
- * in the app while working fine in a desktop browser.
+ * Preferred over `window.print()`: print styling is fragile across browsers,
+ * some environments have no print dialog at all, and a downloadable file is
+ * what people actually want from a transfer receipt — something they can keep
+ * or forward.
  */
 async function buildPdf(t: ReceiptData) {
   const { jsPDF } = await import('jspdf');
@@ -123,43 +122,16 @@ async function buildPdf(t: ReceiptData) {
 }
 
 /**
- * Produce the receipt and hand it to the platform.
+ * Generate the receipt and download it.
  *
- * Native: written to the cache directory and passed to the OS share sheet, so
- * the user can save it to Files, mail it, or send it on — which is what a
- * remittance receipt is actually for.
- * Web: a normal download.
+ * jsPDF is imported lazily so it stays out of the entry bundle — this path
+ * runs only when someone exports a delivered transfer's receipt.
  *
- * The Capacitor plugins are imported lazily so neither they nor jsPDF are
- * pulled into the initial bundle; this path runs only when a delivered
- * transfer's receipt is exported.
+ * When the native app is built this module is the piece worth porting: the
+ * layout logic carries over, and the generated file is handed to the OS share
+ * sheet instead of downloaded.
  */
 export async function shareReceipt(t: ReceiptData): Promise<void> {
   const { doc, filename } = await buildPdf(t);
-
-  if (!isNative()) {
-    doc.save(filename);
-    return;
-  }
-
-  const [{ Filesystem, Directory }, { Share }] = await Promise.all([
-    import('@capacitor/filesystem'),
-    import('@capacitor/share'),
-  ]);
-
-  // jsPDF hands back a full data URI; Filesystem wants the payload only.
-  const base64 = doc.output('datauristring').split(',')[1];
-
-  const { uri } = await Filesystem.writeFile({
-    path: filename,
-    data: base64,
-    directory: Directory.Cache,
-  });
-
-  await Share.share({
-    title: 'Transfer receipt',
-    text: `Meow transfer receipt ${filename.replace(/\.pdf$/, '')}`,
-    url: uri,
-    dialogTitle: 'Share receipt',
-  });
+  doc.save(filename);
 }

@@ -9,10 +9,10 @@
  * Note this is a *build-time* flag — NEXT_PUBLIC_* values are inlined into the
  * bundle, so flipping it means rebuilding.
  *
- * Mobile caveat: Google refuses OAuth inside embedded WebViews
- * (`disallowed_useragent`), so on Capacitor this flow cannot be a plain link —
- * it needs the system browser plus a deep link back into the app. Keep this
- * disabled on native until that is wired up.
+ * Note for the native app: Google rejects OAuth attempted inside an embedded
+ * WebView (`disallowed_useragent`). The native client must use the system
+ * browser or Google's native sign-in SDK, with a deep link back into the app —
+ * this plain link is web-only.
  */
 export const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_ENABLED === 'true';
 

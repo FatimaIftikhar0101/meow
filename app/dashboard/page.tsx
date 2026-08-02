@@ -11,7 +11,6 @@ import { CatConstellation } from '@/app/_components/CatConstellation';
 import { NotificationBell } from '@/app/_components/NotificationBell';
 import { ThemeToggleCompact } from '@/app/_components/ThemeToggle';
 import { useNotifications } from '@/lib/useNotifications';
-import { shouldRenderGlobe } from '@/lib/platform';
 
 /* Lazy-load the entire Three.js chunk — it's large and blocking.
  * The component is only *mounted* once the browser reports idle (see
@@ -66,10 +65,6 @@ export default function DashboardPage() {
   // permanently unmounted for anyone who opens the dashboard in a bg tab.
   // startTransition keeps the state flip non-urgent so React can yield.
   useEffect(() => {
-    // Never mount it in the native shell — see shouldRenderGlobe(). Bailing
-    // here (rather than hiding it in the markup) means next/dynamic never
-    // requests the Three.js chunk, so it stays off the device.
-    if (!shouldRenderGlobe()) return;
     const show = () => startTransition(() => setGlobeReady(true));
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(show, { timeout: 2000 });

@@ -1,15 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Static export. The `out/` folder is the deliverable for BOTH targets:
-  // it is served directly as the website, and it is the Capacitor `webDir`
-  // bundled into the native app. One build, two products — so the web and
-  // mobile versions can never drift apart.
+  // Static export: the build emits plain files into `out/`, deployable to any
+  // static host or CDN with no Node server to run or pay for.
   //
-  // The constraint this imposes: no server at runtime. No API routes, no
-  // middleware, no server-side data fetching, and no dynamic `[param]`
-  // segments (there is nothing to resolve them). All data comes from the
-  // NestJS backend over the network via lib/api.ts.
+  // The app suits this — it has no API routes, no middleware and no
+  // server-side data fetching. Everything comes from the NestJS backend over
+  // the network via lib/api.ts.
+  //
+  // The constraint it imposes: no dynamic `[param]` route segments, since
+  // there is no server to resolve them. Detail pages take an `?id=` query
+  // param instead.
   output: "export",
 
   // next/image's default loader optimises on demand from a server, which a
@@ -17,9 +18,8 @@ const nextConfig: NextConfig = {
   // the build from failing if a next/image is ever added.
   images: { unoptimized: true },
 
-  // Emit `about/index.html` rather than `about.html` so paths resolve the
-  // same whether served by a web host or read from the app's local file
-  // system by the Capacitor WebView.
+  // Emit `about/index.html` rather than `about.html`, so a path resolves the
+  // same on any static host regardless of its extension-rewriting rules.
   trailingSlash: true,
 };
 

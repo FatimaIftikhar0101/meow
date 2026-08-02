@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Meow</string>
-    <string name="title_activity_main">Meow</string>
-    <string name="package_name">com.meow.app</string>
-    <string name="custom_url_scheme">com.meow.app</string>
-</resources>
