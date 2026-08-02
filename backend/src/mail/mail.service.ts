@@ -59,8 +59,16 @@ export class MailService {
           user: config.get<string>('SMTP_USER') || '',
           pass: config.get<string>('SMTP_PASS') || '',
         },
-        // Without these, a blocked port hangs for ~2 minutes before failing,
-        // which makes the request look wedged rather than refused.
+        // Note on the failure seen on Railway: nodemailer resolves both A and
+        // AAAA records and tries IPv4 first, falling back to IPv6. The logged
+        // error is therefore `ENETUNREACH <ipv6>` — the *last* attempt — even
+        // though IPv4 was tried first and timed out. Reading that error alone
+        // suggests an IPv6 problem; the elapsed time (a full connectionTimeout
+        // before it appears) is what shows IPv4 was attempted and blocked.
+        //
+        // Without these, an unreachable host hangs for ~2 minutes before
+        // nodemailer gives up, making the request look wedged rather than
+        // refused.
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
         socketTimeout: 15_000,
