@@ -1,35 +1,105 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+
+/**
+ * Transactional email.
+ *
+ * Two transports, chosen at construction:
+ *
+ *  - **Resend HTTP API** when RESEND_API_KEY is set. This is the one that
+ *    works in production. Managed hosts (Railway, Render, Heroku, Vercel)
+ *    block outbound SMTP ports 25/465/587 to stop themselves being used as
+ *    spam relays, so nodemailer there fails with `Connection timeout` —
+ *    a TCP connect that never completes, before any credential is sent.
+ *    Sending over HTTPS on 443 sidesteps that entirely.
+ *
+ *  - **SMTP via nodemailer** otherwise, so local development against
+ *    Mailhog/Mailpit or a self-hosted relay keeps working unchanged.
+ *
+ * The public methods are transport-agnostic; callers never know which is used.
+ */
 @Injectable()
 export class MailService {
-  private transporter: nodemailer.Transporter;
-  private from: string;
+  private readonly logger = new Logger(MailService.name);
+  private readonly resendKey?: string;
+  private readonly from: string;
+  private transporter?: nodemailer.Transporter;
 
   constructor(private readonly config: ConfigService) {
-    this.from = config.get<string>('SMTP_FROM') || 'fatimaiftikhar0101@gmail.com';
-    this.transporter = nodemailer.createTransport({
-      host: config.get<string>('SMTP_HOST') || 'smtp.gmail.com',
-      port: config.get<number>('SMTP_PORT') || 587,
-      secure: false,
-      auth: {
-        user: config.get<string>('SMTP_USER') || '',
-        pass: config.get<string>('SMTP_PASS') || '',
+    this.resendKey = config.get<string>('RESEND_API_KEY') || undefined;
+    // MAIL_FROM is the transport-neutral name; SMTP_FROM is still honoured so
+    // existing deployments keep working without an env change.
+    this.from =
+      config.get<string>('MAIL_FROM') ||
+      config.get<string>('SMTP_FROM') ||
+      'onboarding@resend.dev';
+
+    if (this.resendKey) {
+      this.logger.log(`Mail transport: Resend HTTP API (from ${this.from})`);
+    } else {
+      this.logger.warn(
+        'RESEND_API_KEY not set — falling back to SMTP. Note that most managed hosts block outbound SMTP ports, so this will time out in production.',
+      );
+      this.transporter = nodemailer.createTransport({
+        host: config.get<string>('SMTP_HOST') || 'smtp.gmail.com',
+        port: config.get<number>('SMTP_PORT') || 587,
+        secure: false,
+        auth: {
+          user: config.get<string>('SMTP_USER') || '',
+          pass: config.get<string>('SMTP_PASS') || '',
+        },
+      });
+    }
+  }
+
+  private async send(to: string, subject: string, html: string) {
+    if (!this.resendKey) {
+      await this.transporter!.sendMail({
+        from: `"Meow" <${this.from}>`,
+        to,
+        subject,
+        html,
+      });
+      return;
+    }
+
+    const res = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.resendKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        from: `Meow <${this.from}>`,
+        to: [to],
+        subject,
+        html,
+      }),
     });
+
+    if (!res.ok) {
+      // Surface Resend's own message — its failures are specific and
+      // actionable ("domain is not verified", "You can only send testing
+      // emails to your own address"), and a bare status code would send
+      // someone hunting through logs for no reason.
+      const detail = await res.text().catch(() => '');
+      throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 300)}`);
+    }
+  }
+
+  private frontend(): string {
+    return this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
   }
 
   async sendPasswordResetEmail(to: string, token: string) {
-    const frontend =
-      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
-    const link = `${frontend}/auth/reset-password?token=${token}`;
-
-    await this.transporter.sendMail({
-      from: `"Meow" <${this.from}>`,
+    const link = `${this.frontend()}/auth/reset-password?token=${token}`;
+    await this.send(
       to,
-      subject: 'Reset your password — Meow',
-      html: `
+      'Reset your password — Meow',
+      `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
           <h2 style="color: #1a1a1a; font-size: 22px; margin-bottom: 8px;">Reset your password</h2>
           <p style="color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 28px;">
@@ -44,19 +114,15 @@ export class MailService {
           </p>
         </div>
       `,
-    });
+    );
   }
 
   async sendVerificationEmail(to: string, token: string) {
-    const frontend =
-      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
-    const link = `${frontend}/auth/verify-email?token=${token}`;
-
-    await this.transporter.sendMail({
-      from: `"Meow" <${this.from}>`,
+    const link = `${this.frontend()}/auth/verify-email?token=${token}`;
+    await this.send(
       to,
-      subject: 'Verify your email — Meow',
-      html: `
+      'Verify your email — Meow',
+      `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
           <h2 style="color: #1a1a1a; font-size: 22px; margin-bottom: 8px;">Welcome to Meow</h2>
           <p style="color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 28px;">
@@ -71,6 +137,6 @@ export class MailService {
           </p>
         </div>
       `,
-    });
+    );
   }
 }

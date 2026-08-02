@@ -30,6 +30,14 @@ export const envSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
   GOOGLE_CALLBACK_URL: Joi.string().uri().default('http://localhost:3000/auth/google/callback'),
+  /* Resend HTTP API key. When present it is used instead of SMTP, because
+     managed hosts block outbound SMTP ports (25/465/587) and nodemailer there
+     fails with a connection timeout before any credential is sent. */
+  RESEND_API_KEY: Joi.string().allow('').default(''),
+  /* Sender address, transport-neutral. Falls back to SMTP_FROM. With Resend
+     this must be either a verified domain or onboarding@resend.dev — and the
+     latter only delivers to the address the Resend account is registered to. */
+  MAIL_FROM: Joi.string().email().allow('').default(''),
   SMTP_HOST: Joi.string().default('smtp.gmail.com'),
   SMTP_PORT: Joi.number().integer().default(587),
   SMTP_USER: Joi.string().allow('').default(''),
