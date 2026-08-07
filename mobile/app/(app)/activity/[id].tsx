@@ -1,0 +1,378 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackBar } from '../../../components/BackBar';
+import { CatMark } from '../../../components/CatMark';
+import { StatusPill } from '../../../components/StatusPill';
+import {
+  Body,
+  Button,
+  Card,
+  Divider,
+  Loader,
+  Note,
+  Row,
+  Screen,
+  Title,
+} from '../../../components/ui';
+import api, { errorMessage } from '../../../lib/api';
+import { STATUS_LABEL, STATUS_STEPS, dateTimeOf, progressOf, stageIndex } from '../../../lib/format';
+import { countryFlag, formatAmount, formatMoney } from '../../../lib/money';
+import { shareReceipt } from '../../../lib/receipt';
+import { useTransferStatus } from '../../../lib/sockets';
+import { CANCELLABLE_STATUSES, type TransferDetail } from '../../../lib/types';
+import { colors, radius } from '../../../theme/tokens';
+
+const ARC_W = 260;
+const ARC_H = 74;
+
+/**
+ * The cat's position along the arc is the same fraction of the journey as the
+ * transfer's stage is of the state machine. It is not decoration: at a glance
+ * it says how far along things are without reading a single word.
+ *
+ * The curve is the quadratic M20 56 Q130 8 240 56; the point at parameter t is
+ * evaluated directly rather than measured, so it lands exactly on the line.
+ */
+function pointOnArc(t: number): { x: number; y: number } {
+  const p0 = { x: 20, y: 56 };
+  const p1 = { x: 130, y: 8 };
+  const p2 = { x: 240, y: 56 };
+  const u = 1 - t;
+  return {
+    x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+    y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+  };
+}
+
+function Journey({ transfer }: { transfer: TransferDetail }) {
+  const failed = transfer.status === 'failed' || transfer.status === 'cancelled';
+  const t = progressOf(transfer.status);
+  const at = pointOnArc(t);
+  const delivered = transfer.status === 'delivered';
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.ink,
+        borderRadius: radius.lg,
+        padding: 16,
+        paddingBottom: 18,
+      }}
+    >
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Body size={10.5} tone="onInk2" weight="600">
+          {failed ? 'DID NOT COMPLETE' : delivered ? 'DELIVERED' : 'IN FLIGHT'}
+        </Body>
+        {!failed && !delivered && (
+          <Row gap={5}>
+            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }} />
+            <Body size={10} tone="mint" weight="600">
+              Live
+            </Body>
+          </Row>
+        )}
+      </Row>
+
+      <View style={{ width: '100%', aspectRatio: ARC_W / ARC_H, marginTop: 10 }}>
+        <Svg width="100%" height="100%" viewBox={`0 0 ${ARC_W} ${ARC_H}`}>
+          {/* Full route, dimmed */}
+          <Path
+            d="M20 56 Q130 8 240 56"
+            fill="none"
+            stroke={failed ? '#4A3A36' : '#2A342B'}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+          />
+          {/* Travelled portion, drawn by dashing the same path so the two
+              cannot diverge. 268 comfortably exceeds the arc's length. */}
+          {!failed && (
+            <Path
+              d="M20 56 Q130 8 240 56"
+              fill="none"
+              stroke={colors.mint}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeDasharray={`${268 * t} 268`}
+            />
+          )}
+          <Circle cx={20} cy={56} r={5} fill={colors.mint} />
+          <Circle
+            cx={240}
+            cy={56}
+            r={5}
+            fill={delivered ? colors.mint : '#2A342B'}
+            stroke={colors.mint}
+            strokeWidth={delivered ? 0 : 1.4}
+          />
+          <Circle cx={at.x} cy={at.y} r={12} fill={colors.ink} />
+        </Svg>
+        <View
+          style={{
+            position: 'absolute',
+            left: `${((at.x - 10) / ARC_W) * 100}%`,
+            top: `${((at.y - 10) / ARC_H) * 100}%`,
+            width: `${(20 / ARC_W) * 100}%`,
+            aspectRatio: 1,
+          }}
+        >
+          <CatMark
+            size={20}
+            color={failed ? colors.clay : colors.gold}
+            pupil={colors.ink}
+            eyesClosed={delivered}
+          />
+        </View>
+      </View>
+
+      <Row style={{ justifyContent: 'space-between', marginTop: 2 }}>
+        <Body size={10.5} tone="onInk2">
+          Sent
+        </Body>
+        <Body size={10.5} tone="onInk2">
+          {countryFlag(transfer.recipient.country)} {transfer.recipient.name.split(' ')[0]}
+        </Body>
+      </Row>
+
+      <View style={{ alignItems: 'center', marginTop: 10 }}>
+        <Body size={13.5} tone="onInk" weight="600">
+          {failed
+            ? (transfer.failureReason ?? STATUS_LABEL[transfer.status])
+            : STATUS_LABEL[transfer.status]}
+        </Body>
+      </View>
+    </View>
+  );
+}
+
+export default function TransferDetailScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [transfer, setTransfer] = useState<TransferDetail | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get<TransferDetail>(`/transfers/${id}`);
+      setTransfer(data);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not load this transfer.'));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  /* The backend advances transfers on a timer and pushes each change over the
+     socket, so this screen updates without polling. Only refetch when the
+     event is about *this* transfer. */
+  useTransferStatus((e) => {
+    if (e.transferId === id) void load();
+  });
+
+  const cancellable = transfer !== null && CANCELLABLE_STATUSES.includes(transfer.status);
+  const total = transfer
+    ? (Number(transfer.amount) + Number(transfer.feeAmount)).toFixed(2)
+    : null;
+
+  const doneStages = useMemo(() => {
+    if (!transfer) return new Set<string>();
+    return new Set(transfer.timeline.map((e) => e.status));
+  }, [transfer]);
+
+  const cancel = () => {
+    Alert.alert(
+      'Cancel this transfer?',
+      'The full amount and the fee are refunded to your wallet. This cannot be undone.',
+      [
+        { text: 'Keep sending', style: 'cancel' },
+        {
+          text: 'Cancel transfer',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              const { data } = await api.post<TransferDetail>(`/transfers/${id}/cancel`);
+              setTransfer(data);
+            } catch (err) {
+              setError(errorMessage(err, 'Could not cancel — it may have already moved on.'));
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const receipt = async () => {
+    if (!transfer) return;
+    try {
+      await shareReceipt(transfer);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not generate the receipt.'));
+    }
+  };
+
+  if (!transfer) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+        <BackBar title="Transfer" onBack={() => router.replace('/(app)/activity')} />
+        {error ? (
+          <View style={{ padding: 16 }}>
+            <Note>{error}</Note>
+          </View>
+        ) : (
+          <Loader />
+        )}
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+      <BackBar
+        title={`To ${transfer.recipient.name}`}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace('/(app)/activity'))}
+      />
+      <Screen>
+        <View style={{ gap: 16 }}>
+          <Journey transfer={transfer} />
+
+          <View style={{ alignItems: 'center', gap: 3 }}>
+            <Title size={32} numberOfLines={1}>
+              {formatAmount(transfer.receiveAmount)}{' '}
+              <Title size={17} tone="ink3">
+                {transfer.receiveCurrency}
+              </Title>
+            </Title>
+            <StatusPill status={transfer.status} />
+          </View>
+
+          {error ? <Note>{error}</Note> : null}
+
+          <Card>
+            <View style={{ gap: 10 }}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Body size={13}>You sent</Body>
+                <Body size={13} tone="ink" weight="600" numbers>
+                  {formatMoney(transfer.amount, transfer.sendCurrency)}
+                </Body>
+              </Row>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Body size={13}>Fee</Body>
+                <Body size={13} tone="ink" weight="600" numbers>
+                  {formatMoney(transfer.feeAmount, transfer.sendCurrency)}
+                </Body>
+              </Row>
+              <Divider />
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Body size={13} tone="ink" weight="600">
+                  Total charged
+                </Body>
+                <Body size={14} tone="ink" weight="700" numbers>
+                  {formatMoney(total, transfer.sendCurrency)}
+                </Body>
+              </Row>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Body size={12} tone="ink3">
+                  Rate applied
+                </Body>
+                <Body size={12} tone="ink3" numbers>
+                  {transfer.fxRateApplied
+                    ? `1 ${transfer.sendCurrency} = ${formatAmount(transfer.fxRateApplied, 4)} ${transfer.receiveCurrency}`
+                    : '—'}
+                </Body>
+              </Row>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Body size={12} tone="ink3">
+                  Reference
+                </Body>
+                <Body size={12} tone="ink3" numbers>
+                  {transfer.id.slice(0, 8).toUpperCase()}
+                </Body>
+              </Row>
+            </View>
+          </Card>
+
+          {/* Timeline. Every stage is listed, including the ones still to come,
+              so the journey has a visible end rather than an open question. */}
+          <Card>
+            <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 12 }}>
+              TIMELINE
+            </Body>
+            <View style={{ gap: 0 }}>
+              {STATUS_STEPS.map((step, i) => {
+                const event = transfer.timeline.find((e) => e.status === step);
+                const done = doneStages.has(step);
+                const current = transfer.status === step;
+                const reachable =
+                  transfer.status !== 'failed' && transfer.status !== 'cancelled';
+                const last = i === STATUS_STEPS.length - 1;
+                return (
+                  <Row key={step} gap={12} style={{ alignItems: 'flex-start' }}>
+                    <View style={{ alignItems: 'center', width: 14 }}>
+                      <View
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 5,
+                          marginTop: 4,
+                          backgroundColor: done ? colors.mintInk : 'transparent',
+                          borderWidth: done ? 0 : 1.4,
+                          borderColor: colors.line2,
+                        }}
+                      />
+                      {!last && (
+                        <View
+                          style={{
+                            width: 1.5,
+                            flex: 1,
+                            minHeight: 22,
+                            backgroundColor: done ? colors.mintInk : colors.line,
+                          }}
+                        />
+                      )}
+                    </View>
+                    <View style={{ flex: 1, paddingBottom: last ? 0 : 12 }}>
+                      <Body
+                        size={13}
+                        tone={done ? 'ink' : 'ink3'}
+                        weight={current ? '700' : done ? '600' : '400'}
+                      >
+                        {event?.message || STATUS_LABEL[step]}
+                      </Body>
+                      <Body size={11} tone="ink3">
+                        {event
+                          ? dateTimeOf(event.createdAt)
+                          : reachable
+                            ? 'Pending'
+                            : 'Not reached'}
+                      </Body>
+                    </View>
+                  </Row>
+                );
+              })}
+            </View>
+          </Card>
+
+          <View style={{ gap: 9 }}>
+            <Button label="Download receipt" variant="outline" onPress={receipt} />
+            {cancellable && (
+              <Button
+                label="Cancel transfer"
+                variant="danger"
+                loading={busy}
+                onPress={cancel}
+              />
+            )}
+          </View>
+        </View>
+      </Screen>
+    </SafeAreaView>
+  );
+}
