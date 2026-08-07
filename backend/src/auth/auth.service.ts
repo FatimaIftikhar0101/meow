@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { ReferralsService } from '../referrals/referrals.service';
@@ -68,6 +69,13 @@ function homeCurrencyFor(country?: string): string {
 
 @Injectable()
 export class AuthService {
+  /**
+   * Verifies Google ID tokens from the native mobile client. Built lazily so
+   * the service still constructs when Google is not configured — the endpoint
+   * is separately gated by GoogleEnabledGuard.
+   */
+  private googleVerifier?: OAuth2Client;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -126,6 +134,63 @@ export class AuthService {
 
     const session = await this.createSession(user.id, ctx);
     return this.signToken(user.id, user.email, user.role, session.id);
+  }
+
+  /**
+   * Sign in from the native Android client.
+   *
+   * The web flow is a redirect: Passport bounces the browser to Google and
+   * back, and the callback hands a token to FRONTEND_ORIGIN. A native app has
+   * no browser to redirect, so it uses the platform account picker and comes
+   * back holding a Google ID token instead. This endpoint verifies that token
+   * and then hands off to the very same `googleLogin` the web flow uses, so
+   * account linking, wallet creation, the suspension check, the audit row and
+   * session creation all behave identically across the two clients.
+   *
+   * The audience is the *web* client ID, not the Android one:
+   * @react-native-google-signin is configured with `webClientId`, and the token
+   * Play Services mints carries that as its `aud`. The Android OAuth client
+   * still has to exist in Google Cloud Console — it is what Play Services
+   * checks the app's package name and signing fingerprint against before it
+   * will issue a token at all.
+   */
+  async googleNativeLogin(idToken: string, ctx?: RequestContext) {
+    const audience = this.config.get<string>('GOOGLE_CLIENT_ID') ?? '';
+    if (!audience) {
+      throw new BadRequestException('Google sign-in is not configured');
+    }
+    this.googleVerifier ??= new OAuth2Client();
+
+    let payload;
+    try {
+      const ticket = await this.googleVerifier.verifyIdToken({
+        idToken,
+        audience,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      // Covers a bad signature, an expired token, and a mismatched audience.
+      // Deliberately not distinguished: the client cannot act on the
+      // difference, and saying which one failed helps only an attacker.
+      throw new UnauthorizedException('Invalid Google token');
+    }
+
+    if (!payload?.sub || !payload.email) {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+    if (!payload.email_verified) {
+      // Without this, anyone able to create an unverified Google account for
+      // an address could take over the local account that owns it.
+      throw new UnauthorizedException('Google account email is not verified');
+    }
+
+    const profile: GoogleProfile = {
+      googleId: payload.sub,
+      email: payload.email.trim().toLowerCase(),
+      firstName: payload.given_name ?? '',
+      avatarUrl: payload.picture,
+    };
+    return this.googleLogin(profile, ctx);
   }
 
   async googleLogin(profile: GoogleProfile, ctx?: RequestContext) {

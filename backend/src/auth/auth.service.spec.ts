@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService, splitName } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +14,19 @@ import { MailService } from '../mail/mail.service';
 import { ReferralsService } from '../referrals/referrals.service';
 
 jest.mock('bcrypt');
+
+/**
+ * Stands in for Google's key-fetching verifier. The real one makes a network
+ * call to fetch signing certificates, which a unit test must not do; what is
+ * under test here is what the service does with a verified payload, and that
+ * it refuses everything else.
+ */
+const mockVerifyIdToken = jest.fn();
+jest.mock('google-auth-library', () => ({
+  OAuth2Client: jest.fn().mockImplementation(() => ({
+    verifyIdToken: (...args: unknown[]) => mockVerifyIdToken(...args),
+  })),
+}));
 
 const mockPrisma = () => ({
   user: {
@@ -49,6 +67,7 @@ describe('AuthService', () => {
                 JWT_SECRET: 'test-secret',
                 JWT_EXPIRES_IN: '7d',
                 ADMIN_EMAILS: 'admin@test.com',
+                GOOGLE_CLIENT_ID: 'web-client-id.apps.googleusercontent.com',
               };
               return map[key];
             },
@@ -239,6 +258,108 @@ describe('AuthService', () => {
           newPassword: 'NewPass456',
         } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('googleNativeLogin', () => {
+    const payload = {
+      sub: 'google-123',
+      email: 'Native@Test.com',
+      email_verified: true,
+      given_name: 'Ayesha',
+      picture: 'https://example.com/a.png',
+    };
+
+    beforeEach(() => {
+      mockVerifyIdToken.mockReset();
+      prisma.auditLog.create.mockResolvedValue({});
+    });
+
+    const validToken = 'x'.repeat(200);
+
+    it('verifies the token and hands off to the shared googleLogin path', async () => {
+      mockVerifyIdToken.mockResolvedValue({ getPayload: () => payload });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u-9',
+        email: 'native@test.com',
+        role: 'customer',
+        suspended: false,
+      });
+      prisma.session.create.mockResolvedValue({ id: 'sess-9' });
+
+      const result = await service.googleNativeLogin(validToken, { ip: '1.2.3.4' });
+
+      expect(result).toEqual({ access_token: 'test-jwt-token' });
+      // The audience must be the web client ID — that is what the ID token
+      // minted by the native SDK carries as `aud`.
+      expect(mockVerifyIdToken).toHaveBeenCalledWith({
+        idToken: validToken,
+        audience: 'web-client-id.apps.googleusercontent.com',
+      });
+      // Reached googleLogin, which is what creates the session.
+      expect(prisma.session.create).toHaveBeenCalled();
+    });
+
+    it('normalises the email before looking the account up', async () => {
+      mockVerifyIdToken.mockResolvedValue({ getPayload: () => payload });
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          user: { create: jest.fn().mockResolvedValue({ id: 'u-10', email: 'native@test.com', role: 'customer', suspended: false }) },
+          wallet: { create: jest.fn() },
+          auditLog: { create: jest.fn() },
+        }),
+      );
+      prisma.session.create.mockResolvedValue({ id: 'sess-10' });
+
+      await service.googleNativeLogin(validToken);
+
+      // Second lookup is by email, after the googleId lookup misses.
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'native@test.com' },
+      });
+    });
+
+    it('rejects a token that fails verification', async () => {
+      mockVerifyIdToken.mockRejectedValue(new Error('Invalid signature'));
+
+      await expect(service.googleNativeLogin(validToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.session.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token whose email Google has not verified', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({ ...payload, email_verified: false }),
+      });
+
+      await expect(service.googleNativeLogin(validToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.session.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a payload with no subject', async () => {
+      mockVerifyIdToken.mockResolvedValue({ getPayload: () => ({ email: 'a@b.com' }) });
+
+      await expect(service.googleNativeLogin(validToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('refuses a suspended account, same as every other sign-in path', async () => {
+      mockVerifyIdToken.mockResolvedValue({ getPayload: () => payload });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u-9',
+        email: 'native@test.com',
+        role: 'customer',
+        suspended: true,
+      });
+
+      await expect(service.googleNativeLogin(validToken)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

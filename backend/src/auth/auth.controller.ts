@@ -20,6 +20,7 @@ import type { AuthUser } from './decorators/current-user.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { GoogleNativeDto } from './dto/google-native.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -106,6 +107,18 @@ export class AuthController {
   @UseGuards(GoogleEnabledGuard, AuthGuard('google'))
   googleAuth() {
     // Passport redirects to Google — this body never runs.
+  }
+
+  /**
+   * The native counterpart to the /auth/google redirect flow above. Same guard,
+   * so both are disabled together when Google is not configured.
+   */
+  @Post('google/native')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(GoogleEnabledGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  googleNative(@Body() dto: GoogleNativeDto, @Req() req: Request) {
+    return this.auth.googleNativeLogin(dto.idToken, extractCtx(req));
   }
 
   @Get('google/callback')
