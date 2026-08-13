@@ -60,7 +60,7 @@ export default function NewRecipient() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="New recipient" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -104,12 +104,12 @@ export default function NewRecipient() {
                         paddingVertical: 10,
                         borderRadius: radius.sm,
                         borderWidth: 1,
-                        borderColor: on ? colors.mintInk : colors.line2,
-                        backgroundColor: on ? colors.mintLo : colors.card,
+                        borderColor: on ? colors.accent : colors.lineStrong,
+                        backgroundColor: on ? colors.accentSoft : colors.card,
                       }}
                     >
                       <Body size={15}>{countryFlag(c)}</Body>
-                      <Body size={13} tone={on ? 'mint' : 'ink2'} weight="600">
+                      <Body size={13} tone={on ? 'accent' : 'muted'} weight="600">
                         {COUNTRY_NAME[c] ?? c}
                       </Body>
                     </Pressable>

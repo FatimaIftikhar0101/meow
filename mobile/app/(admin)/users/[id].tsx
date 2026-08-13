@@ -90,7 +90,7 @@ export default function AdminUserDetailScreen() {
 
   if (!user) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
         <BackBar title="User" />
         {error ? (
           <View style={{ padding: 16 }}>
@@ -106,7 +106,7 @@ export default function AdminUserDetailScreen() {
   const latestKyc = user.kycRecords[0];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="User" />
       <Screen>
         <View style={{ gap: 15 }}>
@@ -115,13 +115,13 @@ export default function AdminUserDetailScreen() {
               {user.email}
             </Title>
             <Row gap={7} style={{ marginTop: 5 }}>
-              {user.role === 'admin' && <Tag label="Admin" tone="mint" />}
+              {user.role === 'admin' && <Tag label="Admin" tone="accent" />}
               {user.suspended ? (
-                <Tag label="Suspended" tone="clay" />
+                <Tag label="Suspended" tone="danger" />
               ) : (
-                <Tag label="Active" tone="mint" />
+                <Tag label="Active" tone="accent" />
               )}
-              <Body size={12} tone="ink3">
+              <Body size={12} tone="faint">
                 {user.country ?? '—'} · {user.transferCount} transfers
               </Body>
             </Row>
@@ -130,11 +130,11 @@ export default function AdminUserDetailScreen() {
           {error ? <Note>{error}</Note> : null}
 
           <Card>
-            <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 8 }}>
+            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 8 }}>
               BALANCES
             </Body>
             {user.balances.length === 0 ? (
-              <Body size={13} tone="ink3">
+              <Body size={13} tone="faint">
                 No wallets.
               </Body>
             ) : (
@@ -157,7 +157,7 @@ export default function AdminUserDetailScreen() {
           </Card>
 
           <Card>
-            <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 8 }}>
+            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 8 }}>
               KYC
             </Body>
             {latestKyc ? (
@@ -167,21 +167,21 @@ export default function AdminUserDetailScreen() {
                   weight="700"
                   tone={
                     latestKyc.status === 'passed'
-                      ? 'mint'
+                      ? 'accent'
                       : latestKyc.status === 'failed'
-                        ? 'clay'
-                        : 'amber'
+                        ? 'danger'
+                        : 'pending'
                   }
                 >
                   {latestKyc.status.toUpperCase()}
                 </Body>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   {latestKyc.provider ?? 'unknown provider'} · {dateTimeOf(latestKyc.createdAt)}
                   {latestKyc.reason ? ` · ${latestKyc.reason}` : ''}
                 </Body>
               </View>
             ) : (
-              <Body size={13} tone="ink3">
+              <Body size={13} tone="faint">
                 No KYC record on file.
               </Body>
             )}
@@ -212,7 +212,7 @@ export default function AdminUserDetailScreen() {
             onPress={toggleSuspend}
           />
           {user.role === 'admin' && (
-            <Body size={11.5} tone="ink3" style={{ textAlign: 'center' }}>
+            <Body size={11.5} tone="faint" style={{ textAlign: 'center' }}>
               Admin accounts cannot be suspended — the backend refuses it.
             </Body>
           )}

@@ -45,7 +45,7 @@ export default function AdminCorridors() {
   }, [load]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Corridors" />
       <Screen>
         <View style={{ gap: 12 }}>
@@ -72,22 +72,22 @@ export default function AdminCorridors() {
                         </Body>
                         <View
                           style={{
-                            backgroundColor: c.active ? colors.mintLo : colors.line,
+                            backgroundColor: c.active ? colors.accentSoft : colors.line,
                             borderRadius: radius.pill,
                             paddingHorizontal: 7,
                             paddingVertical: 2,
                           }}
                         >
-                          <Body size={10} tone={c.active ? 'mint' : 'ink3'} weight="700">
+                          <Body size={10} tone={c.active ? 'accent' : 'faint'} weight="700">
                             {c.active ? 'Active' : 'Off'}
                           </Body>
                         </View>
                       </Row>
-                      <Body size={11.5} tone="ink3" style={{ marginTop: 3 }}>
+                      <Body size={11.5} tone="faint" style={{ marginTop: 3 }}>
                         base {formatAmount(c.baseRate, 4)} · margin {c.marginBps} bps · fee{' '}
                         {formatAmount(c.feeFlat, 2)} + {c.feePercentBps} bps
                       </Body>
-                      <Body size={11.5} tone="ink3">
+                      <Body size={11.5} tone="faint">
                         limits {formatAmount(c.minSendAmount, 0)}–
                         {formatAmount(c.maxSendAmount, 0)} {c.fromCurrency}
                       </Body>
@@ -96,7 +96,7 @@ export default function AdminCorridors() {
                       <Body size={16} tone="ink" weight="700" numbers>
                         {formatAmount(appliedRate(c.baseRate, c.marginBps), 4)}
                       </Body>
-                      <Body size={10} tone="ink3">
+                      <Body size={10} tone="faint">
                         applied
                       </Body>
                     </View>
@@ -171,7 +171,7 @@ function EditCorridor({
       <View style={{ flex: 1, backgroundColor: 'rgba(18,23,20,0.45)', justifyContent: 'flex-end' }}>
         <View
           style={{
-            backgroundColor: colors.paper,
+            backgroundColor: colors.canvas,
             borderTopLeftRadius: radius.xl,
             borderTopRightRadius: radius.xl,
             maxHeight: '90%',
@@ -183,7 +183,7 @@ function EditCorridor({
                 {corridor.fromCurrency} → {corridor.toCurrency}
               </Title>
               <Pressable onPress={onClose} hitSlop={10}>
-                <Body size={14} tone="ink3" weight="600">
+                <Body size={14} tone="faint" weight="600">
                   Close
                 </Body>
               </Pressable>
@@ -231,19 +231,19 @@ function EditCorridor({
                 <Body size={14} tone="ink" weight="600">
                   Active
                 </Body>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   Turning this off stops all new transfers on this corridor.
                 </Body>
               </View>
               <Switch
                 value={active}
                 onValueChange={setActive}
-                trackColor={{ true: colors.mint, false: colors.line2 }}
+                trackColor={{ true: colors.accent, false: colors.lineStrong }}
                 thumbColor={colors.card}
               />
             </Row>
 
-            <Button label="Save corridor" variant="mint" loading={busy} onPress={save} />
+            <Button label="Save corridor" variant="primary" loading={busy} onPress={save} />
           </ScrollView>
         </View>
       </View>

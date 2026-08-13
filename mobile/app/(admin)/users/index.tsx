@@ -34,7 +34,7 @@ export default function AdminUsers() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Users" />
       <Screen>
         <View style={{ gap: 13 }}>
@@ -72,15 +72,15 @@ export default function AdminUsers() {
                           <Body size={13.5} tone="ink" weight="600" numberOfLines={1}>
                             {u.email}
                           </Body>
-                          {u.role === 'admin' && <Tag label="Admin" tone="mint" />}
-                          {u.suspended && <Tag label="Suspended" tone="clay" />}
+                          {u.role === 'admin' && <Tag label="Admin" tone="accent" />}
+                          {u.suspended && <Tag label="Suspended" tone="danger" />}
                         </Row>
-                        <Body size={11.5} tone="ink3">
+                        <Body size={11.5} tone="faint">
                           {u.country ?? '—'} · {u.transferCount} transfer
                           {u.transferCount === 1 ? '' : 's'} · joined {dateOf(u.createdAt)}
                         </Body>
                       </View>
-                      <Body size={15} tone="ink3">
+                      <Body size={15} tone="faint">
                         ›
                       </Body>
                     </Row>
@@ -91,15 +91,15 @@ export default function AdminUsers() {
               {pages > 1 && (
                 <Row style={{ justifyContent: 'space-between', paddingTop: 4 }}>
                   <Pressable disabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-                    <Body size={13} tone={page <= 1 ? 'ink3' : 'mint'} weight="600">
+                    <Body size={13} tone={page <= 1 ? 'faint' : 'accent'} weight="600">
                       ‹ Previous
                     </Body>
                   </Pressable>
-                  <Body size={12} tone="ink3">
+                  <Body size={12} tone="faint">
                     Page {page} of {pages} · {data.total} total
                   </Body>
                   <Pressable disabled={page >= pages} onPress={() => setPage((p) => p + 1)}>
-                    <Body size={13} tone={page >= pages ? 'ink3' : 'mint'} weight="600">
+                    <Body size={13} tone={page >= pages ? 'faint' : 'accent'} weight="600">
                       Next ›
                     </Body>
                   </Pressable>
@@ -113,11 +113,11 @@ export default function AdminUsers() {
   );
 }
 
-export function Tag({ label, tone }: { label: string; tone: 'mint' | 'clay' | 'amber' }) {
+export function Tag({ label, tone }: { label: string; tone: 'accent' | 'danger' | 'pending' }) {
   const map = {
-    mint: { bg: colors.mintLo, fg: colors.mintInk },
-    clay: { bg: colors.clayLo, fg: colors.clay },
-    amber: { bg: colors.amberLo, fg: colors.amber },
+    accent: { bg: colors.accentSoft, fg: colors.accent },
+    danger: { bg: colors.dangerSoft, fg: colors.danger },
+    pending: { bg: colors.pendingSoft, fg: colors.pending },
   }[tone];
   return (
     <View

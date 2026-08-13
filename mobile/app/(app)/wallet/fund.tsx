@@ -72,19 +72,19 @@ export default function FundWallet() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
       <BackBar title="Add money" />
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
         <View style={{ paddingHorizontal: 20, paddingTop: 6, gap: 14 }}>
           <View>
-            <Body size={12.5} tone="ink3">
+            <Body size={12.5} tone="faint">
               Balance {formatMoney(balance?.balance ?? '0', balance?.currency ?? 'CAD')}
             </Body>
             <Row gap={6} style={{ alignItems: 'flex-end', marginTop: 6 }}>
               <Title size={46} style={{ letterSpacing: -2 }}>
                 {amount === '' ? '0' : amount}
               </Title>
-              <Title size={20} tone="ink3" style={{ paddingBottom: 7 }}>
+              <Title size={20} tone="faint" style={{ paddingBottom: 7 }}>
                 {balance?.currency ?? 'CAD'}
               </Title>
             </Row>
@@ -100,12 +100,12 @@ export default function FundWallet() {
                   paddingVertical: 10,
                   borderRadius: radius.sm,
                   borderWidth: 1,
-                  borderColor: amount === p ? colors.mintInk : colors.line2,
-                  backgroundColor: amount === p ? colors.mintLo : colors.card,
+                  borderColor: amount === p ? colors.accent : colors.lineStrong,
+                  backgroundColor: amount === p ? colors.accentSoft : colors.card,
                   alignItems: 'center',
                 }}
               >
-                <Body size={13} tone={amount === p ? 'mint' : 'ink2'} weight="600" numbers>
+                <Body size={13} tone={amount === p ? 'accent' : 'muted'} weight="600" numbers>
                   {p}
                 </Body>
               </Pressable>
@@ -113,14 +113,14 @@ export default function FundWallet() {
           </Row>
 
           {alreadyFunded ? (
-            <Note tone="mint">
+            <Note tone="success">
               That top-up had already gone through — your balance above is up to date. Nothing was
               charged twice.
             </Note>
           ) : error ? (
             <Note>{error}</Note>
           ) : (
-            <Note tone="mint">
+            <Note tone="success">
               This is a demo funding step: no card is charged. In production this is where the
               card or Interac flow runs. The daily funding limit is 20,000.
             </Note>
@@ -134,7 +134,7 @@ export default function FundWallet() {
                 the button becomes the way out instead of a dead retry. */}
             <Button
               label={alreadyFunded ? 'Done' : 'Add money'}
-              variant="mint"
+              variant="primary"
               disabled={!alreadyFunded && !valid}
               loading={busy}
               onPress={alreadyFunded ? () => router.back() : submit}

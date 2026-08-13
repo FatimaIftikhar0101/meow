@@ -73,10 +73,28 @@ export function progressOf(status: TransferStatus): number {
   return stageIndex(status) / (STATUS_STEPS.length - 1);
 }
 
-/** Turns "Mozilla/5.0 (Windows NT 10.0…) Chrome/…" into "Chrome · Windows". */
+/**
+ * Names a session's device from its User-Agent.
+ *
+ * The mobile client announces itself precisely (see `userAgent()` in lib/api),
+ * so that form is matched first and trusted rather than sniffed. Browsers get
+ * the usual guesswork.
+ *
+ * When the OS genuinely cannot be determined the app name is returned on its
+ * own. The old version appended "Unknown OS", which turned a gap in the data
+ * into a statement about the device and made every native session look broken.
+ */
 export function describeUserAgent(ua: string | null): string {
   if (!ua) return 'Unknown device';
-  const browser =
+
+  // `Meow/1.0.0 (Android 14; Xiaomi M2101K6G)` → "Meow app · Android 14"
+  const own = /^Meow\/[\d.]+\s*\(([^)]*)\)/.exec(ua);
+  if (own) {
+    const platform = own[1].split(';')[0]?.trim();
+    return platform ? `Meow app · ${platform}` : 'Meow app';
+  }
+
+  const app =
     /Edg\//.test(ua) ? 'Edge'
     : /OPR\//.test(ua) ? 'Opera'
     : /Chrome\//.test(ua) ? 'Chrome'
@@ -84,14 +102,27 @@ export function describeUserAgent(ua: string | null): string {
     : /Safari\//.test(ua) ? 'Safari'
     : /okhttp|Expo|Meow/i.test(ua) ? 'Meow app'
     : 'Browser';
+
+  const android = /Android\s+([\d.]+)/.exec(ua);
   const os =
-    /Windows/.test(ua) ? 'Windows'
+    /Windows NT 10/.test(ua) ? 'Windows'
+    : /Windows/.test(ua) ? 'Windows'
+    : android ? `Android ${android[1]}`
     : /Android/.test(ua) ? 'Android'
     : /iPhone|iPad|iOS/.test(ua) ? 'iOS'
     : /Mac OS X/.test(ua) ? 'macOS'
     : /Linux/.test(ua) ? 'Linux'
-    : 'Unknown OS';
-  return `${browser} · ${os}`;
+    : null;
+
+  return os ? `${app} · ${os}` : app;
+}
+
+/** The handset itself, when the client told us — "Xiaomi M2101K6G". */
+export function deviceOf(ua: string | null): string | null {
+  if (!ua) return null;
+  const own = /^Meow\/[\d.]+\s*\(([^)]*)\)/.exec(ua);
+  const device = own?.[1].split(';')[1]?.trim();
+  return device || null;
 }
 
 export type DayPart = 'morning' | 'afternoon' | 'evening' | 'night';

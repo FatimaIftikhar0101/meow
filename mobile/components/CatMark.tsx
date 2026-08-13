@@ -1,71 +1,121 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Path, G } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 import { colors } from '../theme/tokens';
 
 /**
- * The Meow mark, transcribed from the design artifact's 32×32 viewBox so it
- * scales identically everywhere. Gold is reserved for the cat and nothing else.
+ * The Meow mark, taken from app/_components/Brand.tsx unchanged — same 32×32
+ * viewBox, same silhouette path, same gold gradient, same dark pupils. The
+ * mobile app previously drew its own line-art cat, which was never the brand.
  *
- * `eyesClosed` is used at two moments only: night, and a delivered transfer.
- * Keeping it rare is what gives it meaning.
+ * The gradient id is per-instance: react-native-svg resolves `url(#id)` against
+ * the whole document on some platforms, so two marks sharing an id can leave the
+ * second one unpainted.
  */
-export function CatMark({
-  size = 32,
-  color = colors.gold,
-  pupil = colors.ink,
-  eyesClosed = false,
-  ring = true,
+function Mark({
+  size,
+  eyesClosed,
+  ring,
 }: {
-  size?: number;
-  color?: string;
-  pupil?: string;
-  eyesClosed?: boolean;
-  ring?: boolean;
+  size: number;
+  eyesClosed: boolean;
+  ring: boolean;
 }) {
+  const gid = `meow-gold-${useId()}`;
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32">
+      <Defs>
+        <LinearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor={colors.goldLight} />
+          <Stop offset="60%" stopColor={colors.gold} />
+          <Stop offset="100%" stopColor={colors.goldDeep} />
+        </LinearGradient>
+      </Defs>
       {ring && (
-        <Circle cx={16} cy={16} r={15} fill="none" stroke={color} strokeWidth={1.4} />
+        <Circle cx={16} cy={16} r={15} fill="none" stroke={`url(#${gid})`} strokeWidth={1.5} />
       )}
       <Path
         d="M 11 11 L 13 8 L 14 13 L 18 13 L 19 8 L 21 11 Q 23 16 21 20 Q 16 23 11 20 Q 9 16 11 11 Z"
-        fill={color}
+        fill={`url(#${gid})`}
       />
       {eyesClosed ? (
-        <G stroke={pupil} strokeWidth={0.9} strokeLinecap="round" fill="none">
-          <Path d="M 12.5 15 Q 13.6 16.1 14.7 15" />
-          <Path d="M 17.3 15 Q 18.4 16.1 19.5 15" />
+        <G stroke={colors.goldPupil} strokeWidth={1} strokeLinecap="round" fill="none">
+          <Path d="M 12.4 14.7 Q 13.5 15.9 14.6 14.7" />
+          <Path d="M 17.4 14.7 Q 18.5 15.9 19.6 14.7" />
         </G>
       ) : (
         <>
-          <Circle cx={13.6} cy={15} r={0.9} fill={pupil} />
-          <Circle cx={18.4} cy={15} r={0.9} fill={pupil} />
+          <Circle cx={13.5} cy={15} r={0.9} fill={colors.goldPupil} />
+          <Circle cx={18.5} cy={15} r={0.9} fill={colors.goldPupil} />
         </>
       )}
     </Svg>
   );
 }
 
+/**
+ * The mark, on the dark disc it needs.
+ *
+ * Gold measures 1.97:1 against white — below even the 3:1 floor for a graphic —
+ * so on a white app the bare mark all but disappears. That is not a flaw in the
+ * mark; it was drawn for the dark web client, where it has something to glow
+ * against. The roundel gives it that ground anywhere: 5.61:1 on charcoal.
+ *
+ * `roundel={false}` is for surfaces that are already dark, where the disc would
+ * only add a second edge.
+ *
+ * `eyesClosed` is used at two moments and no others — night, and a delivered
+ * transfer. Keeping it rare is what gives it meaning.
+ */
+export function CatMark({
+  size = 32,
+  eyesClosed = false,
+  ring = true,
+  roundel = true,
+}: {
+  /** Overall diameter, including the roundel when there is one. */
+  size?: number;
+  eyesClosed?: boolean;
+  ring?: boolean;
+  roundel?: boolean;
+}) {
+  if (!roundel) return <Mark size={size} eyesClosed={eyesClosed} ring={ring} />;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: colors.roundel,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Mark size={size * 0.66} eyesClosed={eyesClosed} ring={ring} />
+    </View>
+  );
+}
+
 /** The mark plus the wordmark, for headers and the welcome screen. */
 export function BrandLockup({
-  size = 26,
-  tint = colors.ink,
-  markColor = colors.gold,
+  size = 30,
+  tone = colors.ink,
+  roundel = true,
 }: {
   size?: number;
-  tint?: string;
-  markColor?: string;
+  tone?: string;
+  roundel?: boolean;
 }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-      <CatMark size={size} color={markColor} pupil={colors.ink} />
+      <CatMark size={size} roundel={roundel} />
       <Text
         style={{
-          fontSize: size * 0.78,
+          fontSize: size * 0.42,
           fontWeight: '700',
-          letterSpacing: -0.6,
-          color: tint,
+          letterSpacing: size * 0.14,
+          textTransform: 'uppercase',
+          color: tone,
         }}
       >
         Meow

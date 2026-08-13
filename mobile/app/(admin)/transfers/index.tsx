@@ -47,7 +47,7 @@ export default function AdminTransfers() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Transfers" />
       <ScrollView
         horizontal
@@ -70,11 +70,11 @@ export default function AdminTransfers() {
                 paddingVertical: 7,
                 borderRadius: radius.pill,
                 borderWidth: 1,
-                borderColor: on ? colors.ink : colors.line2,
+                borderColor: on ? colors.ink : colors.lineStrong,
                 backgroundColor: on ? colors.ink : colors.card,
               }}
             >
-              <Body size={12} tone={on ? 'onInk' : 'ink2'} weight="600">
+              <Body size={12} tone={on ? 'onSlab' : 'muted'} weight="600">
                 {f === 'all' ? 'All' : STATUS_LABEL[f]}
               </Body>
             </Pressable>
@@ -108,7 +108,7 @@ export default function AdminTransfers() {
                           {t.userEmail} → {t.recipient.name}
                         </Body>
                         <StatusPill status={t.status} compact />
-                        <Body size={11} tone="ink3">
+                        <Body size={11} tone="faint">
                           {dateTimeOf(t.createdAt)} · {t.id.slice(0, 8).toUpperCase()}
                         </Body>
                       </View>
@@ -117,7 +117,7 @@ export default function AdminTransfers() {
                           {formatMoney(t.sendAmount, t.sendCurrency)}
                         </Body>
                         {t.receiveAmount && (
-                          <Body size={11} tone="ink3" numbers>
+                          <Body size={11} tone="faint" numbers>
                             {formatMoney(t.receiveAmount, t.receiveCurrency)}
                           </Body>
                         )}
@@ -130,15 +130,15 @@ export default function AdminTransfers() {
               {pages > 1 && (
                 <Row style={{ justifyContent: 'space-between', paddingTop: 4 }}>
                   <Pressable disabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-                    <Body size={13} tone={page <= 1 ? 'ink3' : 'mint'} weight="600">
+                    <Body size={13} tone={page <= 1 ? 'faint' : 'accent'} weight="600">
                       ‹ Previous
                     </Body>
                   </Pressable>
-                  <Body size={12} tone="ink3">
+                  <Body size={12} tone="faint">
                     Page {page} of {pages}
                   </Body>
                   <Pressable disabled={page >= pages} onPress={() => setPage((p) => p + 1)}>
-                    <Body size={13} tone={page >= pages ? 'ink3' : 'mint'} weight="600">
+                    <Body size={13} tone={page >= pages ? 'faint' : 'accent'} weight="600">
                       Next ›
                     </Body>
                   </Pressable>

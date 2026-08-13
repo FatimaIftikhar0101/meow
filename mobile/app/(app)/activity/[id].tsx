@@ -56,20 +56,22 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
   return (
     <View
       style={{
-        backgroundColor: colors.ink,
+        backgroundColor: colors.slab,
         borderRadius: radius.lg,
         padding: 16,
         paddingBottom: 18,
       }}
     >
       <Row style={{ justifyContent: 'space-between' }}>
-        <Body size={10.5} tone="onInk2" weight="600">
+        <Body size={10.5} tone="onSlabMuted" weight="600">
           {failed ? 'DID NOT COMPLETE' : delivered ? 'DELIVERED' : 'IN FLIGHT'}
         </Body>
         {!failed && !delivered && (
           <Row gap={5}>
-            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }} />
-            <Body size={10} tone="mint" weight="600">
+            <View
+              style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.onSlab }}
+            />
+            <Body size={10} tone="onSlab" weight="600">
               Live
             </Body>
           </Row>
@@ -78,11 +80,13 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
 
       <View style={{ width: '100%', aspectRatio: ARC_W / ARC_H, marginTop: 10 }}>
         <Svg width="100%" height="100%" viewBox={`0 0 ${ARC_W} ${ARC_H}`}>
-          {/* Full route, dimmed */}
+          {/* Full route, dimmed. Everything on this slab is a wash of white
+              rather than a colour: the slab is already slate, so a slate line
+              on it would vanish, and status colour belongs to the pill. */}
           <Path
             d="M20 56 Q130 8 240 56"
             fill="none"
-            stroke={failed ? '#4A3A36' : '#2A342B'}
+            stroke="rgba(255,255,255,0.24)"
             strokeWidth={1.6}
             strokeLinecap="round"
           />
@@ -92,22 +96,22 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
             <Path
               d="M20 56 Q130 8 240 56"
               fill="none"
-              stroke={colors.mint}
+              stroke={colors.onSlab}
               strokeWidth={1.8}
               strokeLinecap="round"
               strokeDasharray={`${268 * t} 268`}
             />
           )}
-          <Circle cx={20} cy={56} r={5} fill={colors.mint} />
+          <Circle cx={20} cy={56} r={5} fill={colors.onSlab} />
           <Circle
             cx={240}
             cy={56}
             r={5}
-            fill={delivered ? colors.mint : '#2A342B'}
-            stroke={colors.mint}
+            fill={delivered ? colors.onSlab : 'rgba(255,255,255,0.14)'}
+            stroke={colors.onSlab}
             strokeWidth={delivered ? 0 : 1.4}
           />
-          <Circle cx={at.x} cy={at.y} r={12} fill={colors.ink} />
+          <Circle cx={at.x} cy={at.y} r={12} fill={colors.roundel} />
         </Svg>
         <View
           style={{
@@ -118,26 +122,23 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
             aspectRatio: 1,
           }}
         >
-          <CatMark
-            size={20}
-            color={failed ? colors.clay : colors.gold}
-            pupil={colors.ink}
-            eyesClosed={delivered}
-          />
+          {/* No roundel: the arc already sits on a dark slab, so a disc behind
+              the mark would only add a second edge. */}
+          <CatMark size={20} roundel={false} eyesClosed={delivered} />
         </View>
       </View>
 
       <Row style={{ justifyContent: 'space-between', marginTop: 2 }}>
-        <Body size={10.5} tone="onInk2">
+        <Body size={10.5} tone="onSlabMuted">
           Sent
         </Body>
-        <Body size={10.5} tone="onInk2">
+        <Body size={10.5} tone="onSlabMuted">
           {countryFlag(transfer.recipient.country)} {transfer.recipient.name.split(' ')[0]}
         </Body>
       </Row>
 
       <View style={{ alignItems: 'center', marginTop: 10 }}>
-        <Body size={13.5} tone="onInk" weight="600">
+        <Body size={13.5} tone="onSlab" weight="600">
           {failed
             ? (transfer.failureReason ?? STATUS_LABEL[transfer.status])
             : STATUS_LABEL[transfer.status]}
@@ -220,7 +221,7 @@ export default function TransferDetailScreen() {
 
   if (!transfer) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
         <BackBar title="Transfer" onBack={() => router.replace('/(app)/activity')} />
         {error ? (
           <View style={{ padding: 16 }}>
@@ -234,7 +235,7 @@ export default function TransferDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar
         title={`To ${transfer.recipient.name}`}
         onBack={() => (router.canGoBack() ? router.back() : router.replace('/(app)/activity'))}
@@ -246,7 +247,7 @@ export default function TransferDetailScreen() {
           <View style={{ alignItems: 'center', gap: 3 }}>
             <Title size={32} numberOfLines={1}>
               {formatAmount(transfer.receiveAmount)}{' '}
-              <Title size={17} tone="ink3">
+              <Title size={17} tone="faint">
                 {transfer.receiveCurrency}
               </Title>
             </Title>
@@ -279,20 +280,20 @@ export default function TransferDetailScreen() {
                 </Body>
               </Row>
               <Row style={{ justifyContent: 'space-between' }}>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   Rate applied
                 </Body>
-                <Body size={12} tone="ink3" numbers>
+                <Body size={12} tone="faint" numbers>
                   {transfer.fxRateApplied
                     ? `1 ${transfer.sendCurrency} = ${formatAmount(transfer.fxRateApplied, 4)} ${transfer.receiveCurrency}`
                     : '—'}
                 </Body>
               </Row>
               <Row style={{ justifyContent: 'space-between' }}>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   Reference
                 </Body>
-                <Body size={12} tone="ink3" numbers>
+                <Body size={12} tone="faint" numbers>
                   {transfer.id.slice(0, 8).toUpperCase()}
                 </Body>
               </Row>
@@ -302,7 +303,7 @@ export default function TransferDetailScreen() {
           {/* Timeline. Every stage is listed, including the ones still to come,
               so the journey has a visible end rather than an open question. */}
           <Card>
-            <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 12 }}>
+            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 12 }}>
               TIMELINE
             </Body>
             <View style={{ gap: 0 }}>
@@ -322,9 +323,9 @@ export default function TransferDetailScreen() {
                           height: 10,
                           borderRadius: 5,
                           marginTop: 4,
-                          backgroundColor: done ? colors.mintInk : 'transparent',
+                          backgroundColor: done ? colors.accent : 'transparent',
                           borderWidth: done ? 0 : 1.4,
-                          borderColor: colors.line2,
+                          borderColor: colors.lineStrong,
                         }}
                       />
                       {!last && (
@@ -333,7 +334,7 @@ export default function TransferDetailScreen() {
                             width: 1.5,
                             flex: 1,
                             minHeight: 22,
-                            backgroundColor: done ? colors.mintInk : colors.line,
+                            backgroundColor: done ? colors.accent : colors.line,
                           }}
                         />
                       )}
@@ -341,12 +342,12 @@ export default function TransferDetailScreen() {
                     <View style={{ flex: 1, paddingBottom: last ? 0 : 12 }}>
                       <Body
                         size={13}
-                        tone={done ? 'ink' : 'ink3'}
+                        tone={done ? 'ink' : 'faint'}
                         weight={current ? '700' : done ? '600' : '400'}
                       >
                         {event?.message || STATUS_LABEL[step]}
                       </Body>
-                      <Body size={11} tone="ink3">
+                      <Body size={11} tone="faint">
                         {event
                           ? dateTimeOf(event.createdAt)
                           : reachable

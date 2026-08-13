@@ -99,7 +99,7 @@ export default function SendReview() {
 
   if (!quote || !recipient) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
         <BackBar title="Review" />
         {error ? (
           <View style={{ padding: 16 }}>
@@ -113,23 +113,23 @@ export default function SendReview() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
       <BackBar title="Review" />
       <Screen contentStyle={{ padding: 16, paddingBottom: 24 }}>
         <View style={{ gap: 16 }}>
-          <Body size={12.5} tone="ink3">
+          <Body size={12.5} tone="faint">
             Step 3 of 3
           </Body>
 
           {/* The headline is what *she* receives. The sender's debit is
               secondary — it is the number the recipient will be asked about. */}
           <View style={{ alignItems: 'center', gap: 4, paddingVertical: 4 }}>
-            <Body size={13} tone="ink3">
+            <Body size={13} tone="faint">
               {recipient.name} receives
             </Body>
             <Title size={40}>
               {formatAmount(quote.receiveAmount)}{' '}
-              <Title size={20} tone="ink3">
+              <Title size={20} tone="faint">
                 {params.receiveCurrency}
               </Title>
             </Title>
@@ -142,7 +142,7 @@ export default function SendReview() {
                 <Body size={14.5} tone="ink" weight="600">
                   {recipient.name}
                 </Body>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   {countryFlag(recipient.country)} {recipient.bankName ?? recipient.country} ·{' '}
                   {recipient.bankAccount.length > 6
                     ? `••••${recipient.bankAccount.slice(-4)}`
@@ -176,10 +176,10 @@ export default function SendReview() {
                 </Body>
               </Row>
               <Row style={{ justifyContent: 'space-between' }}>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   Rate applied
                 </Body>
-                <Body size={12} tone="ink3" numbers>
+                <Body size={12} tone="faint" numbers>
                   1 {params.sendCurrency} = {formatAmount(quote.rate, 4)}{' '}
                   {params.receiveCurrency}
                 </Body>
@@ -191,11 +191,11 @@ export default function SendReview() {
 
           <Button
             label={busy ? 'Sending…' : `Send ${formatMoney(total, params.sendCurrency)}`}
-            variant="mint"
+            variant="primary"
             loading={busy}
             onPress={confirm}
           />
-          <Body size={11.5} tone="ink3" style={{ textAlign: 'center' }}>
+          <Body size={11.5} tone="faint" style={{ textAlign: 'center' }}>
             You can cancel this transfer for a full refund until it reaches the payout partner.
           </Body>
         </View>

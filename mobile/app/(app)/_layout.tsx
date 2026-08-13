@@ -4,6 +4,7 @@ import React from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GreetingIntro } from '../../components/GreetingIntro';
 import { useAuth } from '../../lib/AuthContext';
 import { useLive } from '../../lib/sockets';
 import { colors, radius, shadow } from '../../theme/tokens';
@@ -68,12 +69,14 @@ function SendButton() {
           width: 56,
           height: 56,
           borderRadius: 28,
-          backgroundColor: colors.ink,
+          // Accent, not ink: the arrow inside is accent-coloured, and charcoal
+          // on slate-700 is a 1.1:1 pairing — the glyph disappeared entirely.
+          backgroundColor: colors.accent,
           alignItems: 'center',
           justifyContent: 'center',
           marginTop: -26,
           borderWidth: 4,
-          borderColor: colors.paper,
+          borderColor: colors.canvas,
           opacity: pressed ? 0.85 : 1,
         },
         shadow.liftLg,
@@ -82,7 +85,7 @@ function SendButton() {
       <Svg width={24} height={24} viewBox="0 0 24 24">
         <Path
           d="M12 19V5M6 11l6-6 6 6"
-          stroke={colors.mint}
+          stroke={colors.onAccent}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -105,7 +108,7 @@ function Badge({ count }: { count: number }) {
         height: 16,
         borderRadius: 8,
         paddingHorizontal: 4,
-        backgroundColor: colors.clay,
+        backgroundColor: colors.danger,
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -118,12 +121,14 @@ function Badge({ count }: { count: number }) {
 }
 
 export default function AppLayout() {
-  const { status } = useAuth();
+  const { status, profile } = useAuth();
   const { unreadCount } = useLive();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
 
   if (status !== 'signedIn') return <Redirect href="/(auth)/welcome" />;
+
+  const firstName = profile?.firstName || profile?.fullName?.split(' ')[0] || 'there';
 
   // The send flow and full-screen detail views cover the tab bar; hiding it
   // stops a half-finished transfer from being one tap away from abandonment.
@@ -134,11 +139,12 @@ export default function AppLayout() {
     pathname.startsWith('/recipients/');
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.ink,
-        tabBarInactiveTintColor: colors.ink3,
+        tabBarInactiveTintColor: colors.accentMuted,
         tabBarStyle: hideTabs
           ? { display: 'none' }
           : {
@@ -198,5 +204,11 @@ export default function AppLayout() {
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="referrals" options={{ href: null }} />
     </Tabs>
+
+      {/* Over the tab bar as well as the content, so the greeting reads as one
+          moment rather than as a panel that arrived inside the app. It removes
+          itself; see GreetingIntro for why it only fires once per launch. */}
+      <GreetingIntro name={firstName} />
+    </View>
   );
 }

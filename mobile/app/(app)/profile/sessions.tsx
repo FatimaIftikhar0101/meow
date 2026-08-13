@@ -5,7 +5,7 @@ import { useFocusEffect } from 'expo-router';
 import { BackBar } from '../../../components/BackBar';
 import { Body, Button, Card, Loader, Note, Row, Screen, Title } from '../../../components/ui';
 import api, { errorMessage } from '../../../lib/api';
-import { describeUserAgent, dateOf, relativeTime } from '../../../lib/format';
+import { dateOf, describeUserAgent, deviceOf, relativeTime } from '../../../lib/format';
 import type { SessionRow } from '../../../lib/types';
 import { colors, radius } from '../../../theme/tokens';
 
@@ -78,7 +78,7 @@ export default function Sessions() {
   const others = list?.filter((s) => !s.current) ?? [];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Devices & sessions" />
       <Screen
         refreshControl={
@@ -118,22 +118,27 @@ export default function Sessions() {
                         {s.current && (
                           <View
                             style={{
-                              backgroundColor: colors.mintLo,
+                              backgroundColor: colors.accentSoft,
                               borderRadius: radius.pill,
                               paddingHorizontal: 7,
                               paddingVertical: 2,
                             }}
                           >
-                            <Body size={10} tone="mint" weight="700">
+                            <Body size={10} tone="accent" weight="700">
                               This device
                             </Body>
                           </View>
                         )}
                       </Row>
-                      <Body size={12} tone="ink3">
+                      {deviceOf(s.userAgent) && (
+                        <Body size={12} tone="muted">
+                          {deviceOf(s.userAgent)}
+                        </Body>
+                      )}
+                      <Body size={12} tone="faint">
                         {s.ipAddress ?? 'Unknown IP'} · active {relativeTime(s.lastSeenAt)}
                       </Body>
-                      <Body size={11} tone="ink3">
+                      <Body size={11} tone="faint">
                         Signed in {dateOf(s.createdAt)}
                       </Body>
                     </View>

@@ -86,12 +86,12 @@ export default function SendAmount() {
   const canContinue = quote !== null && !insufficient && !belowMin && !aboveMax && !quoting;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
       <BackBar title={recipient ? `To ${recipient.name}` : 'Amount'} />
 
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
         <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
-          <Body size={12.5} tone="ink3">
+          <Body size={12.5} tone="faint">
             Step 2 of 3 · You send
           </Body>
 
@@ -99,7 +99,7 @@ export default function SendAmount() {
             <Title size={46} style={{ letterSpacing: -2 }}>
               {amount === '' ? '0' : amount}
             </Title>
-            <Title size={20} tone="ink3" style={{ paddingBottom: 7 }}>
+            <Title size={20} tone="faint" style={{ paddingBottom: 7 }}>
               {sendCurrency}
             </Title>
           </Row>
@@ -121,7 +121,7 @@ export default function SendAmount() {
             <Row style={{ justifyContent: 'space-between' }}>
               <Body size={13}>They receive</Body>
               {quoting ? (
-                <ActivityIndicator size="small" color={colors.mintInk} />
+                <ActivityIndicator size="small" color={colors.accent} />
               ) : (
                 <Body size={17} tone="ink" weight="700" numbers>
                   {quote && receiveCurrency
@@ -131,20 +131,20 @@ export default function SendAmount() {
               )}
             </Row>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Body size={12} tone="ink3">
+              <Body size={12} tone="faint">
                 Rate
               </Body>
-              <Body size={12} tone="ink3" numbers>
+              <Body size={12} tone="faint" numbers>
                 {quote
                   ? `1 ${sendCurrency} = ${formatAmount(quote.rate, 4)} ${receiveCurrency}`
                   : '—'}
               </Body>
             </Row>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Body size={12} tone="ink3">
+              <Body size={12} tone="faint">
                 Fee
               </Body>
-              <Body size={12} tone="ink3" numbers>
+              <Body size={12} tone="faint" numbers>
                 {quote ? formatMoney(quote.fee, sendCurrency) : '—'}
               </Body>
             </Row>
@@ -159,15 +159,15 @@ export default function SendAmount() {
                 {formatMoney(balance?.balance ?? '0', sendCurrency)} balance. Add money first.
               </Note>
             ) : belowMin && quote ? (
-              <Note tone="amber">
+              <Note tone="pending">
                 The minimum for this corridor is {formatMoney(quote.minSendAmount, sendCurrency)}.
               </Note>
             ) : aboveMax && quote ? (
-              <Note tone="amber">
+              <Note tone="pending">
                 The maximum for this corridor is {formatMoney(quote.maxSendAmount, sendCurrency)}.
               </Note>
             ) : (
-              <Body size={12} tone="ink3">
+              <Body size={12} tone="faint">
                 Balance {formatMoney(balance?.balance ?? '0', sendCurrency)}
                 {total ? ` · this costs ${formatMoney(total, sendCurrency)} in total` : ''}
               </Body>
@@ -180,7 +180,7 @@ export default function SendAmount() {
           <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
             <Button
               label="Review transfer"
-              variant="mint"
+              variant="primary"
               disabled={!canContinue}
               onPress={() =>
                 router.push({

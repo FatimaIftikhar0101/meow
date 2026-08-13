@@ -16,7 +16,7 @@ export default function AdminLayout() {
 
   return (
     <Stack
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }}
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}
     />
   );
 }

@@ -98,13 +98,13 @@ export default function Register() {
             {refValid === true && (
               <View
                 style={{
-                  backgroundColor: colors.mintLo,
+                  backgroundColor: colors.accentSoft,
                   borderRadius: radius.sm,
                   paddingHorizontal: 13,
                   paddingVertical: 10,
                 }}
               >
-                <Body size={13} tone="mint" weight="600">
+                <Body size={13} tone="accent" weight="600">
                   🎁 You&apos;ve been invited — your friend earns a reward when your first
                   transfer lands.
                 </Body>
@@ -147,10 +147,10 @@ export default function Register() {
                   const ok = r.test(password);
                   return (
                     <Row key={r.label} gap={7}>
-                      <Body size={12} tone={ok ? 'mint' : 'ink3'}>
+                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
                         {ok ? '✓' : '○'}
                       </Body>
-                      <Body size={12} tone={ok ? 'mint' : 'ink3'}>
+                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
                         {r.label}
                       </Body>
                     </Row>
@@ -180,9 +180,9 @@ export default function Register() {
             <Button label="Create account" onPress={submit} loading={busy} />
 
             <Pressable onPress={() => router.replace('/(auth)/login')}>
-              <Body size={13} tone="ink3" style={{ textAlign: 'center' }}>
+              <Body size={13} tone="faint" style={{ textAlign: 'center' }}>
                 Already have an account?{' '}
-                <Body size={13} tone="mint" weight="600">
+                <Body size={13} tone="accent" weight="600">
                   Log in
                 </Body>
               </Body>

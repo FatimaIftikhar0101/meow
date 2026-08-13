@@ -9,7 +9,7 @@ import { formatAmount } from '../../lib/money';
 import type { AdminStats } from '../../lib/types';
 import { colors, radius } from '../../theme/tokens';
 
-function Stat({ label, value, tone = 'ink' }: { label: string; value: string; tone?: 'ink' | 'amber' | 'mint' | 'clay' }) {
+function Stat({ label, value, tone = 'ink' }: { label: string; value: string; tone?: 'ink' | 'pending' | 'accent' | 'danger' }) {
   return (
     <View
       style={{
@@ -25,7 +25,7 @@ function Stat({ label, value, tone = 'ink' }: { label: string; value: string; to
       <Body size={20} tone={tone} weight="700" numbers>
         {value}
       </Body>
-      <Body size={11} tone="ink3">
+      <Body size={11} tone="faint">
         {label}
       </Body>
     </View>
@@ -62,7 +62,7 @@ export default function AdminHome() {
   ];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Admin" onBack={() => router.replace('/(app)/profile')} />
       <Screen
         refreshControl={
@@ -90,18 +90,18 @@ export default function AdminHome() {
                 <Stat label="Transfers" value={String(stats.transfers)} />
               </Row>
               <Row gap={9}>
-                <Stat label="In flight" value={String(stats.inFlight)} tone="amber" />
-                <Stat label="Delivered" value={String(stats.delivered)} tone="mint" />
-                <Stat label="Failed" value={String(stats.failed)} tone="clay" />
+                <Stat label="In flight" value={String(stats.inFlight)} tone="pending" />
+                <Stat label="Delivered" value={String(stats.delivered)} tone="accent" />
+                <Stat label="Failed" value={String(stats.failed)} tone="danger" />
               </Row>
               <Card>
-                <Body size={11} tone="ink3" weight="600">
+                <Body size={11} tone="faint" weight="600">
                   DELIVERED VOLUME
                 </Body>
                 <Title size={26} style={{ marginTop: 2 }}>
                   {formatAmount(stats.totalDeliveredVolume)}
                 </Title>
-                <Body size={11.5} tone="ink3">
+                <Body size={11.5} tone="faint">
                   Sum of every delivered transfer, in its send currency.
                 </Body>
               </Card>
@@ -117,11 +117,11 @@ export default function AdminHome() {
                       <Body size={14.5} tone="ink" weight="600">
                         {l.label}
                       </Body>
-                      <Body size={12} tone="ink3">
+                      <Body size={12} tone="faint">
                         {l.hint}
                       </Body>
                     </View>
-                    <Body size={16} tone="ink3">
+                    <Body size={16} tone="faint">
                       ›
                     </Body>
                   </Row>

@@ -2,49 +2,83 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
-import Svg, { Circle, Defs, G, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CatMark } from '../../components/CatMark';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import { BrandLockup, CatMark } from '../../components/CatMark';
 import { Body, Button, Title } from '../../components/ui';
 import { errorMessage } from '../../lib/api';
 import { googleEnabled, useAuth } from '../../lib/AuthContext';
-import { colors } from '../../theme/tokens';
+import { colors, fonts } from '../../theme/tokens';
 
 /**
- * The constellation from the design artifact: thirteen rays out of the mark,
- * seven of them terminating in a star. It reads as a network without drawing a
- * map, which matters because at this point we do not know where the user sends.
+ * The corridor arc, which is the product's whole idea: money leaving one
+ * country and landing in another. It replaced a constellation that read as
+ * decoration and, before that, a landscape that read as beige.
+ *
+ * ── Why the box has a fixed aspectRatio ──────────────────────────────────
+ * The mark is a React Native view laid over an SVG, so the two only line up if
+ * they share a coordinate space. An SVG with `preserveAspectRatio` (the
+ * default) letterboxes its viewBox inside whatever box it is given, which means
+ * a percentage of the *container* is not a percentage of the *viewBox*.
+ *
+ * That was the bug on the phone: the mark was positioned at 41.7% of the
+ * container to match a circle at y=142 of a 340-tall viewBox, and drifted off
+ * that circle on any screen whose aspect ratio differed. Pinning the container
+ * to the viewBox's own ratio removes the letterboxing, so the two agree by
+ * construction rather than by luck.
  */
-const RAYS: [number, number][] = [
-  [150, 20], [206, 34], [94, 34], [246, 66], [54, 66], [276, 112], [24, 112],
-  [272, 170], [28, 170], [240, 224], [60, 224], [192, 268], [108, 268],
-];
-const STARS: [number, number][] = [
-  [150, 20], [246, 66], [54, 66], [276, 112], [24, 112], [240, 224], [60, 224],
-];
+const VB_W = 274;
+const VB_H = 150;
+/** Apex of the arc, in viewBox units — also where the mark sits. */
+const APEX_X = 137;
+const APEX_Y = 66;
+const MARK = 62;
 
-function Constellation() {
+function CorridorArc() {
   return (
-    <Svg viewBox="0 0 300 340" width="100%" height="100%" style={{ position: 'absolute' }}>
-      <Defs>
-        <RadialGradient id="wg" cx="50%" cy="42%" r="62%">
-          <Stop offset="0%" stopColor={colors.mint} stopOpacity={0.3} />
-          <Stop offset="100%" stopColor={colors.mint} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect width={300} height={340} fill="url(#wg)" />
-      <G stroke={colors.mint} strokeWidth={0.7} opacity={0.38} strokeLinecap="round">
-        {RAYS.map(([x, y], i) => (
-          <Path key={i} d={`M150 142 L${x} ${y}`} />
-        ))}
-      </G>
-      <G fill={colors.mint} opacity={0.8}>
-        {STARS.map(([x, y], i) => (
-          <Circle key={i} cx={x} cy={y} r={2} />
-        ))}
-      </G>
-      <Circle cx={150} cy={142} r={42} fill="#182018" stroke="#2B372B" strokeWidth={1} />
-    </Svg>
+    <View style={{ width: '100%', aspectRatio: VB_W / VB_H }}>
+      <Svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`}>
+        {/* The whole journey, not yet travelled. */}
+        <Path
+          d="M26 122 Q137 14 248 122"
+          stroke={colors.line}
+          strokeWidth={2.4}
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* The half already flown, in the client's Slate Blue Grey. */}
+        <Path
+          d={`M26 122 Q81.5 68 ${APEX_X} ${APEX_Y}`}
+          stroke={colors.accentMuted}
+          strokeWidth={2.6}
+          fill="none"
+          strokeLinecap="round"
+        />
+        <Circle cx={26} cy={122} r={5.4} fill={colors.slab} />
+        <Circle cx={248} cy={122} r={5.4} fill="none" stroke={colors.lineStrong} strokeWidth={2.2} />
+        <SvgText x={26} y={142} fontSize={9} fill={colors.inkMuted} textAnchor="middle">
+          CAD
+        </SvgText>
+        <SvgText x={248} y={142} fontSize={9} fill={colors.inkMuted} textAnchor="middle">
+          PKR
+        </SvgText>
+      </Svg>
+
+      {/* Centred on the apex: x is exactly half the viewBox, y a share of it. */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: `${(APEX_Y / VB_H) * 100}%`,
+          marginTop: -MARK / 2,
+          alignItems: 'center',
+        }}
+        pointerEvents="none"
+      >
+        <CatMark size={MARK} />
+      </View>
+    </View>
   );
 }
 
@@ -65,42 +99,34 @@ export default function Welcome() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.ink }}>
-      <StatusBar style="light" />
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        {/* The mark is centred by absolute position over the same box the
-            constellation fills, so the two share one coordinate space and the
-            cat cannot drift off the circle as the phone size changes. */}
-        <View style={{ flex: 1, position: 'relative' }}>
-          <Constellation />
-          <View
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: '41.7%',
-              alignItems: 'center',
-            }}
-          >
-            <CatMark size={52} ring />
-          </View>
-        </View>
+        <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20 }}>
+          <BrandLockup size={30} />
 
-        <View style={{ paddingHorizontal: 24, paddingBottom: 20, gap: 18 }}>
-          <View>
-            <Title size={30} tone="onInk" style={{ lineHeight: 35 }}>
-              Send money home{'\n'}for <Title size={30} tone="mint">$2.99</Title> flat.
+          <View style={{ marginTop: 28 }}>
+            <CorridorArc />
+          </View>
+
+          <View style={{ marginTop: 28 }}>
+            <Title
+              size={30}
+              style={{ fontFamily: fonts.display, fontWeight: '400', lineHeight: 38 }}
+            >
+              Send money home.
             </Title>
-            <Body size={13.5} tone="onInk2" style={{ marginTop: 10, maxWidth: 300 }}>
-              The rate you see is the rate you get. Track every transfer from your phone until it
-              reaches their account.
+            <Body size={14} tone="muted" style={{ marginTop: 10, maxWidth: 300 }}>
+              A flat $2.99 fee, and you see the rate before anything leaves your wallet.
             </Body>
           </View>
+
+          <View style={{ flex: 1 }} />
 
           <View style={{ gap: 9 }}>
             <Button
               label="Create an account"
-              variant="mint"
+              variant="primary"
               onPress={() => router.push('/(auth)/register')}
             />
             {googleEnabled && (
@@ -109,15 +135,16 @@ export default function Welcome() {
                 variant="outline"
                 loading={busy}
                 onPress={onGoogle}
-                style={{ borderColor: '#2E362E' }}
                 icon={<GoogleG />}
               />
             )}
+            {/* `ghost` renders accent-on-white. It used to render near-black on
+                the near-black welcome screen, which is why this control shipped
+                as an empty outline with no visible label. */}
             <Button
-              label="Log in"
+              label="I already have an account"
               variant="ghost"
               onPress={() => router.push('/(auth)/login')}
-              style={{ borderColor: '#2E362E', borderWidth: 1 }}
             />
           </View>
         </View>

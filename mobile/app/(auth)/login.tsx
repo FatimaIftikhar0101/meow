@@ -76,14 +76,14 @@ export default function Login() {
             <Button label="Log in" onPress={submit} loading={busy} />
 
             <Pressable onPress={() => router.push('/(auth)/forgot-password')}>
-              <Body size={13} tone="mint" weight="600" style={{ textAlign: 'center' }}>
+              <Body size={13} tone="accent" weight="600" style={{ textAlign: 'center' }}>
                 Forgot your password?
               </Body>
             </Pressable>
 
             <Pressable onPress={() => router.replace('/(auth)/register')}>
-              <Body size={13} tone="ink3" style={{ textAlign: 'center' }}>
-                New to Meow? <Body size={13} tone="mint" weight="600">Create an account</Body>
+              <Body size={13} tone="faint" style={{ textAlign: 'center' }}>
+                New to Meow? <Body size={13} tone="accent" weight="600">Create an account</Body>
               </Body>
             </Pressable>
           </View>

@@ -61,7 +61,7 @@ export default function Activity() {
   }, [list]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <Screen
         refreshControl={
           <RefreshControl
@@ -87,7 +87,7 @@ export default function Activity() {
           ) : (
             groups.map(([label, items]) => (
               <View key={label} style={{ gap: 8 }}>
-                <Body size={11.5} tone="ink3" weight="600">
+                <Body size={11.5} tone="faint" weight="600">
                   {label.toUpperCase()}
                 </Body>
                 {items.map((t) => (
@@ -110,7 +110,7 @@ export default function Activity() {
                         <View style={{ alignItems: 'flex-end' }}>
                           <Body
                             size={14.5}
-                            tone={t.status === 'cancelled' || t.status === 'failed' ? 'ink3' : 'ink'}
+                            tone={t.status === 'cancelled' || t.status === 'failed' ? 'faint' : 'ink'}
                             weight="700"
                             numbers
                             style={
@@ -122,7 +122,7 @@ export default function Activity() {
                             −{formatMoney(t.amount, t.sendCurrency)}
                           </Body>
                           {t.receiveAmount && (
-                            <Body size={11.5} tone="ink3" numbers>
+                            <Body size={11.5} tone="faint" numbers>
                               {formatMoney(t.receiveAmount, t.receiveCurrency)}
                             </Body>
                           )}

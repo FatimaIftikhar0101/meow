@@ -12,10 +12,10 @@ import { formatMoney } from '../../lib/money';
 import type { ReferralDashboard } from '../../lib/types';
 import { colors, radius } from '../../theme/tokens';
 
-const STATUS_COPY: Record<string, { label: string; tone: 'mint' | 'amber' | 'ink3' }> = {
-  rewarded: { label: 'Rewarded', tone: 'mint' },
-  qualified: { label: 'Qualified', tone: 'amber' },
-  pending: { label: 'Waiting on first transfer', tone: 'ink3' },
+const STATUS_COPY: Record<string, { label: string; tone: 'accent' | 'pending' | 'faint' }> = {
+  rewarded: { label: 'Rewarded', tone: 'accent' },
+  qualified: { label: 'Qualified', tone: 'pending' },
+  pending: { label: 'Waiting on first transfer', tone: 'faint' },
 };
 
 export default function Referrals() {
@@ -60,7 +60,7 @@ export default function Referrals() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Refer & earn" />
       <Screen>
         {error ? (
@@ -79,29 +79,29 @@ export default function Referrals() {
 
             <View
               style={{
-                backgroundColor: colors.ink,
+                backgroundColor: colors.slab,
                 borderRadius: radius.lg,
                 padding: 18,
                 alignItems: 'center',
                 gap: 10,
               }}
             >
-              <Body size={10.5} tone="onInk2" weight="600">
+              <Body size={10.5} tone="onSlabMuted" weight="600">
                 YOUR CODE
               </Body>
               <Pressable onPress={copy}>
-                <Title size={32} tone="onInk" style={{ letterSpacing: 3 }}>
+                <Title size={32} tone="onSlab" style={{ letterSpacing: 3 }}>
                   {data.code}
                 </Title>
               </Pressable>
-              <Body size={11.5} tone={copied ? 'mint' : 'onInk2'}>
+              <Body size={11.5} tone={copied ? 'accent' : 'onSlabMuted'}>
                 {copied ? 'Copied to clipboard' : 'Tap the code to copy'}
               </Body>
             </View>
 
             <Row gap={9}>
               <View style={{ flex: 1 }}>
-                <Button label="Share invite" variant="mint" onPress={share} />
+                <Button label="Share invite" variant="primary" onPress={share} />
               </View>
               <View style={{ flex: 1 }}>
                 <Button label="Copy code" variant="outline" onPress={copy} />
@@ -122,7 +122,7 @@ export default function Referrals() {
                     <Body size={17} tone="ink" weight="700" numbers>
                       {s.v}
                     </Body>
-                    <Body size={11} tone="ink3">
+                    <Body size={11} tone="faint">
                       {s.k}
                     </Body>
                   </View>
@@ -132,7 +132,7 @@ export default function Referrals() {
 
             {data.referrals.length > 0 && (
               <Card>
-                <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 10 }}>
+                <Body size={11} tone="faint" weight="600" style={{ marginBottom: 10 }}>
                   YOUR INVITES
                 </Body>
                 {data.referrals.map((r, i) => {
@@ -149,7 +149,7 @@ export default function Referrals() {
                           <Body size={13} tone="ink" weight="600">
                             {r.maskedEmail}
                           </Body>
-                          <Body size={11} tone="ink3">
+                          <Body size={11} tone="faint">
                             Joined {dateOf(r.createdAt)}
                           </Body>
                         </View>

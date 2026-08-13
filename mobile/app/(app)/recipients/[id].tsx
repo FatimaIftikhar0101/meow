@@ -90,7 +90,7 @@ export default function RecipientDetail() {
 
   if (!recipient) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
         <BackBar title="Recipient" />
         {error ? (
           <View style={{ padding: 16 }}>
@@ -104,7 +104,7 @@ export default function RecipientDetail() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Recipient" />
       <Screen>
         <View style={{ gap: 16 }}>
@@ -112,7 +112,7 @@ export default function RecipientDetail() {
             <Avatar name={recipient.name} size={54} />
             <View style={{ flex: 1 }}>
               <Title size={21}>{recipient.name}</Title>
-              <Body size={13} tone="ink3">
+              <Body size={13} tone="faint">
                 {countryFlag(recipient.country)} {recipient.country}
               </Body>
             </View>
@@ -120,7 +120,7 @@ export default function RecipientDetail() {
 
           <Button
             label="Send money"
-            variant="mint"
+            variant="primary"
             onPress={() =>
               router.push({ pathname: '/(app)/send/amount', params: { recipientId: recipient.id } })
             }
@@ -129,7 +129,7 @@ export default function RecipientDetail() {
           {error ? <Note>{error}</Note> : null}
 
           <Card>
-            <Body size={11} tone="ink3" weight="600">
+            <Body size={11} tone="faint" weight="600">
               ACCOUNT
             </Body>
             <Body size={15} tone="ink" weight="600" numbers style={{ marginTop: 3 }}>
@@ -138,7 +138,7 @@ export default function RecipientDetail() {
             <View style={{ marginVertical: 12 }}>
               <Divider />
             </View>
-            <Body size={12} tone="ink3">
+            <Body size={12} tone="faint">
               The account number cannot be edited — a payout to a changed account would be a
               different transfer. Remove this recipient and add them again instead.
             </Body>

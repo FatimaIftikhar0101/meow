@@ -46,7 +46,7 @@ export default function ChangePassword() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Change password" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -84,10 +84,10 @@ export default function ChangePassword() {
                   const ok = r.test(newPassword);
                   return (
                     <Row key={r.label} gap={7}>
-                      <Body size={12} tone={ok ? 'mint' : 'ink3'}>
+                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
                         {ok ? '✓' : '○'}
                       </Body>
-                      <Body size={12} tone={ok ? 'mint' : 'ink3'}>
+                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
                         {r.label}
                       </Body>
                     </Row>

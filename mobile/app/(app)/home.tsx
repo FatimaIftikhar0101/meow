@@ -2,27 +2,28 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { CatMark } from '../../components/CatMark';
 import { CorridorCard } from '../../components/CorridorCard';
-import { GreetingHero, heroBaseColor } from '../../components/GreetingHero';
 import { Avatar, StatusPill } from '../../components/StatusPill';
-import { Body, Card, Note, Row, Title } from '../../components/ui';
+import { Body, Card, Kicker, Note, Row, SectionHeader, Title } from '../../components/ui';
 import api from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { corridorFor, useCorridors } from '../../lib/corridors';
-import { dayPartFor, timeOf } from '../../lib/format';
+import { GREETING, dayPartFor, timeOf } from '../../lib/format';
 import { formatAmount, formatMoney } from '../../lib/money';
-import { useTransferStatus } from '../../lib/sockets';
-import type {
-  Balance,
-  ComplianceStatus,
-  Recipient,
-  TransferSummary,
-} from '../../lib/types';
+import { useLive, useTransferStatus } from '../../lib/sockets';
+import type { Balance, ComplianceStatus, Recipient, TransferSummary } from '../../lib/types';
 import { colors, radius } from '../../theme/tokens';
 
-const IN_FLIGHT = ['initiated', 'payment_received', 'compliance_check', 'fx_converted', 'payout_processing'];
+const IN_FLIGHT = [
+  'initiated',
+  'payment_received',
+  'compliance_check',
+  'fx_converted',
+  'payout_processing',
+];
 
 /* ── Quick actions ─────────────────────────────────────────────────────── */
 
@@ -66,11 +67,9 @@ function QuickIcon({ name, color }: { name: 'send' | 'add' | 'people' | 'bell'; 
 }
 
 /**
- * Icon tiles rather than cards. In the first pass each action was a bordered
- * card, which left 48.8px of usable width inside its padding and wrapped
- * "Add money" onto two lines. Dropping the chrome hands the label the full
- * column. Send is mint, not black: the corridor card above is already a black
- * slab, and a second one directly beneath it read as one object.
+ * Icon tiles on `inset`, not bordered cards. Bordered cards left 48.8px of
+ * usable width inside their padding, which wrapped "Add money" onto two lines.
+ * Send carries the accent fill — it is the one action the screen exists for.
  */
 function QuickActions() {
   const router = useRouter();
@@ -81,12 +80,13 @@ function QuickActions() {
     { key: 'alerts', label: 'Activity', icon: 'bell' as const, hero: false, go: () => router.push('/(app)/notifications') },
   ];
   return (
-    <View style={{ flexDirection: 'row', gap: 6 }}>
+    <View style={{ flexDirection: 'row', gap: 7 }}>
       {items.map((it) => (
         <Pressable
           key={it.key}
           onPress={it.go}
           accessibilityRole="button"
+          accessibilityLabel={it.label}
           style={({ pressed }) => ({
             flex: 1,
             alignItems: 'center',
@@ -96,17 +96,15 @@ function QuickActions() {
         >
           <View
             style={{
-              width: 46,
-              height: 46,
-              borderRadius: 16,
+              width: 48,
+              height: 48,
+              borderRadius: radius.md,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: it.hero ? colors.mint : colors.card,
-              borderWidth: 1,
-              borderColor: it.hero ? colors.mint : colors.line,
+              backgroundColor: it.hero ? colors.accent : colors.inset,
             }}
           >
-            <QuickIcon name={it.icon} color={colors.ink} />
+            <QuickIcon name={it.icon} color={it.hero ? colors.onAccent : colors.accent} />
           </View>
           <Text style={{ fontSize: 10, fontWeight: '600', color: colors.ink }} numberOfLines={1}>
             {it.label}
@@ -124,6 +122,7 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { corridors } = useCorridors();
+  const { unreadCount } = useLive();
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transfers, setTransfers] = useState<TransferSummary[]>([]);
@@ -164,14 +163,8 @@ export default function Home() {
   const part = dayPartFor();
   const firstName = profile?.firstName || profile?.fullName?.split(' ')[0] || 'there';
 
-  const inFlight = useMemo(
-    () => transfers.filter((t) => IN_FLIGHT.includes(t.status)),
-    [transfers],
-  );
-  const lastDelivered = useMemo(
-    () => transfers.find((t) => t.status === 'delivered'),
-    [transfers],
-  );
+  const inFlight = useMemo(() => transfers.filter((t) => IN_FLIGHT.includes(t.status)), [transfers]);
+  const lastDelivered = useMemo(() => transfers.find((t) => t.status === 'delivered'), [transfers]);
 
   const corridor = useMemo(() => {
     const from = balance?.currency ?? 'CAD';
@@ -185,12 +178,15 @@ export default function Home() {
     );
   }, [corridors, balance, transfers]);
 
+  const kycPending = kyc != null && kyc.status !== 'passed';
+
   /**
-   * The greeting's second line reports live state rather than a slogan: what
-   * the user would otherwise open the app to check.
+   * A one-line status under the name: what the user would otherwise open the
+   * app to check. Suppressed while the KYC banner is up, since the banner
+   * already says the only thing that matters.
    */
   const line = useMemo(() => {
-    if (kyc && kyc.status !== 'passed') return 'Verify your identity to start sending.';
+    if (kycPending) return null;
     if (inFlight.length === 1) {
       return `One transfer still on its way to ${inFlight[0].recipient.name.split(' ')[0]}.`;
     }
@@ -202,164 +198,223 @@ export default function Home() {
     }
     if (corridor) {
       const applied = (Number(corridor.baseRate) * (10000 - corridor.marginBps)) / 10000;
-      return `Rates are fresh — ${formatAmount(applied, 2)} to ${corridor.toCountry === 'PK' ? 'Pakistan' : corridor.toCountry === 'IN' ? 'India' : corridor.toCountry}.`;
+      const where =
+        corridor.toCountry === 'PK'
+          ? 'Pakistan'
+          : corridor.toCountry === 'IN'
+            ? 'India'
+            : corridor.toCountry;
+      return `Rates are fresh — ${formatAmount(applied, 2)} to ${where}.`;
     }
     return 'Everything delivered. Rest easy.';
-  }, [kyc, inFlight, lastDelivered, corridor]);
+  }, [kycPending, inFlight, lastDelivered, corridor]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: heroBaseColor(part) }}>
-      <StatusBar style={part === 'night' || part === 'evening' ? 'light' : 'dark'} />
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <StatusBar style="dark" />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 28 }}
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 28, gap: 18 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={{ paddingTop: insets.top }}>
-          <GreetingHero part={part} name={firstName} line={line} />
-        </View>
-
-        <View style={{ backgroundColor: colors.paper, paddingTop: 16, gap: 18 }}>
-          {kyc && kyc.status !== 'passed' && (
-            <View style={{ paddingHorizontal: 16 }}>
-              <Pressable onPress={() => router.push('/(app)/profile')}>
-                <Note tone="amber">
-                  {kyc.status === 'failed'
-                    ? `Identity check failed${kyc.reason ? `: ${kyc.reason}` : ''}. Tap to review.`
-                    : 'Verify your identity before your first transfer. Tap to start — it takes seconds.'}
-                </Note>
-              </Pressable>
+        {/* The time-of-day scene used to live here and took the first third of
+            the screen on every visit. It is a brief intro now, so the rate —
+            the thing people open the app for — is above the fold. */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <Row gap={11}>
+            <CatMark size={34} eyesClosed={part === 'night'} />
+            <View style={{ flex: 1 }}>
+              <Kicker>{GREETING[part]}</Kicker>
+              <Title size={19} numberOfLines={1} style={{ marginTop: 2 }}>
+                {firstName}
+              </Title>
             </View>
-          )}
-
-          <View style={{ paddingHorizontal: 16 }}>
-            <CorridorCard
-              corridor={corridor}
-              balance={balance?.balance ?? null}
-              balanceCurrency={balance?.currency ?? 'CAD'}
-            />
-          </View>
-
-          <View style={{ paddingHorizontal: 16 }}>
-            <QuickActions />
-          </View>
-
-          {/* Send again */}
-          <View style={{ gap: 10 }}>
-            <View
-              style={{
-                paddingHorizontal: 16,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
+            <Pressable
+              onPress={() => router.push('/(app)/notifications')}
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
+              }
+              style={({ pressed }) => ({
+                width: 38,
+                height: 38,
+                borderRadius: radius.md,
+                backgroundColor: colors.inset,
                 alignItems: 'center',
-              }}
+                justifyContent: 'center',
+                opacity: pressed ? 0.7 : 1,
+              })}
             >
-              <Title size={15}>Send again</Title>
-              <Pressable onPress={() => router.push('/(app)/recipients')}>
-                <Body size={12} tone="mint" weight="600">
-                  {recipients.length > 0 ? `All ${recipients.length}` : 'Add someone'}
-                </Body>
-              </Pressable>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
-            >
-              {recipients.slice(0, 8).map((r) => (
-                <Pressable
-                  key={r.id}
-                  onPress={() => router.push({ pathname: '/(app)/send/amount', params: { recipientId: r.id } })}
-                  style={({ pressed }) => ({ alignItems: 'center', width: 52, opacity: pressed ? 0.6 : 1 })}
-                >
-                  <Avatar name={r.name} size={44} />
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontSize: 10.5, color: colors.ink2, marginTop: 6, fontWeight: '600' }}
-                  >
-                    {r.name.split(' ')[0]}
-                  </Text>
-                </Pressable>
-              ))}
-              <Pressable
-                onPress={() => router.push('/(app)/recipients/new')}
-                style={({ pressed }) => ({ alignItems: 'center', width: 52, opacity: pressed ? 0.6 : 1 })}
-              >
+              <QuickIcon name="bell" color={colors.accent} />
+              {unreadCount > 0 && (
                 <View
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    borderWidth: 1,
-                    borderColor: colors.line2,
-                    borderStyle: 'dashed',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    position: 'absolute',
+                    top: 7,
+                    right: 7,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: colors.danger,
+                    borderWidth: 1.5,
+                    borderColor: colors.canvas,
                   }}
+                />
+              )}
+            </Pressable>
+          </Row>
+
+          {line && (
+            <Body size={12.5} tone="muted" style={{ marginTop: 8 }}>
+              {line}
+            </Body>
+          )}
+        </View>
+
+        {kycPending && (
+          <View style={{ paddingHorizontal: 16 }}>
+            <Pressable onPress={() => router.push('/(app)/profile')}>
+              <Note tone="pending">
+                {kyc.status === 'failed'
+                  ? `Identity check failed${kyc.reason ? `: ${kyc.reason}` : ''}. Tap to review.`
+                  : 'Verify your identity before your first transfer. Tap to start — it takes seconds.'}
+              </Note>
+            </Pressable>
+          </View>
+        )}
+
+        <View style={{ paddingHorizontal: 16 }}>
+          <CorridorCard
+            corridor={corridor}
+            balance={balance?.balance ?? null}
+            balanceCurrency={balance?.currency ?? 'CAD'}
+          />
+        </View>
+
+        <View style={{ paddingHorizontal: 16 }}>
+          <QuickActions />
+        </View>
+
+        {/* On its way */}
+        {inFlight.length > 0 && (
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            <SectionHeader
+              title="On its way"
+              actionLabel="View all"
+              onAction={() => router.push('/(app)/activity')}
+            />
+            {inFlight.slice(0, 3).map((t) => (
+              <Pressable
+                key={t.id}
+                onPress={() =>
+                  router.push({ pathname: '/(app)/activity/[id]', params: { id: t.id } })
+                }
+              >
+                <Card padded={false} style={{ padding: 12 }}>
+                  <Row gap={11}>
+                    <View
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: radius.xs,
+                        backgroundColor: colors.pendingSoft,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <QuickIcon name="send" color={colors.pending} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Body size={13.5} tone="ink" weight="600" numberOfLines={1}>
+                        {t.recipient.name}
+                      </Body>
+                      <View style={{ marginTop: 3 }}>
+                        <StatusPill status={t.status} compact />
+                      </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Body size={13.5} tone="ink" weight="700" numbers>
+                        −{formatMoney(t.amount, t.sendCurrency)}
+                      </Body>
+                      {t.receiveAmount && (
+                        <Body size={11} tone="faint" numbers>
+                          {formatMoney(t.receiveAmount, t.receiveCurrency)}
+                        </Body>
+                      )}
+                    </View>
+                  </Row>
+                </Card>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* Send again */}
+        <View style={{ gap: 10 }}>
+          <View style={{ paddingHorizontal: 16 }}>
+            <SectionHeader
+              title="Send again"
+              actionLabel={recipients.length > 0 ? `All ${recipients.length}` : 'Add someone'}
+              onAction={() => router.push('/(app)/recipients')}
+            />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+          >
+            {recipients.slice(0, 8).map((r) => (
+              <Pressable
+                key={r.id}
+                onPress={() =>
+                  router.push({ pathname: '/(app)/send/amount', params: { recipientId: r.id } })
+                }
+                style={({ pressed }) => ({
+                  alignItems: 'center',
+                  width: 52,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <Avatar name={r.name} size={44} />
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 10.5, color: colors.inkMuted, marginTop: 6, fontWeight: '600' }}
                 >
-                  <Text style={{ fontSize: 20, color: colors.ink3, marginTop: -2 }}>+</Text>
-                </View>
-                <Text style={{ fontSize: 10.5, color: colors.ink2, marginTop: 6, fontWeight: '600' }}>
-                  New
+                  {r.name.split(' ')[0]}
                 </Text>
               </Pressable>
-            </ScrollView>
-          </View>
-
-          {/* On its way */}
-          {inFlight.length > 0 && (
-            <View style={{ paddingHorizontal: 16, gap: 8 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Title size={15}>On its way</Title>
-                <Pressable onPress={() => router.push('/(app)/activity')}>
-                  <Body size={12} tone="mint" weight="600">
-                    View all
-                  </Body>
-                </Pressable>
+            ))}
+            <Pressable
+              onPress={() => router.push('/(app)/recipients/new')}
+              accessibilityRole="button"
+              accessibilityLabel="Add a recipient"
+              style={({ pressed }) => ({
+                alignItems: 'center',
+                width: 52,
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  borderWidth: 1,
+                  borderColor: colors.lineStrong,
+                  borderStyle: 'dashed',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 20, color: colors.inkFaint, marginTop: -2 }}>+</Text>
               </View>
-              {inFlight.slice(0, 3).map((t) => (
-                <Pressable
-                  key={t.id}
-                  onPress={() => router.push({ pathname: '/(app)/activity/[id]', params: { id: t.id } })}
-                >
-                  <Card padded={false} style={{ padding: 12 }}>
-                    <Row gap={11}>
-                      <View
-                        style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: radius.xs,
-                          backgroundColor: colors.amberLo,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <QuickIcon name="send" color={colors.amber} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Body size={13.5} tone="ink" weight="600" numberOfLines={1}>
-                          {t.recipient.name}
-                        </Body>
-                        <View style={{ marginTop: 3 }}>
-                          <StatusPill status={t.status} compact />
-                        </View>
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Body size={13.5} tone="ink" weight="700" numbers>
-                          −{formatMoney(t.amount, t.sendCurrency)}
-                        </Body>
-                        {t.receiveAmount && (
-                          <Body size={11} tone="ink3" numbers>
-                            {formatMoney(t.receiveAmount, t.receiveCurrency)}
-                          </Body>
-                        )}
-                      </View>
-                    </Row>
-                  </Card>
-                </Pressable>
-              ))}
-            </View>
-          )}
+              <Text
+                style={{ fontSize: 10.5, color: colors.inkMuted, marginTop: 6, fontWeight: '600' }}
+              >
+                New
+              </Text>
+            </Pressable>
+          </ScrollView>
         </View>
       </ScrollView>
     </View>

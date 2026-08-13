@@ -64,7 +64,7 @@ export function Keypad({
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: radius.sm,
-            backgroundColor: pressed ? colors.tint : 'transparent',
+            backgroundColor: pressed ? colors.inset : 'transparent',
           })}
         >
           {k === '⌫' ? (

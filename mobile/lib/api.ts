@@ -1,4 +1,6 @@
 import axios, { AxiosError } from 'axios';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { getToken } from './auth-store';
 
 /**
@@ -13,9 +15,42 @@ import { getToken } from './auth-store';
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'https://backend-production-4cbe.up.railway.app';
 
+/**
+ * What this client calls itself.
+ *
+ * React Native's Android networking is OkHttp, and OkHttp's default
+ * User-Agent is `okhttp/4.x` — no platform, no version, no device. The backend
+ * stores whatever header it is handed, so every row in Devices & sessions read
+ * "Unknown OS". Nothing was failing to parse; there was simply nothing to
+ * parse, and the phone could not be told apart from any other session.
+ *
+ * `Platform.constants` carries the real values on Android with no extra native
+ * dependency, which matters because adding one would force a new build just to
+ * label a list. Shaped like a conventional UA so anything downstream that
+ * expects that form still works.
+ */
+function userAgent(): string {
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+  if (Platform.OS === 'android') {
+    const c = Platform.constants as Partial<{
+      Release: string;
+      Model: string;
+      Manufacturer: string;
+    }>;
+    const release = c.Release ?? String(Platform.Version);
+    const device = [c.Manufacturer, c.Model].filter(Boolean).join(' ');
+    return `Meow/${version} (Android ${release}${device ? `; ${device}` : ''})`;
+  }
+  if (Platform.OS === 'ios') {
+    return `Meow/${version} (iOS ${String(Platform.Version)})`;
+  }
+  return `Meow/${version} (${Platform.OS})`;
+}
+
 const api = axios.create({
   baseURL: API_URL,
   timeout: 20000,
+  headers: { 'User-Agent': userAgent() },
 });
 
 api.interceptors.request.use((config) => {

@@ -27,21 +27,12 @@ export default function Sent() {
   }, [id]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
       <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 14 }}>
-          <View
-            style={{
-              width: 84,
-              height: 84,
-              borderRadius: 42,
-              backgroundColor: colors.mintLo,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <CatMark size={46} color={colors.mintInk} pupil={colors.mintLo} />
-          </View>
+          {/* The mark brings its own roundel, which is the dark ground the gold
+              needs — a soft accent disc behind it left the cat at 1.9:1. */}
+          <CatMark size={84} />
           <Title size={26} style={{ textAlign: 'center' }}>
             On its way.
           </Title>
@@ -58,7 +49,7 @@ export default function Sent() {
         {transfer && (
           <Card>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Body size={12.5} tone="ink3">
+              <Body size={12.5} tone="faint">
                 Reference
               </Body>
               <Body size={12.5} tone="ink" weight="600" numbers>
@@ -68,12 +59,12 @@ export default function Sent() {
             <View
               style={{
                 marginTop: 12,
-                backgroundColor: colors.tint,
+                backgroundColor: colors.inset,
                 borderRadius: radius.sm,
                 padding: 12,
               }}
             >
-              <Body size={12.5} tone="mint" weight="500">
+              <Body size={12.5} tone="accent" weight="500">
                 Track it live on the next screen. You can still cancel for a full refund until it
                 reaches the payout partner.
               </Body>
@@ -84,7 +75,7 @@ export default function Sent() {
         <View style={{ gap: 9 }}>
           <Button
             label="Track this transfer"
-            variant="mint"
+            variant="primary"
             onPress={() => router.replace({ pathname: '/(app)/activity/[id]', params: { id: id! } })}
           />
           <Button label="Back to home" variant="outline" onPress={() => router.replace('/(app)/home')} />

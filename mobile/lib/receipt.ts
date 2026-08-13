@@ -1,9 +1,9 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { dateTimeOf } from './format';
+import { colors } from '../theme/tokens';
+import { STATUS_LABEL, dateTimeOf } from './format';
 import { formatAmount } from './money';
 import type { TransferDetail } from './types';
-import { STATUS_LABEL } from './format';
 
 /**
  * Renders a receipt to PDF and hands it to the Android share sheet.
@@ -49,29 +49,41 @@ function receiptHtml(t: TransferDetail): string {
     ['They receive', t.receiveAmount ? `${formatAmount(t.receiveAmount)} ${t.receiveCurrency}` : '—'],
   ];
 
+  /* The receipt is a document the customer keeps, so it takes its colours from
+     the same tokens as the app rather than carrying its own copy of them.
+     The mark gets a charcoal disc for the same reason it does on screen: gold
+     on white is 1.97:1, and a receipt is white by definition. */
   return `<!doctype html><html><head><meta charset="utf-8">
 <style>
   @page { margin: 40px; }
-  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: #121714; font-size: 13px; }
-  .head { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #121714; padding-bottom: 14px; }
-  .mark { width: 30px; height: 30px; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: ${colors.ink}; font-size: 13px; }
+  .head { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid ${colors.ink}; padding-bottom: 14px; }
+  .mark { width: 34px; height: 34px; }
   h1 { font-size: 21px; margin: 0; letter-spacing: -.5px; }
-  .sub { color: #5B635B; font-size: 11px; margin-top: 2px; }
+  .sub { color: ${colors.inkMuted}; font-size: 11px; margin-top: 2px; }
   table { width: 100%; border-collapse: collapse; margin-top: 22px; }
-  td { padding: 9px 0; border-bottom: 1px solid #E3E6DE; vertical-align: top; }
-  td.k { color: #5B635B; width: 42%; }
+  td { padding: 9px 0; border-bottom: 1px solid ${colors.line}; vertical-align: top; }
+  td.k { color: ${colors.inkMuted}; width: 42%; }
   td.v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-  tr.total td { border-bottom: 2px solid #121714; font-size: 15px; }
-  h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: #5B635B; margin: 26px 0 8px; }
-  .ev { padding: 6px 0; border-bottom: 1px solid #F1F3EE; display: flex; justify-content: space-between; }
-  .ev span:last-child { color: #676E66; }
-  footer { margin-top: 30px; color: #676E66; font-size: 10.5px; line-height: 1.6; }
+  tr.total td { border-bottom: 2px solid ${colors.ink}; font-size: 15px; }
+  h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: ${colors.inkMuted}; margin: 26px 0 8px; }
+  .ev { padding: 6px 0; border-bottom: 1px solid ${colors.line}; display: flex; justify-content: space-between; }
+  .ev span:last-child { color: ${colors.inkFaint}; }
+  footer { margin-top: 30px; color: ${colors.inkFaint}; font-size: 10.5px; line-height: 1.6; }
 </style></head><body>
   <div class="head">
-    <svg class="mark" viewBox="0 0 32 32">
-      <circle cx="16" cy="16" r="15" fill="none" stroke="#E0B259" stroke-width="1.4"/>
-      <path d="M 11 11 L 13 8 L 14 13 L 18 13 L 19 8 L 21 11 Q 23 16 21 20 Q 16 23 11 20 Q 9 16 11 11 Z" fill="#E0B259"/>
-      <circle cx="13.6" cy="15" r=".9" fill="#121714"/><circle cx="18.4" cy="15" r=".9" fill="#121714"/>
+    <svg class="mark" viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="22" fill="${colors.roundel}"/>
+      <g transform="translate(7 7)">
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${colors.goldLight}"/>
+          <stop offset="60%" stop-color="${colors.gold}"/>
+          <stop offset="100%" stop-color="${colors.goldDeep}"/>
+        </linearGradient>
+        <circle cx="16" cy="16" r="15" fill="none" stroke="url(#g)" stroke-width="1.5"/>
+        <path d="M 11 11 L 13 8 L 14 13 L 18 13 L 19 8 L 21 11 Q 23 16 21 20 Q 16 23 11 20 Q 9 16 11 11 Z" fill="url(#g)"/>
+        <circle cx="13.5" cy="15" r=".9" fill="${colors.goldPupil}"/><circle cx="18.5" cy="15" r=".9" fill="${colors.goldPupil}"/>
+      </g>
     </svg>
     <div>
       <h1>Transfer receipt</h1>

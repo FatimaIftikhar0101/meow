@@ -30,7 +30,7 @@ export default function Recipients() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <Screen
         refreshControl={
           <RefreshControl
@@ -49,7 +49,7 @@ export default function Recipients() {
             <Button
               label="Add"
               compact
-              variant="mint"
+              variant="primary"
               onPress={() => router.push('/(app)/recipients/new')}
             />
           </Row>
@@ -83,7 +83,7 @@ export default function Recipients() {
                         <Body size={14.5} tone="ink" weight="600" numberOfLines={1}>
                           {r.name}
                         </Body>
-                        <Body size={12} tone="ink3" numberOfLines={1}>
+                        <Body size={12} tone="faint" numberOfLines={1}>
                           {countryFlag(r.country)} {r.bankName ?? r.country} ·{' '}
                           {maskAccount(r.bankAccount)}
                         </Body>

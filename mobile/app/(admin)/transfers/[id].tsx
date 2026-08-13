@@ -24,7 +24,7 @@ import { colors } from '../../../theme/tokens';
 function KV({ k, v }: { k: string; v: string }) {
   return (
     <Row style={{ justifyContent: 'space-between' }}>
-      <Body size={12.5} tone="ink3">
+      <Body size={12.5} tone="faint">
         {k}
       </Body>
       <Body size={12.5} tone="ink" weight="600" numbers style={{ flexShrink: 1, textAlign: 'right' }}>
@@ -83,7 +83,7 @@ export default function AdminTransferDetailScreen() {
 
   if (!t) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
         <BackBar title="Transfer" />
         {error ? (
           <View style={{ padding: 16 }}>
@@ -99,7 +99,7 @@ export default function AdminTransferDetailScreen() {
   const terminal = TERMINAL_STATUSES.includes(t.status);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title={t.id.slice(0, 8).toUpperCase()} />
       <Screen>
         <View style={{ gap: 15 }}>
@@ -138,11 +138,11 @@ export default function AdminTransferDetailScreen() {
           </Card>
 
           <Card>
-            <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 9 }}>
+            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 9 }}>
               LEDGER ENTRIES
             </Body>
             {t.ledgerEntries.length === 0 ? (
-              <Body size={13} tone="ink3">
+              <Body size={13} tone="faint">
                 None.
               </Body>
             ) : (
@@ -158,13 +158,13 @@ export default function AdminTransferDetailScreen() {
                       <Body size={13} tone="ink" weight="600">
                         {e.type.replace(/_/g, ' ')}
                       </Body>
-                      <Body size={11} tone="ink3">
+                      <Body size={11} tone="faint">
                         {dateTimeOf(e.createdAt)}
                       </Body>
                     </View>
                     <Body
                       size={13.5}
-                      tone={e.direction === 'credit' ? 'mint' : 'ink'}
+                      tone={e.direction === 'credit' ? 'accent' : 'ink'}
                       weight="700"
                       numbers
                     >
@@ -178,7 +178,7 @@ export default function AdminTransferDetailScreen() {
           </Card>
 
           <Card>
-            <Body size={11} tone="ink3" weight="600" style={{ marginBottom: 9 }}>
+            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 9 }}>
               TIMELINE
             </Body>
             {t.timeline.map((e, i) => (
@@ -192,7 +192,7 @@ export default function AdminTransferDetailScreen() {
                   <Body size={12.5} tone="ink">
                     {e.message || STATUS_LABEL[e.status]}
                   </Body>
-                  <Body size={11.5} tone="ink3">
+                  <Body size={11.5} tone="faint">
                     {dateTimeOf(e.createdAt)}
                   </Body>
                 </Row>

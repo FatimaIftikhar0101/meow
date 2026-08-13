@@ -1,25 +1,29 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Path, G } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { formatMoney, formatRate } from '../lib/money';
 import type { Corridor } from '../lib/types';
 import { colors, radius, shadow } from '../theme/tokens';
 import { CatMark } from './CatMark';
 
 /**
- * The signature card.
+ * The signature card, and the app's 60%.
  *
  * A remittance app has no credit card to put on the home screen, and the wallet
  * balance is a staging account someone tops up and empties — it is not what
  * anyone opens the app to see. The rate is. So the corridor is the hero: where
- * the money goes, and what it converts at, on one black slab.
+ * the money goes and what it converts at, on one slate slab.
  *
- * The arc lives in its own band with the rate below it in flow. In the first
- * draft both shared a box and the curve ran straight through the rate text.
+ * The slab is slate rather than charcoal because slate is the base colour at
+ * 60%, and this is the largest single object in the product.
  */
 
 const ROUTE_W = 216;
-const ROUTE_H = 46;
+const ROUTE_H = 52;
+/** Apex of the quadratic at t=0.5, in viewBox units. The mark sits here. */
+const APEX_Y = 16;
+const MARK = 22;
 
 const CITY: Record<string, string> = {
   PK: 'Karachi',
@@ -37,7 +41,7 @@ function flag(code: string): string {
   );
 }
 
-function End({ code, align }: { code: string; align: 'left' | 'right' }) {
+function End({ code }: { code: string }) {
   return (
     <View style={{ alignItems: 'center', width: 58 }}>
       <View
@@ -45,14 +49,14 @@ function End({ code, align }: { code: string; align: 'left' | 'right' }) {
           width: 26,
           height: 26,
           borderRadius: 13,
-          backgroundColor: '#1D251F',
+          backgroundColor: 'rgba(255,255,255,0.12)',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
         <Text style={{ fontSize: 14 }}>{flag(code)}</Text>
       </View>
-      <Text style={{ color: colors.onInk2, fontSize: 9.5, marginTop: 4 }} numberOfLines={1}>
+      <Text style={{ color: colors.onSlabMuted, fontSize: 9.5, marginTop: 4 }} numberOfLines={1}>
         {CITY[code.toUpperCase()] ?? code.toUpperCase()}
       </Text>
     </View>
@@ -80,96 +84,96 @@ export function CorridorCard({
     : null;
 
   return (
-    <View
-      style={[
-        {
-          backgroundColor: colors.ink,
-          borderRadius: radius.lg,
-          padding: 16,
-        },
-        shadow.liftLg,
-      ]}
+    <LinearGradient
+      colors={[colors.slab, colors.slabDeep]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[{ borderRadius: radius.lg, padding: 16 }, shadow.liftLg]}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ color: colors.onInk2, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.4 }}>
+        <Text
+          style={{
+            color: colors.onSlabMuted,
+            fontSize: 10.5,
+            fontWeight: '700',
+            letterSpacing: 1.4,
+          }}
+        >
           YOUR CORRIDOR
         </Text>
         {live && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <View
-              style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }}
+              style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.onSlab }}
             />
-            <Text style={{ color: colors.mint, fontSize: 10, fontWeight: '700' }}>Live</Text>
+            <Text style={{ color: colors.onSlab, fontSize: 10, fontWeight: '700' }}>Live</Text>
           </View>
         )}
       </View>
 
-      {/* Route band. The arc and the flags share this box and nothing else. */}
-      <View style={{ height: ROUTE_H, marginTop: 12, justifyContent: 'center' }}>
-        <Svg
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${ROUTE_W} ${ROUTE_H}`}
-          style={{ position: 'absolute' }}
-        >
+      {/* Route band. Pinned to the viewBox's aspect ratio so the mark and the
+          arc share one coordinate space — see the note in welcome.tsx. */}
+      <View style={{ width: '100%', aspectRatio: ROUTE_W / ROUTE_H, marginTop: 10 }}>
+        <Svg width="100%" height="100%" viewBox={`0 0 ${ROUTE_W} ${ROUTE_H}`}>
           <Path
-            d="M32 19 Q108 9 184 19"
+            d={`M32 22 Q108 ${APEX_Y - 6} 184 22`}
             fill="none"
-            stroke={colors.mint}
+            stroke="rgba(255,255,255,0.55)"
             strokeWidth={1.6}
             strokeLinecap="round"
-            opacity={0.85}
           />
-          {/* Sits on the curve's midpoint by construction: the quadratic's
-              apex at t=0.5 is (108, 14), which is this group's origin. */}
-          <G transform="translate(108,14)">
-            <Circle cx={0} cy={0} r={11} fill={colors.ink} />
-          </G>
+          <Circle cx={32} cy={22} r={2.6} fill={colors.onSlab} />
+          <Circle cx={184} cy={22} r={2.6} fill="rgba(255,255,255,0.5)" />
         </Svg>
+
         <View
           style={{
             position: 'absolute',
             left: 0,
             right: 0,
-            top: `${(3 / ROUTE_H) * 100}%`,
+            top: `${(APEX_Y / ROUTE_H) * 100}%`,
+            marginTop: -MARK / 2,
             alignItems: 'center',
           }}
+          pointerEvents="none"
         >
-          <CatMark size={18} ring />
+          <CatMark size={MARK} roundel={false} />
         </View>
 
         <View
           style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
             flexDirection: 'row',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            paddingTop: 3,
           }}
         >
-          <End code={corridor?.fromCountry ?? 'CA'} align="left" />
-          <End code={corridor?.toCountry ?? 'PK'} align="right" />
+          <End code={corridor?.fromCountry ?? 'CA'} />
+          <End code={corridor?.toCountry ?? 'PK'} />
         </View>
       </View>
 
-      <View style={{ alignItems: 'center', marginTop: 6 }}>
+      <View style={{ alignItems: 'center', marginTop: 10 }}>
         <Text
           style={{
-            color: colors.onInk,
-            fontSize: 30,
+            color: colors.onSlab,
+            fontSize: 31,
             fontWeight: '700',
             letterSpacing: -1,
             fontVariant: ['tabular-nums'],
           }}
         >
           {applied === null ? '—' : formatRate(applied, 2)}
-          <Text style={{ fontSize: 14, color: colors.onInk2, fontWeight: '600' }}>
+          <Text style={{ fontSize: 14, color: colors.onSlabMuted, fontWeight: '600' }}>
             {' '}
             {corridor?.toCurrency ?? ''}
           </Text>
         </Text>
-        <Text style={{ color: colors.onInk2, fontSize: 11, marginTop: 2 }}>
-          per 1 {corridor?.fromCurrency ?? 'CAD'} · fee {corridor ? formatRate(corridor.feeFlat, 2) : '—'}{' '}
-          {corridor?.fromCurrency ?? ''} flat
+        <Text style={{ color: colors.onSlabMuted, fontSize: 11, marginTop: 2 }}>
+          per 1 {corridor?.fromCurrency ?? 'CAD'} · fee{' '}
+          {corridor ? formatRate(corridor.feeFlat, 2) : '—'} {corridor?.fromCurrency ?? ''} flat
         </Text>
       </View>
 
@@ -181,14 +185,14 @@ export function CorridorCard({
           marginTop: 14,
           paddingTop: 12,
           borderTopWidth: 1,
-          borderTopColor: '#232B24',
+          borderTopColor: 'rgba(255,255,255,0.18)',
         }}
       >
         <View>
-          <Text style={{ color: colors.onInk2, fontSize: 10.5 }}>Available to send</Text>
+          <Text style={{ color: colors.onSlabMuted, fontSize: 10.5 }}>Available to send</Text>
           <Text
             style={{
-              color: colors.onInk,
+              color: colors.onSlab,
               fontSize: 17,
               fontWeight: '700',
               fontVariant: ['tabular-nums'],
@@ -201,19 +205,19 @@ export function CorridorCard({
         {corridor && (
           <View
             style={{
-              backgroundColor: '#1D251F',
+              backgroundColor: 'rgba(255,255,255,0.12)',
               borderRadius: radius.pill,
               paddingHorizontal: 10,
               paddingVertical: 5,
             }}
           >
-            <Text style={{ color: colors.onInk2, fontSize: 10, fontWeight: '600' }}>
+            <Text style={{ color: colors.onSlabMuted, fontSize: 10, fontWeight: '600' }}>
               min {formatRate(corridor.minSendAmount, 0)} · max{' '}
               {formatRate(corridor.maxSendAmount, 0)}
             </Text>
           </View>
         )}
       </View>
-    </View>
+    </LinearGradient>
   );
 }

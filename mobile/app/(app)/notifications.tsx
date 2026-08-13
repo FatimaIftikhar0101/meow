@@ -47,7 +47,7 @@ export default function Notifications() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar
         title="Notifications"
         right={
@@ -60,7 +60,7 @@ export default function Notifications() {
               hitSlop={8}
               style={{ paddingHorizontal: 10 }}
             >
-              <Body size={12.5} tone="mint" weight="600">
+              <Body size={12.5} tone="accent" weight="600">
                 Mark all read
               </Body>
             </Pressable>
@@ -95,8 +95,8 @@ export default function Notifications() {
                   padded={false}
                   style={{
                     padding: 13,
-                    backgroundColor: n.read ? colors.card : colors.tint,
-                    borderColor: n.read ? colors.line : colors.mintLo,
+                    backgroundColor: n.read ? colors.card : colors.inset,
+                    borderColor: n.read ? colors.line : colors.accentSoft,
                   }}
                 >
                   <Row gap={10} style={{ alignItems: 'flex-start' }}>
@@ -106,7 +106,7 @@ export default function Notifications() {
                           width: 7,
                           height: 7,
                           borderRadius: 4,
-                          backgroundColor: colors.mintInk,
+                          backgroundColor: colors.accent,
                           marginTop: 5,
                         }}
                       />
@@ -115,10 +115,10 @@ export default function Notifications() {
                       <Body size={13.5} tone="ink" weight="600">
                         {n.title}
                       </Body>
-                      <Body size={12.5} tone="ink2" style={{ marginTop: 2 }}>
+                      <Body size={12.5} tone="muted" style={{ marginTop: 2 }}>
                         {n.body}
                       </Body>
-                      <Body size={11} tone="ink3" style={{ marginTop: 4 }}>
+                      <Body size={11} tone="faint" style={{ marginTop: 4 }}>
                         {relativeTime(n.createdAt)}
                       </Body>
                     </View>

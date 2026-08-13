@@ -5,20 +5,23 @@ import type { TransferStatus } from '../lib/types';
 import { colors, radius } from '../theme/tokens';
 
 /**
- * Status colour is deliberately not the mint accent: mint means "the app's
- * primary action", and reusing it for "delivered" made the two read as the
- * same thing in the earlier design. Delivered is mint-ink on mint-lo, in
- * flight is amber, terminal-bad is clay.
+ * Status colour is deliberately not the accent. The accent means "this is the
+ * app's action"; reusing it for "delivered" made a finished transfer look like
+ * something to press. So: delivered is pine, in flight is earth, terminal-bad
+ * is brick — each with a word next to it, never colour alone.
+ *
+ * Fills are solid rather than tinted. On the old off-white ground a pale chip
+ * had something to sit against; on white it dissolves.
  */
 function toneFor(status: TransferStatus) {
   switch (status) {
     case 'delivered':
-      return { bg: colors.mintLo, fg: colors.mintInk };
+      return { bg: colors.success, fg: colors.onSuccess };
     case 'failed':
     case 'cancelled':
-      return { bg: colors.clayLo, fg: colors.clay };
+      return { bg: colors.danger, fg: colors.onDanger };
     default:
-      return { bg: colors.amberLo, fg: colors.amber };
+      return { bg: colors.pending, fg: colors.onPending };
   }
 }
 
@@ -40,7 +43,7 @@ export function StatusPill({
         alignSelf: 'flex-start',
       }}
     >
-      <Text style={{ color: tone.fg, fontSize: compact ? 10.5 : 11.5, fontWeight: '700' }}>
+      <Text style={{ color: tone.fg, fontSize: compact ? 10 : 11, fontWeight: '700' }}>
         {STATUS_LABEL[status]}
       </Text>
     </View>
@@ -51,11 +54,11 @@ export function StatusPill({
 export function Avatar({
   name,
   size = 42,
-  tone = 'tint',
+  tone = 'inset',
 }: {
   name: string;
   size?: number;
-  tone?: 'tint' | 'ink' | 'mint';
+  tone?: 'inset' | 'slab' | 'accent';
 }) {
   const initials = name
     .trim()
@@ -64,9 +67,9 @@ export function Avatar({
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
   const map = {
-    tint: { bg: colors.tint, fg: colors.mintInk },
-    ink: { bg: colors.ink, fg: colors.onInk },
-    mint: { bg: colors.mint, fg: colors.ink },
+    inset: { bg: colors.inset, fg: colors.accent },
+    slab: { bg: colors.slab, fg: colors.onSlab },
+    accent: { bg: colors.accent, fg: colors.onAccent },
   }[tone];
   return (
     <View

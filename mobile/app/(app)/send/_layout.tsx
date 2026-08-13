@@ -5,7 +5,7 @@ import { colors } from '../../../theme/tokens';
 export default function SendLayout() {
   return (
     <Stack
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }}
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}
     />
   );
 }

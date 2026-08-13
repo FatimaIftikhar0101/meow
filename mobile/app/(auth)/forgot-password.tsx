@@ -37,7 +37,7 @@ export default function ForgotPassword() {
           </View>
 
           {sent ? (
-            <Note tone="mint">
+            <Note tone="success">
               If that email is registered, a reset link is on its way. Open it on this phone and
               follow the link — it expires shortly.
             </Note>

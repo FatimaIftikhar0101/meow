@@ -17,7 +17,7 @@ function Chevron() {
     <Svg width={16} height={16} viewBox="0 0 24 24">
       <Path
         d="M9 5l7 7-7 7"
-        stroke={colors.ink3}
+        stroke={colors.inkFaint}
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -46,7 +46,7 @@ function LinkRow({
             {label}
           </Body>
           {hint ? (
-            <Body size={12} tone="ink3">
+            <Body size={12} tone="faint">
               {hint}
             </Body>
           ) : null}
@@ -58,13 +58,13 @@ function LinkRow({
               height: 20,
               borderRadius: 10,
               paddingHorizontal: 6,
-              backgroundColor: colors.clay,
+              backgroundColor: colors.danger,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 8,
             }}
           >
-            <Body size={11} tone="onInk" weight="700">
+            <Body size={11} tone="onSlab" weight="700">
               {badge > 9 ? '9+' : String(badge)}
             </Body>
           </View>
@@ -126,7 +126,7 @@ export default function Profile() {
   const name = profile?.fullName || profile?.email || '';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <Screen
         refreshControl={
           <RefreshControl
@@ -141,16 +141,16 @@ export default function Profile() {
       >
         <View style={{ gap: 16 }}>
           <Row gap={13}>
-            <Avatar name={name} size={56} tone="ink" />
+            <Avatar name={name} size={56} tone="slab" />
             <View style={{ flex: 1 }}>
               <Title size={21} numberOfLines={1}>
                 {profile?.fullName ?? 'Your account'}
               </Title>
-              <Body size={12.5} tone="ink3" numberOfLines={1}>
+              <Body size={12.5} tone="faint" numberOfLines={1}>
                 {profile?.email}
               </Body>
               {profile?.createdAt && (
-                <Body size={11} tone="ink3">
+                <Body size={11} tone="faint">
                   Member since {dateOf(profile.createdAt)}
                 </Body>
               )}
@@ -170,7 +170,7 @@ export default function Profile() {
                 <Body
                   size={12.5}
                   tone={
-                    kyc?.status === 'passed' ? 'mint' : kyc?.status === 'failed' ? 'clay' : 'amber'
+                    kyc?.status === 'passed' ? 'accent' : kyc?.status === 'failed' ? 'danger' : 'pending'
                   }
                   weight="600"
                 >
@@ -184,13 +184,13 @@ export default function Profile() {
             </Row>
             {kyc?.status !== 'passed' && (
               <View style={{ marginTop: 12, gap: 8 }}>
-                <Body size={12} tone="ink3">
+                <Body size={12} tone="faint">
                   Required before your first transfer. This build uses a mock provider, so it
                   completes instantly.
                 </Body>
                 <Button
                   label="Verify my identity"
-                  variant="mint"
+                  variant="primary"
                   loading={verifying}
                   onPress={verify}
                 />
@@ -200,7 +200,7 @@ export default function Profile() {
 
           {profile && !profile.emailVerified && (
             <Pressable onPress={resendVerification}>
-              <Note tone="amber">
+              <Note tone="pending">
                 Your email is not verified yet. Tap to resend the link.
               </Note>
             </Pressable>
@@ -243,21 +243,21 @@ export default function Profile() {
             <Pressable onPress={() => router.push('/(admin)')}>
               <View
                 style={{
-                  backgroundColor: colors.ink,
+                  backgroundColor: colors.slab,
                   borderRadius: radius.md,
                   padding: 15,
                 }}
               >
                 <Row style={{ justifyContent: 'space-between' }}>
                   <View style={{ flex: 1 }}>
-                    <Body size={14} tone="onInk" weight="600">
+                    <Body size={14} tone="onSlab" weight="600">
                       Admin portal
                     </Body>
-                    <Body size={12} tone="onInk2">
+                    <Body size={12} tone="onSlabMuted">
                       Users, transfers, corridors and the audit log
                     </Body>
                   </View>
-                  <Body size={16} tone="mint">
+                  <Body size={16} tone="accent">
                     ›
                   </Body>
                 </Row>

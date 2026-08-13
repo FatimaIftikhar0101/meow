@@ -32,7 +32,24 @@
  */
 
 import { createContext, useContext } from 'react';
+import { Platform } from 'react-native';
 import { brick, earth, gold, grey, neutral, pine, slate } from './palette';
+
+/**
+ * Typefaces, as roles.
+ *
+ * `display` is the serif from the approved direction — headlines and the
+ * received amount, the figure the person on the other end cares about. It
+ * resolves to whatever serif the platform ships (Noto Serif on Android), which
+ * is close to the artifact but not identical. Shipping an exact face means
+ * bundling a font file; that decision is still open with the client, and when
+ * it lands it changes this one line rather than every screen.
+ */
+export const fonts = {
+  display: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
+  /** `undefined` means the platform UI font, which is what body copy wants. */
+  body: undefined as string | undefined,
+} as const;
 
 /* ── Roles ─────────────────────────────────────────────────────────────── */
 

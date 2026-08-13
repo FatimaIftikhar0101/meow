@@ -36,7 +36,7 @@ export default function SendPickRecipient() {
   const blocked = kyc !== null && kyc.status !== 'passed';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Send money" />
       <Screen>
         <View style={{ gap: 14 }}>
@@ -49,7 +49,7 @@ export default function SendPickRecipient() {
 
           {blocked && (
             <Pressable onPress={() => router.push('/(app)/profile')}>
-              <Note tone="amber">
+              <Note tone="pending">
                 Identity verification is required before your first transfer. Tap to complete it —
                 it takes seconds.
               </Note>
@@ -93,7 +93,7 @@ export default function SendPickRecipient() {
                           <Body size={14.5} tone="ink" weight="600" numberOfLines={1}>
                             {r.name}
                           </Body>
-                          <Body size={12} tone="ink3">
+                          <Body size={12} tone="faint">
                             {countryFlag(r.country)}{' '}
                             {supported
                               ? `Receives ${currency}`

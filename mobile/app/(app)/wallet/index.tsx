@@ -41,7 +41,7 @@ export default function Wallet() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar title="Wallet" />
       <Screen
         refreshControl={
@@ -58,23 +58,23 @@ export default function Wallet() {
         <View style={{ gap: 16 }}>
           <View
             style={{
-              backgroundColor: colors.ink,
+              backgroundColor: colors.slab,
               borderRadius: radius.lg,
               padding: 20,
               alignItems: 'center',
               gap: 3,
             }}
           >
-            <Body size={11} tone="onInk2" weight="600">
+            <Body size={11} tone="onSlabMuted" weight="600">
               AVAILABLE BALANCE
             </Body>
-            <Title size={36} tone="onInk">
+            <Title size={36} tone="onSlab">
               {balance ? formatAmount(balance.balance) : '—'}{' '}
-              <Title size={17} tone="onInk2">
+              <Title size={17} tone="onSlabMuted">
                 {balance?.currency ?? ''}
               </Title>
             </Title>
-            <Body size={11.5} tone="onInk2" style={{ textAlign: 'center', marginTop: 4 }}>
+            <Body size={11.5} tone="onSlabMuted" style={{ textAlign: 'center', marginTop: 4 }}>
               This is a staging balance you top up before sending. It is not a bank account and
               earns no interest.
             </Body>
@@ -82,12 +82,12 @@ export default function Wallet() {
 
           <Button
             label="Add money"
-            variant="mint"
+            variant="primary"
             onPress={() => router.push('/(app)/wallet/fund')}
           />
 
           <View style={{ gap: 8 }}>
-            <Body size={11.5} tone="ink3" weight="600">
+            <Body size={11.5} tone="faint" weight="600">
               TRANSACTIONS
             </Body>
             {entries === null ? (
@@ -104,7 +104,7 @@ export default function Wallet() {
                         <Body size={13.5} tone="ink" weight="600">
                           {ENTRY_LABEL[e.type] ?? e.type.replace(/_/g, ' ')}
                         </Body>
-                        <Body size={11.5} tone="ink3" numberOfLines={1}>
+                        <Body size={11.5} tone="faint" numberOfLines={1}>
                           {e.transfer
                             ? `${e.transfer.recipient.name} · ${dateTimeOf(e.createdAt)}`
                             : dateTimeOf(e.createdAt)}
@@ -112,7 +112,7 @@ export default function Wallet() {
                       </View>
                       <Body
                         size={14}
-                        tone={credit ? 'mint' : 'ink'}
+                        tone={credit ? 'accent' : 'ink'}
                         weight="700"
                         numbers
                       >
