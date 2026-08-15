@@ -1,11 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
 import { formatMoney, formatRate } from '../lib/money';
 import type { Corridor } from '../lib/types';
 import { colors, radius, shadow } from '../theme/tokens';
-import { CatMark } from './CatMark';
+import { CITIES, WorldMap } from './WorldMap';
 
 /**
  * The signature card, and the app's 60%.
@@ -19,20 +18,9 @@ import { CatMark } from './CatMark';
  * 60%, and this is the largest single object in the product.
  */
 
-const ROUTE_W = 216;
-const ROUTE_H = 52;
-/** Apex of the quadratic at t=0.5, in viewBox units. The mark sits here. */
-const APEX_Y = 16;
-const MARK = 22;
-
-const CITY: Record<string, string> = {
-  PK: 'Karachi',
-  IN: 'Mumbai',
-  PH: 'Manila',
-  CA: 'Toronto',
-  US: 'New York',
-  GB: 'London',
-};
+/** Width ÷ height of the map band. Tall enough for the arc to have somewhere
+ *  to go without the card losing the rate below it. */
+const MAP_ASPECT = 3.0;
 
 function flag(code: string): string {
   if (!code || code.length !== 2) return '🏳️';
@@ -41,24 +29,24 @@ function flag(code: string): string {
   );
 }
 
-function End({ code }: { code: string }) {
+/** A flag and city name tucked into a corner of the map, rather than a disc in
+ *  the flow — the map's own pins already say where the money is going. */
+function EndLabel({ code, align }: { code: string; align: 'left' | 'right' }) {
+  const city = CITIES[code?.toUpperCase()]?.name ?? code?.toUpperCase() ?? '';
   return (
-    <View style={{ alignItems: 'center', width: 58 }}>
-      <View
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 13,
-          backgroundColor: 'rgba(255,255,255,0.12)',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 14 }}>{flag(code)}</Text>
-      </View>
-      <Text style={{ color: colors.onSlabMuted, fontSize: 9.5, marginTop: 4 }} numberOfLines={1}>
-        {CITY[code.toUpperCase()] ?? code.toUpperCase()}
-      </Text>
+    <View
+      style={{
+        position: 'absolute',
+        bottom: 0,
+        [align]: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+      }}
+      pointerEvents="none"
+    >
+      <Text style={{ fontSize: 12 }}>{flag(code)}</Text>
+      <Text style={{ color: colors.onSlabMuted, fontSize: 10, fontWeight: '600' }}>{city}</Text>
     </View>
   );
 }
@@ -111,48 +99,19 @@ export function CorridorCard({
         )}
       </View>
 
-      {/* Route band. Pinned to the viewBox's aspect ratio so the mark and the
-          arc share one coordinate space — see the note in welcome.tsx. */}
-      <View style={{ width: '100%', aspectRatio: ROUTE_W / ROUTE_H, marginTop: 10 }}>
-        <Svg width="100%" height="100%" viewBox={`0 0 ${ROUTE_W} ${ROUTE_H}`}>
-          <Path
-            d={`M32 22 Q108 ${APEX_Y - 6} 184 22`}
-            fill="none"
-            stroke="rgba(255,255,255,0.55)"
-            strokeWidth={1.6}
-            strokeLinecap="round"
-          />
-          <Circle cx={32} cy={22} r={2.6} fill={colors.onSlab} />
-          <Circle cx={184} cy={22} r={2.6} fill="rgba(255,255,255,0.5)" />
-        </Svg>
-
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: `${(APEX_Y / ROUTE_H) * 100}%`,
-            marginTop: -MARK / 2,
-            alignItems: 'center',
-          }}
-          pointerEvents="none"
-        >
-          <CatMark size={MARK} roundel={false} />
-        </View>
-
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-          }}
-        >
-          <End code={corridor?.fromCountry ?? 'CA'} />
-          <End code={corridor?.toCountry ?? 'PK'} />
-        </View>
+      {/* The corridor on the real world. The mark rides the arc's midpoint
+          here because home is not tracking one transfer — it is showing the
+          route itself. */}
+      <View style={{ marginTop: 10 }}>
+        <WorldMap
+          fromCountry={corridor?.fromCountry ?? 'CA'}
+          toCountry={corridor?.toCountry ?? 'PK'}
+          progress={0.5}
+          aspect={MAP_ASPECT}
+          markSize={24}
+        />
+        <EndLabel code={corridor?.fromCountry ?? 'CA'} align="left" />
+        <EndLabel code={corridor?.toCountry ?? 'PK'} align="right" />
       </View>
 
       <View style={{ alignItems: 'center', marginTop: 10 }}>

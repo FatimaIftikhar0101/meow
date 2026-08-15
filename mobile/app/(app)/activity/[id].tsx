@@ -1,11 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../../components/BackBar';
-import { CatMark } from '../../../components/CatMark';
 import { StatusPill } from '../../../components/StatusPill';
+import { WorldMap, countryForCurrency } from '../../../components/WorldMap';
 import {
   Body,
   Button,
@@ -25,33 +24,15 @@ import { useTransferStatus } from '../../../lib/sockets';
 import { CANCELLABLE_STATUSES, type TransferDetail } from '../../../lib/types';
 import { colors, radius } from '../../../theme/tokens';
 
-const ARC_W = 260;
-const ARC_H = 74;
-
-/**
- * The cat's position along the arc is the same fraction of the journey as the
- * transfer's stage is of the state machine. It is not decoration: at a glance
- * it says how far along things are without reading a single word.
- *
- * The curve is the quadratic M20 56 Q130 8 240 56; the point at parameter t is
- * evaluated directly rather than measured, so it lands exactly on the line.
- */
-function pointOnArc(t: number): { x: number; y: number } {
-  const p0 = { x: 20, y: 56 };
-  const p1 = { x: 130, y: 8 };
-  const p2 = { x: 240, y: 56 };
-  const u = 1 - t;
-  return {
-    x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
-    y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
-  };
-}
+/** Width ÷ height of the map band. Taller than the home card's, because this
+ *  screen is about the journey rather than about the rate. */
+const MAP_ASPECT = 2.4;
 
 function Journey({ transfer }: { transfer: TransferDetail }) {
   const failed = transfer.status === 'failed' || transfer.status === 'cancelled';
   const t = progressOf(transfer.status);
-  const at = pointOnArc(t);
   const delivered = transfer.status === 'delivered';
+  const originCountry = countryForCurrency(transfer.sendCurrency);
 
   return (
     <View
@@ -78,54 +59,20 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
         )}
       </Row>
 
-      <View style={{ width: '100%', aspectRatio: ARC_W / ARC_H, marginTop: 10 }}>
-        <Svg width="100%" height="100%" viewBox={`0 0 ${ARC_W} ${ARC_H}`}>
-          {/* Full route, dimmed. Everything on this slab is a wash of white
-              rather than a colour: the slab is already slate, so a slate line
-              on it would vanish, and status colour belongs to the pill. */}
-          <Path
-            d="M20 56 Q130 8 240 56"
-            fill="none"
-            stroke="rgba(255,255,255,0.24)"
-            strokeWidth={1.6}
-            strokeLinecap="round"
-          />
-          {/* Travelled portion, drawn by dashing the same path so the two
-              cannot diverge. 268 comfortably exceeds the arc's length. */}
-          {!failed && (
-            <Path
-              d="M20 56 Q130 8 240 56"
-              fill="none"
-              stroke={colors.onSlab}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeDasharray={`${268 * t} 268`}
-            />
-          )}
-          <Circle cx={20} cy={56} r={5} fill={colors.onSlab} />
-          <Circle
-            cx={240}
-            cy={56}
-            r={5}
-            fill={delivered ? colors.onSlab : 'rgba(255,255,255,0.14)'}
-            stroke={colors.onSlab}
-            strokeWidth={delivered ? 0 : 1.4}
-          />
-          <Circle cx={at.x} cy={at.y} r={12} fill={colors.roundel} />
-        </Svg>
-        <View
-          style={{
-            position: 'absolute',
-            left: `${((at.x - 10) / ARC_W) * 100}%`,
-            top: `${((at.y - 10) / ARC_H) * 100}%`,
-            width: `${(20 / ARC_W) * 100}%`,
-            aspectRatio: 1,
-          }}
-        >
-          {/* No roundel: the arc already sits on a dark slab, so a disc behind
-              the mark would only add a second edge. */}
-          <CatMark size={20} roundel={false} eyesClosed={delivered} />
-        </View>
+      {/* The real route. The mark's position along the arc is the same fraction
+          of the journey as the transfer's stage is of the state machine, so at
+          a glance it says how far along things are without reading a word.
+          A failed transfer shows no progress — the money came back. */}
+      <View style={{ marginTop: 10 }}>
+        <WorldMap
+          fromCountry={originCountry}
+          toCountry={transfer.recipient.country}
+          progress={failed ? 0 : t}
+          aspect={MAP_ASPECT}
+          markSize={26}
+          showMark={!failed}
+          eyesClosed={delivered}
+        />
       </View>
 
       <Row style={{ justifyContent: 'space-between', marginTop: 2 }}>

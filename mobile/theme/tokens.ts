@@ -203,6 +203,73 @@ const dark: Scheme = {
 export const schemes = { light, dark } as const;
 export type SchemeName = keyof typeof schemes;
 
+/* ── The four greeting scenes ──────────────────────────────────────────── */
+
+/**
+ * Sky, land and celestial tones for the time-of-day intro.
+ *
+ * Every value is drawn from the same five scales as the UI, so the greeting
+ * cannot drift away from the brand the way the old green landscapes did. Note
+ * that the sun is an earth tone, never gold: gold belongs to the mark alone,
+ * and a gold sun would put the brand's one saturated colour on scenery.
+ *
+ * `onDark` decides whether the greeting text is ink or white, so a scene and
+ * its type can never disagree about which ground they are on.
+ */
+export interface SceneTokens {
+  /** Top → bottom sky gradient. */
+  sky: readonly [string, string];
+  /** Hill bands, far to near. */
+  hills: readonly [string, string, string];
+  /** The sun or the moon. */
+  celestial: string;
+  /** Soft halo around it. */
+  halo: string;
+  stars: boolean;
+  /** A crescent rather than a disc. */
+  crescent: boolean;
+  onDark: boolean;
+}
+
+export const scenes: Record<'morning' | 'afternoon' | 'evening' | 'night', SceneTokens> = {
+  morning: {
+    sky: [slate[100], neutral[0]],
+    hills: [slate[200], slate[300], slate[400]],
+    celestial: earth[300],
+    halo: 'rgba(169,140,110,0.20)',
+    stars: false,
+    crescent: false,
+    onDark: false,
+  },
+  afternoon: {
+    sky: [slate[50], neutral[0]],
+    hills: [slate[200], slate[400], slate[600]],
+    celestial: slate[300],
+    halo: 'rgba(147,166,175,0.22)',
+    stars: false,
+    crescent: false,
+    onDark: false,
+  },
+  evening: {
+    sky: [slate[700], earth[400]],
+    hills: [slate[800], slate[900], neutral[1000]],
+    celestial: earth[300],
+    halo: 'rgba(169,140,110,0.30)',
+    stars: false,
+    crescent: false,
+    onDark: true,
+  },
+  night: {
+    sky: [slate[900], neutral[1000]],
+    hills: ['#1B2126', '#151A1E', neutral[1000]],
+    celestial: neutral[0],
+    halo: 'rgba(255,255,255,0.16)',
+    stars: true,
+    crescent: true,
+    onDark: true,
+  },
+};
+
 /** The active scheme. Light, because that is what was approved. */
 export const colors = light;
 
