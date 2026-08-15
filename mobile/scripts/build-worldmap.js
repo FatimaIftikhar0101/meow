@@ -47,17 +47,40 @@ const trim = (d) => d.replace(/-?\d+\.\d+/g, (n) => String(Math.round(parseFloat
 const land = feature(topo, topo.objects.land);
 const landPath = trim(render(land));
 
-/* ── The corridors we actually serve, for highlighting the two endpoints ── */
-const ISO = { CA: '124', US: '840', GB: '826', PK: '586', IN: '356', PH: '608' };
+/* ── Countries we could plausibly serve, for highlighting the endpoints ──
+ *
+ * Wider than the corridors that exist today on purpose. The map picks an
+ * endpoint by country code, and a code it does not recognise used to fall back
+ * to Canada — which would draw a transfer to the wrong continent rather than
+ * admit it did not know. Covering the realistic remittance map makes that
+ * fallback unreachable in practice, and WorldMap now refuses to guess when it
+ * still happens.
+ */
+const ISO = {
+  // Send side
+  CA: 124, US: 840, GB: 826, AU: 36, AE: 784, SA: 682, DE: 276, FR: 250,
+  IT: 380, ES: 724, SG: 702, MY: 458, QA: 634, KW: 414,
+  // Receive side
+  PK: 586, IN: 356, PH: 608, BD: 50, NP: 524, LK: 144, NG: 566, KE: 404,
+  GH: 288, EG: 818, MX: 484, VN: 704, ID: 360, CN: 156,
+};
 const countries = feature(topo, topo.objects.countries).features;
 const byIso = {};
+const missing = [];
 for (const [alpha2, numeric] of Object.entries(ISO)) {
-  const f = countries.find((c) => String(c.id) === numeric);
+  // Compare numerically: the topology stores ids as strings, and some sources
+  // zero-pad them ("036" vs "36").
+  const f = countries.find((c) => Number(c.id) === numeric);
   if (!f) {
-    console.error(`MISSING country ${alpha2} (${numeric})`);
+    missing.push(`${alpha2}(${numeric})`);
     continue;
   }
   byIso[alpha2] = trim(render(f));
+}
+if (missing.length) {
+  // 110m drops the smallest states — they are simply not in the source, so the
+  // pin still lands correctly, only the country fill is skipped.
+  console.log(`not present at 110m resolution: ${missing.join(', ')}`);
 }
 
 const out = `/**

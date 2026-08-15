@@ -26,14 +26,45 @@ interface City {
   lat: number;
 }
 
-/** Same coordinates the web client uses, so the two maps agree. */
+/**
+ * One city per country, used as that country's pin.
+ *
+ * Wider than the corridors that exist today (CA/US/GB → PK/IN/PH) so that
+ * adding a corridor does not silently mis-draw the map. The first four match
+ * the web client's coordinates exactly, so the two maps agree where they
+ * overlap.
+ */
 export const CITIES: Record<string, City> = {
+  // Send side
   CA: { name: 'Toronto', lon: -79.3832, lat: 43.6532 },
   US: { name: 'New York', lon: -74.006, lat: 40.7128 },
   GB: { name: 'London', lon: -0.1276, lat: 51.5074 },
+  AU: { name: 'Sydney', lon: 151.2093, lat: -33.8688 },
+  AE: { name: 'Dubai', lon: 55.2708, lat: 25.2048 },
+  SA: { name: 'Riyadh', lon: 46.6753, lat: 24.7136 },
+  DE: { name: 'Berlin', lon: 13.405, lat: 52.52 },
+  FR: { name: 'Paris', lon: 2.3522, lat: 48.8566 },
+  IT: { name: 'Rome', lon: 12.4964, lat: 41.9028 },
+  ES: { name: 'Madrid', lon: -3.7038, lat: 40.4168 },
+  SG: { name: 'Singapore', lon: 103.8198, lat: 1.3521 },
+  MY: { name: 'Kuala Lumpur', lon: 101.6869, lat: 3.139 },
+  QA: { name: 'Doha', lon: 51.531, lat: 25.2854 },
+  KW: { name: 'Kuwait City', lon: 47.9774, lat: 29.3759 },
+  // Receive side
   PK: { name: 'Karachi', lon: 67.0099, lat: 24.8607 },
   IN: { name: 'Mumbai', lon: 72.8777, lat: 19.076 },
   PH: { name: 'Manila', lon: 120.9842, lat: 14.5995 },
+  BD: { name: 'Dhaka', lon: 90.4125, lat: 23.8103 },
+  NP: { name: 'Kathmandu', lon: 85.324, lat: 27.7172 },
+  LK: { name: 'Colombo', lon: 79.8612, lat: 6.9271 },
+  NG: { name: 'Lagos', lon: 3.3792, lat: 6.5244 },
+  KE: { name: 'Nairobi', lon: 36.8219, lat: -1.2921 },
+  GH: { name: 'Accra', lon: -0.187, lat: 5.6037 },
+  EG: { name: 'Cairo', lon: 31.2357, lat: 30.0444 },
+  MX: { name: 'Mexico City', lon: -99.1332, lat: 19.4326 },
+  VN: { name: 'Hanoi', lon: 105.8342, lat: 21.0278 },
+  ID: { name: 'Jakarta', lon: 106.8456, lat: -6.2088 },
+  CN: { name: 'Shanghai', lon: 121.4737, lat: 31.2304 },
 };
 
 /**
@@ -109,10 +140,24 @@ export function WorldMap({
   /** Drawn on a dark slab (washes of white) rather than on the white canvas. */
   onSlab?: boolean;
 }) {
-  const from = CITIES[fromCountry?.toUpperCase()] ?? CITIES.CA;
-  const to = CITIES[toCountry?.toUpperCase()] ?? CITIES.PK;
+  const fromCode = fromCountry?.toUpperCase() ?? '';
+  const toCode = toCountry?.toUpperCase() ?? '';
+  const from = CITIES[fromCode];
+  const to = CITIES[toCode];
+
+  /**
+   * If either end is a country we have no coordinates for, draw the world and
+   * stop there — no arc, no pins, no mark.
+   *
+   * This used to fall back to Toronto → Karachi, which meant an unrecognised
+   * corridor would confidently draw the money going somewhere it was not. On a
+   * screen whose whole job is telling someone where their money is, a map that
+   * guesses is worse than a map that admits it does not know.
+   */
+  const known = from != null && to != null;
 
   const view = useMemo(() => {
+    if (!known) return null;
     const a = project(from.lon, from.lat);
     const b = project(to.lon, to.lat);
     const arc = arcOf(a, b);
@@ -148,9 +193,8 @@ export function WorldMap({
     }
 
     return { a, b, arc, cat, minX, minY, w, h };
-  }, [from, to, progress, aspect]);
+  }, [known, from, to, progress, aspect]);
 
-  const { a, b, arc, cat, minX, minY, w, h } = view;
   const t = Math.max(0, Math.min(1, progress));
 
   const landFill = onSlab ? 'rgba(255,255,255,0.10)' : colors.inset;
@@ -160,6 +204,24 @@ export function WorldMap({
   const flown = onSlab ? colors.onSlab : colors.accent;
   const pin = onSlab ? colors.onSlab : colors.accent;
 
+  /** Whole world, centred, when we cannot honestly draw a route. */
+  if (!view) {
+    return (
+      <View style={{ width: '100%', aspectRatio: aspect }}>
+        <Svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <Path d={LAND_PATH} fill={landFill} stroke={landEdge} strokeWidth={0.5} />
+        </Svg>
+      </View>
+    );
+  }
+
+  const { a, b, arc, cat, minX, minY, w, h } = view;
+
   return (
     <View style={{ width: '100%', aspectRatio: aspect }}>
       <Svg width="100%" height="100%" viewBox={`${minX} ${minY} ${w} ${h}`}>
@@ -168,12 +230,8 @@ export function WorldMap({
         <Path d={LAND_PATH} fill={landFill} stroke={landEdge} strokeWidth={0.5} />
 
         {/* The two countries this corridor actually joins, picked out. */}
-        {COUNTRY_PATH[fromCountry?.toUpperCase()] && (
-          <Path d={COUNTRY_PATH[fromCountry.toUpperCase()]} fill={hiFill} />
-        )}
-        {COUNTRY_PATH[toCountry?.toUpperCase()] && (
-          <Path d={COUNTRY_PATH[toCountry.toUpperCase()]} fill={hiFill} />
-        )}
+        {COUNTRY_PATH[fromCode] && <Path d={COUNTRY_PATH[fromCode]} fill={hiFill} />}
+        {COUNTRY_PATH[toCode] && <Path d={COUNTRY_PATH[toCode]} fill={hiFill} />}
 
         {/* The whole route, then the portion already flown drawn by dashing the
             same path so the two cannot diverge. */}
