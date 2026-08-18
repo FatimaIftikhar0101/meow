@@ -20,6 +20,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { TransfersService } from '../transfers/transfers.service';
 import { AdminService } from './admin.service';
 import { ForceFailDto } from './dto/force-fail.dto';
+import { SuspendDto } from './dto/suspend.dto';
 import { KycOverrideDto } from './dto/kyc-override.dto';
 import { UpdateCorridorDto } from './dto/update-corridor.dto';
 
@@ -52,13 +53,21 @@ export class AdminController {
   }
 
   @Post('users/:id/suspend')
-  suspend(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    return this.admin.suspend(id, true, admin.id);
+  suspend(
+    @CurrentUser() admin: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SuspendDto,
+  ) {
+    return this.admin.suspend(admin, id, true, dto.reason);
   }
 
   @Post('users/:id/unsuspend')
-  unsuspend(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    return this.admin.suspend(id, false, admin.id);
+  unsuspend(
+    @CurrentUser() admin: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SuspendDto,
+  ) {
+    return this.admin.suspend(admin, id, false, dto.reason);
   }
 
   @Post('users/:id/kyc/override')
@@ -67,7 +76,7 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: KycOverrideDto,
   ) {
-    return this.compliance.adminOverride(id, dto.status, dto.reason ?? null, admin.id);
+    return this.compliance.adminOverride(admin, id, dto.status, dto.reason);
   }
 
   @Get('transfers')
@@ -90,7 +99,7 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ForceFailDto,
   ) {
-    return this.transfers.adminForceFail(id, dto.reason, admin.id);
+    return this.transfers.adminForceFail(admin, id, dto.reason);
   }
 
   @Get('audit')
@@ -120,6 +129,6 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCorridorDto,
   ) {
-    return this.admin.updateCorridor(id, dto, admin.id);
+    return this.admin.updateCorridor(id, dto, admin);
   }
 }

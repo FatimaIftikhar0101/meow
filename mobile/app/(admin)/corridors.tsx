@@ -139,8 +139,10 @@ function EditCorridor({
   const [minSendAmount, setMin] = useState(String(corridor.minSendAmount));
   const [maxSendAmount, setMax] = useState(String(corridor.maxSendAmount));
   const [active, setActive] = useState(corridor.active);
+  const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const reasonReady = reason.trim().length >= 3;
 
   const preview = appliedRate(baseRate || '0', Number(marginBps) || 0);
 
@@ -151,6 +153,7 @@ function EditCorridor({
       // Sent as numbers: UpdateCorridorDto transforms strings, but sending the
       // right type keeps the validation error surface small.
       await api.patch(`/admin/corridors/${corridor.id}`, {
+        reason: reason.trim(),
         baseRate: Number(baseRate),
         marginBps: Number(marginBps),
         feeFlat: Number(feeFlat),
@@ -243,7 +246,28 @@ function EditCorridor({
               />
             </Row>
 
-            <Button label="Save corridor" variant="primary" loading={busy} onPress={save} />
+            <Divider />
+
+            {/* Repricing a corridor changes what every future customer on it
+                pays, so the justification is recorded alongside the before and
+                after values. */}
+            <Field
+              label="Reason"
+              hint="Required. Kept in the audit log with the previous values."
+              placeholder="Why is this corridor being repriced?"
+              value={reason}
+              onChangeText={setReason}
+              multiline
+              maxLength={200}
+            />
+
+            <Button
+              label="Save corridor"
+              variant="primary"
+              loading={busy}
+              disabled={!reasonReady}
+              onPress={save}
+            />
           </ScrollView>
         </View>
       </View>

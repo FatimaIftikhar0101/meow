@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { KycStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { writeAudit, writeStaffAudit } from '../common/audit/audit';
 
 const HIGH_RISK_COUNTRIES = new Set(['KP', 'IR', 'SY', 'CU']);
 
@@ -48,13 +50,13 @@ export class ComplianceService {
           verifiedAt: result === 'passed' ? new Date() : null,
         },
       });
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: `kyc.${result}`,
-          entityType: 'user',
-          entityId: userId,
-        },
+      await writeAudit(tx, {
+        actor: { id: userId },
+        action: `kyc.${result}`,
+        entityType: 'user',
+        entityId: userId,
+        after: { status: result, provider: 'mock' },
+        reason,
       });
       return true;
     });
@@ -71,13 +73,21 @@ export class ComplianceService {
   }
 
   async adminOverride(
+    actor: AuthUser,
     targetUserId: string,
     status: 'passed' | 'failed',
-    reason: string | null,
-    adminUserId: string,
+    reason: string,
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
     if (!user) throw new BadRequestException('User not found');
+
+    // The most recent decision, so the audit entry can say what was overridden
+    // rather than only what it became.
+    const previous = await this.prisma.kycRecord.findFirst({
+      where: { userId: targetUserId },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true },
+    });
 
     await this.prisma.$transaction(async (tx) => {
       await tx.kycRecord.create({
@@ -90,17 +100,20 @@ export class ComplianceService {
           verifiedAt: status === 'passed' ? new Date() : null,
         },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: adminUserId,
-          action: `admin.kyc.${status}`,
-          entityType: 'user',
-          entityId: targetUserId,
-          metadata: { reason },
-        },
+      // An override substitutes a human judgement for the provider's. The
+      // prior status is what makes it legible later: "passed -> failed" and
+      // "failed -> passed" are very different decisions to review.
+      await writeStaffAudit(tx, {
+        actor: { id: actor.id, email: actor.email },
+        action: `admin.kyc.${status}`,
+        entityType: 'user',
+        entityId: targetUserId,
+        before: { status: previous?.status ?? null },
+        after: { status },
+        reason,
       });
     });
-    this.logger.log(`Admin ${adminUserId} overrode KYC to ${status} for ${targetUserId}`);
+    this.logger.log(`Admin ${actor.email} overrode KYC to ${status} for ${targetUserId}`);
     return this.status(targetUserId);
   }
 }

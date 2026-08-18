@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { writeAudit } from '../common/audit/audit';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -113,13 +114,11 @@ export class ReferralsService {
             code: trimmed,
           },
         });
-        await tx.auditLog.create({
-          data: {
-            userId: refereeId,
-            action: 'referral.signup',
-            entityType: 'referral',
-            metadata: { referrerId: referrer.id, code: trimmed },
-          },
+        await writeAudit(tx, {
+          actor: { id: refereeId },
+          action: 'referral.signup',
+          entityType: 'referral',
+          after: { referrerId: referrer.id, code: trimmed },
         });
       });
     } catch (err) {
@@ -175,19 +174,18 @@ export class ReferralsService {
           description: `referral:${referral.id}`,
         },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: referral.referrerId,
-          action: 'referral.rewarded',
-          entityType: 'referral',
-          entityId: referral.id,
-          metadata: {
-            refereeId,
-            transferId,
-            amount: rewardAmount.toString(),
-            currency: wallet.currency,
-          },
+      // A bonus credit hits the ledger, so this entry is the justification for
+      // real money appearing in someone's wallet.
+      await writeAudit(tx, {
+        actor: { id: referral.referrerId },
+        action: 'referral.rewarded',
+        entityType: 'referral',
+        entityId: referral.id,
+        after: {
+          amount: rewardAmount.toString(),
+          currency: wallet.currency,
         },
+        metadata: { refereeId, transferId },
       });
     });
 

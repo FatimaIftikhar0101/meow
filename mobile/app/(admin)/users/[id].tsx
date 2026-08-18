@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../../components/BackBar';
-import { Body, Button, Card, Divider, Loader, Note, Row, Screen, Title } from '../../../components/ui';
+import { Body, Button, Card, Divider, Field, Loader, Note, Row, Screen, Title } from '../../../components/ui';
 import api, { errorMessage } from '../../../lib/api';
 import { dateTimeOf } from '../../../lib/format';
 import { formatMoney } from '../../../lib/money';
@@ -16,6 +16,14 @@ export default function AdminUserDetailScreen() {
   const [user, setUser] = useState<AdminUserDetail | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Suspending an account and overriding identity verification both record a
+  // reason against the customer for as long as the audit trail is retained.
+  // Alert.prompt is iOS-only, so this is a field on the screen rather than a
+  // dialog — and it is required rather than defaulted, because a canned string
+  // like "Manual override by admin" is the same as recording nothing.
+  const [reason, setReason] = useState('');
+  const trimmedReason = reason.trim();
+  const reasonReady = trimmedReason.length >= 3;
 
   const load = useCallback(async () => {
     try {
@@ -47,7 +55,10 @@ export default function AdminUserDetailScreen() {
           onPress: async () => {
             setBusy(true);
             try {
-              await api.post(`/admin/users/${id}/${next ? 'suspend' : 'unsuspend'}`);
+              await api.post(`/admin/users/${id}/${next ? 'suspend' : 'unsuspend'}`, {
+                reason: trimmedReason,
+              });
+              setReason('');
               await load();
             } catch (err) {
               setError(errorMessage(err, 'Could not change the account status.'));
@@ -74,8 +85,9 @@ export default function AdminUserDetailScreen() {
             try {
               await api.post(`/admin/users/${id}/kyc/override`, {
                 status,
-                reason: `Manual override by admin`,
+                reason: trimmedReason,
               });
+              setReason('');
               await load();
             } catch (err) {
               setError(errorMessage(err, 'Could not override KYC.'));
@@ -191,6 +203,7 @@ export default function AdminUserDetailScreen() {
                   label="Mark passed"
                   compact
                   variant="outline"
+                  disabled={!reasonReady}
                   onPress={() => overrideKyc('passed')}
                 />
               </View>
@@ -199,16 +212,30 @@ export default function AdminUserDetailScreen() {
                   label="Mark failed"
                   compact
                   variant="danger"
+                  disabled={!reasonReady}
                   onPress={() => overrideKyc('failed')}
                 />
               </View>
             </Row>
           </Card>
 
+          <Card>
+            <Field
+              label="Reason"
+              hint="Required. Kept in the audit log against this account."
+              placeholder="Why are you taking this action?"
+              value={reason}
+              onChangeText={setReason}
+              multiline
+              maxLength={200}
+            />
+          </Card>
+
           <Button
             label={user.suspended ? 'Reinstate account' : 'Suspend account'}
             variant={user.suspended ? 'outline' : 'danger'}
             loading={busy}
+            disabled={!reasonReady}
             onPress={toggleSuspend}
           />
           {user.role === 'admin' && (

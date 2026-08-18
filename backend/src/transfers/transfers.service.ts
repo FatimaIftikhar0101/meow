@@ -17,6 +17,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { TransfersGateway } from './transfers.gateway';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { writeAudit } from '../common/audit/audit';
 
 const CANCELLABLE: TransferStatus[] = [
   'initiated',
@@ -122,10 +124,7 @@ export class TransfersService {
     const idempotencyKey = dto.idempotencyKey ?? randomUUID();
     const existing = await this.prisma.transfer.findUnique({
       where: { idempotencyKey },
-      include: {
-        recipient: { select: { name: true, country: true, bankAccount: true } },
-        timeline: { orderBy: { createdAt: 'asc' } },
-      },
+      include: { timeline: { orderBy: { createdAt: 'asc' } } },
     });
     if (existing) {
       if (existing.userId !== userId) {
@@ -204,18 +203,22 @@ export class TransfersService {
           },
         });
       }
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'transfer.create',
-          entityType: 'transfer',
-          entityId: created.id,
-          metadata: {
-            sendAmount: sendAmount.toString(),
-            sendCurrency,
-            receiveCurrency,
-            recipientId: recipient.id,
-          },
+      // A creation has no prior state, so no `before`. The beneficiary is
+      // recorded on the transfer itself; only the identifier goes here, never
+      // the account number.
+      await writeAudit(tx, {
+        actor: { id: userId },
+        action: 'transfer.create',
+        entityType: 'transfer',
+        entityId: created.id,
+        after: {
+          sendAmount: sendAmount.toString(),
+          sendCurrency,
+          receiveAmount: quote.receiveAmount.toString(),
+          receiveCurrency,
+          feeAmount: quote.fee.toString(),
+          fxRateApplied: quote.rate.toString(),
+          recipientId: recipient.id,
         },
       });
       return created;
@@ -251,7 +254,7 @@ export class TransfersService {
     return this.get(userId, id);
   }
 
-  async adminForceFail(transferId: string, reason: string, adminUserId: string) {
+  async adminForceFail(actor: AuthUser, transferId: string, reason: string) {
     const transfer = await this.prisma.transfer.findUnique({
       where: { id: transferId },
     });
@@ -270,14 +273,15 @@ export class TransfersService {
       reason,
       `Force-failed by admin: ${reason}`,
     );
-    await this.prisma.auditLog.create({
-      data: {
-        userId: adminUserId,
-        action: 'admin.transfer.force_fail',
-        entityType: 'transfer',
-        entityId: transferId,
-        metadata: { reason, targetUserId: transfer.userId },
-      },
+    await writeAudit(this.prisma, {
+      actor: { id: actor.id, email: actor.email },
+      action: 'admin.transfer.force_fail',
+      entityType: 'transfer',
+      entityId: transferId,
+      before: { status: transfer.status },
+      after: { status: 'failed' },
+      reason,
+      metadata: { targetUserId: transfer.userId },
     });
     return this.get(transfer.userId, transferId);
   }
@@ -405,14 +409,16 @@ export class TransfersService {
           },
         });
       }
-      await tx.auditLog.create({
-        data: {
-          userId: transfer.userId,
-          action: `transfer.${toStatus}`,
-          entityType: 'transfer',
-          entityId: transferId,
-          metadata: { reason },
-        },
+      // A refunding transition moves real money back into a wallet, so the
+      // status it came from is part of the justification for the credit.
+      await writeAudit(tx, {
+        actor: { id: transfer.userId },
+        action: `transfer.${toStatus}`,
+        entityType: 'transfer',
+        entityId: transferId,
+        before: { status: fromStatus },
+        after: { status: toStatus },
+        reason,
       });
     });
     this.gateway.emitStatus(transfer.userId, transferId, toStatus);

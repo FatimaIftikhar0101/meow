@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { writeAudit } from '../common/audit/audit';
 import { FundWalletDto } from './dto/fund-wallet.dto';
 
 const FUND_LIMIT_PER_DAY = new Prisma.Decimal(20000);
@@ -96,14 +97,13 @@ export class WalletService {
           description: `idempotency:${idempotencyKey}`,
         },
       });
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'wallet.fund',
-          entityType: 'wallet',
-          entityId: wallet.id,
-          metadata: { amount: amount.toString(), currency, idempotencyKey },
-        },
+      await writeAudit(tx, {
+        actor: { id: userId },
+        action: 'wallet.fund',
+        entityType: 'wallet',
+        entityId: wallet.id,
+        after: { amount: amount.toString(), currency },
+        metadata: { idempotencyKey },
       });
     });
 

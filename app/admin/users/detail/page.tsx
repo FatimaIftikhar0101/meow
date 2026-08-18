@@ -91,16 +91,23 @@ function AdminUserDetailInner() {
                 user.suspended ? (
                   <button
                     disabled={busy}
-                    onClick={() => act(() => api.post(`/admin/users/${id}/unsuspend`))}
+                    onClick={() => {
+                      const reason = prompt('Why is this account being restored?');
+                      if (!reason || reason.trim().length < 3) return;
+                      act(() => api.post(`/admin/users/${id}/unsuspend`, { reason: reason.trim() }));
+                    }}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-50"
                   >Unsuspend</button>
                 ) : (
                   <button
                     disabled={busy}
                     onClick={() => {
-                      if (confirm('Suspend this user? They will be unable to log in or transact.')) {
-                        act(() => api.post(`/admin/users/${id}/suspend`));
-                      }
+                      // The reason is recorded against the account for as long
+                      // as the audit trail is retained, so ask for it here
+                      // rather than letting the API reject an empty body.
+                      const reason = prompt('Why is this account being suspended? They will be unable to log in or transact.');
+                      if (!reason || reason.trim().length < 3) return;
+                      act(() => api.post(`/admin/users/${id}/suspend`, { reason: reason.trim() }));
                     }}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm disabled:opacity-50"
                   >Suspend</button>
@@ -108,7 +115,11 @@ function AdminUserDetailInner() {
               )}
               <button
                 disabled={busy}
-                onClick={() => act(() => api.post(`/admin/users/${id}/kyc/override`, { status: 'passed', reason: 'Admin override' }))}
+                onClick={() => {
+                  const reason = prompt('Why is identity verification being passed manually?');
+                  if (!reason || reason.trim().length < 3) return;
+                  act(() => api.post(`/admin/users/${id}/kyc/override`, { status: 'passed', reason: reason.trim() }));
+                }}
                 className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm disabled:opacity-50"
               >Force KYC pass</button>
               <button

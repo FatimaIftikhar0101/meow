@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TransferStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { writeStaffAudit } from '../common/audit/audit';
 import { WalletService } from '../wallet/wallet.service';
 import { UpdateCorridorDto } from './dto/update-corridor.dto';
 
@@ -115,7 +117,12 @@ export class AdminService {
     return { ...user, balances, transferCount };
   }
 
-  async suspend(targetId: string, suspended: boolean, adminUserId: string) {
+  async suspend(
+    actor: AuthUser,
+    targetId: string,
+    suspended: boolean,
+    reason: string,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: targetId } });
     if (!user) throw new NotFoundException('User not found');
     if (user.role === 'admin') {
@@ -123,13 +130,18 @@ export class AdminService {
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: targetId }, data: { suspended } });
-      await tx.auditLog.create({
-        data: {
-          userId: adminUserId,
-          action: suspended ? 'admin.user.suspend' : 'admin.user.unsuspend',
-          entityType: 'user',
-          entityId: targetId,
-        },
+      // Cutting off someone's access to their own money is among the most
+      // consequential things staff can do here. Prior state and a reason are
+      // required by writeStaffAudit's type, so this cannot quietly regress to
+      // the bare action name it used to record.
+      await writeStaffAudit(tx, {
+        actor: { id: actor.id, email: actor.email },
+        action: suspended ? 'admin.user.suspend' : 'admin.user.unsuspend',
+        entityType: 'user',
+        entityId: targetId,
+        before: { suspended: user.suspended },
+        after: { suspended },
+        reason,
       });
     });
     return { id: targetId, suspended };
@@ -261,7 +273,7 @@ export class AdminService {
     });
   }
 
-  async updateCorridor(id: string, dto: UpdateCorridorDto, adminUserId: string) {
+  async updateCorridor(id: string, dto: UpdateCorridorDto, actor: AuthUser) {
     const corridor = await this.prisma.corridor.findUnique({ where: { id } });
     if (!corridor) throw new NotFoundException('Corridor not found');
     const data: Prisma.CorridorUpdateInput = {};
@@ -275,17 +287,47 @@ export class AdminService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.corridor.update({ where: { id }, data });
-      await tx.auditLog.create({
-        data: {
-          userId: adminUserId,
-          action: 'admin.corridor.update',
-          entityType: 'corridor',
-          entityId: id,
-          metadata: dto as unknown as Prisma.InputJsonValue,
-        },
+      // Previously stored the incoming DTO alone: that recorded the new rate
+      // and margin but not what they had been, leaving no way to see how far a
+      // corridor had been moved or by how much.
+      await writeStaffAudit(tx, {
+        actor: { id: actor.id, email: actor.email },
+        action: 'admin.corridor.update',
+        entityType: 'corridor',
+        entityId: id,
+        before: corridorState(corridor),
+        after: corridorState(u),
+        reason: dto.reason,
       });
       return u;
     });
     return updated;
   }
+}
+
+/**
+ * A corridor's economically meaningful fields, as plain strings.
+ *
+ * Prisma Decimals do not survive JSON as themselves — a rate serialised as
+ * {"s":1,"e":2,"d":[198]} is not something anyone can read back in three
+ * years, which is roughly when someone will want to.
+ */
+function corridorState(c: {
+  baseRate: Prisma.Decimal;
+  marginBps: number;
+  feeFlat: Prisma.Decimal;
+  feePercentBps: number;
+  minSendAmount: Prisma.Decimal;
+  maxSendAmount: Prisma.Decimal;
+  active: boolean;
+}) {
+  return {
+    baseRate: c.baseRate.toString(),
+    marginBps: c.marginBps,
+    feeFlat: c.feeFlat.toString(),
+    feePercentBps: c.feePercentBps,
+    minSendAmount: c.minSendAmount.toString(),
+    maxSendAmount: c.maxSendAmount.toString(),
+    active: c.active,
+  };
 }

@@ -1,5 +1,14 @@
 import { Transform, TransformFnParams } from 'class-transformer';
-import { IsBoolean, IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
 
 const toNumber = ({ value }: TransformFnParams): unknown =>
   typeof value === 'string' ? Number(value) : value;
@@ -44,4 +53,11 @@ export class UpdateCorridorDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  /** Why the corridor is being repriced. Required: changing a rate or margin
+   *  moves what every future customer pays, and the audit entry is worthless
+   *  without the justification. */
+  @IsString()
+  @Length(3, 200)
+  reason!: string;
 }

@@ -50,7 +50,13 @@ export default function AdminCorridorsPage() {
     setBusy(true);
     setError('');
     try {
+      const reason = prompt('Why is this corridor being repriced?');
+      if (!reason || reason.trim().length < 3) {
+        setBusy(false);
+        return;
+      }
       await api.patch(`/admin/corridors/${editing}`, {
+        reason: reason.trim(),
         baseRate: form.baseRate !== undefined ? Number(form.baseRate) : undefined,
         marginBps: form.marginBps,
         feeFlat: form.feeFlat !== undefined ? Number(form.feeFlat) : undefined,

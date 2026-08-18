@@ -14,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
+import { writeAudit } from '../common/audit/audit';
 import { MailService } from '../mail/mail.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -115,13 +116,12 @@ export class AuthService {
       await tx.wallet.create({
         data: { userId: created.id, currency },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: created.id,
-          action: 'auth.register',
-          entityType: 'user',
-          entityId: created.id,
-        },
+      await writeAudit(tx, {
+        actor: { id: created.id, email: created.email },
+        action: 'auth.register',
+        entityType: 'user',
+        entityId: created.id,
+        context: { ip: ctx?.ip, userAgent: ctx?.userAgent },
       });
       return created;
     });
@@ -231,13 +231,12 @@ export class AuthService {
           await tx.wallet.create({
             data: { userId: created.id, currency: 'CAD' },
           });
-          await tx.auditLog.create({
-            data: {
-              userId: created.id,
-              action: 'auth.google_register',
-              entityType: 'user',
-              entityId: created.id,
-            },
+          await writeAudit(tx, {
+            actor: { id: created.id, email: created.email },
+            action: 'auth.google_register',
+            entityType: 'user',
+            entityId: created.id,
+            context: { ip: ctx?.ip, userAgent: ctx?.userAgent },
           });
           return created;
         });
@@ -248,13 +247,12 @@ export class AuthService {
       throw new ForbiddenException('Account suspended');
     }
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'auth.google_login',
-        entityType: 'user',
-        entityId: user.id,
-      },
+    await writeAudit(this.prisma, {
+      actor: { id: user.id, email: user.email },
+      action: 'auth.google_login',
+      entityType: 'user',
+      entityId: user.id,
+      context: { ip: ctx?.ip, userAgent: ctx?.userAgent },
     });
 
     const session = await this.createSession(user.id, ctx);
@@ -296,13 +294,12 @@ export class AuthService {
       );
     }
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: expectedRole === 'admin' ? 'auth.admin_login' : 'auth.login',
-        entityType: 'user',
-        entityId: user.id,
-      },
+    await writeAudit(this.prisma, {
+      actor: { id: user.id, email: user.email },
+      action: expectedRole === 'admin' ? 'auth.admin_login' : 'auth.login',
+      entityType: 'user',
+      entityId: user.id,
+      context: { ip: ctx?.ip, userAgent: ctx?.userAgent },
     });
     const session = await this.createSession(user.id, ctx);
     return this.signToken(user.id, user.email, user.role, session.id);
@@ -363,13 +360,12 @@ export class AuthService {
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'auth.change_password',
-          entityType: 'user',
-          entityId: userId,
-        },
+      await writeAudit(tx, {
+        actor: { id: userId, email: u.email },
+        action: 'auth.change_password',
+        entityType: 'user',
+        entityId: userId,
+        context: { ip: ctx?.ip, userAgent: ctx?.userAgent },
       });
       return u;
     });
@@ -393,13 +389,11 @@ export class AuthService {
         pwResetExpires: new Date(Date.now() + RESET_TOKEN_TTL_MS),
       },
     });
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'auth.forgot_password',
-        entityType: 'user',
-        entityId: user.id,
-      },
+    await writeAudit(this.prisma, {
+      actor: { id: user.id, email: user.email },
+      action: 'auth.forgot_password',
+      entityType: 'user',
+      entityId: user.id,
     });
     this.mail.sendPasswordResetEmail(user.email, resetToken).catch(() => {});
     return { message: 'If that email is registered, a reset link has been sent' };
@@ -430,13 +424,11 @@ export class AuthService {
         where: { userId: user.id, revokedAt: null },
         data: { revokedAt: new Date() },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'auth.reset_password',
-          entityType: 'user',
-          entityId: user.id,
-        },
+      await writeAudit(tx, {
+        actor: { id: user.id, email: user.email },
+        action: 'auth.reset_password',
+        entityType: 'user',
+        entityId: user.id,
       });
     });
     return { message: 'Password reset successfully' };
@@ -464,13 +456,13 @@ export class AuthService {
           emailVerifyExpires: null,
         },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'auth.email_verified',
-          entityType: 'user',
-          entityId: user.id,
-        },
+      await writeAudit(tx, {
+        actor: { id: user.id, email: user.email },
+        action: 'auth.email_verified',
+        entityType: 'user',
+        entityId: user.id,
+        before: { emailVerified: false },
+        after: { emailVerified: true },
       });
     });
     return { message: 'Email verified successfully' };
@@ -528,13 +520,13 @@ export class AuthService {
         where: { id: sessionId },
         data: { revokedAt: new Date() },
       });
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'auth.session_revoke',
-          entityType: 'session',
-          entityId: sessionId,
-        },
+      await writeAudit(tx, {
+        actor: { id: userId },
+        action: 'auth.session_revoke',
+        entityType: 'session',
+        entityId: sessionId,
+        before: { revoked: false },
+        after: { revoked: true },
       });
     });
     return { message: 'Session revoked' };
@@ -546,13 +538,12 @@ export class AuthService {
         where: { userId, revokedAt: null, id: { not: currentSid } },
         data: { revokedAt: new Date() },
       });
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'auth.session_revoke_others',
-          entityType: 'user',
-          entityId: userId,
-        },
+      await writeAudit(tx, {
+        actor: { id: userId },
+        action: 'auth.session_revoke_others',
+        entityType: 'user',
+        entityId: userId,
+        metadata: { keptSessionId: currentSid },
       });
     });
     return { message: 'All other sessions revoked' };
