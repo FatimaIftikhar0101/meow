@@ -119,6 +119,11 @@ npx eas credentials -p android
 If `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is empty the Google button is hidden and
 email/password still works, so the app is usable before any of this is done.
 
+Note that the key must be **absent or filled, never present-but-empty**: EAS rejects
+`"EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": ""` outright with *"is not allowed to be empty"*,
+and every `eas` command fails until it is removed — including `build:list`, which makes
+it look like something worse has gone wrong.
+
 ---
 
 ## Layout
