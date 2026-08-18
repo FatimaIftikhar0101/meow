@@ -148,7 +148,6 @@ export class AdminService {
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: {
-          recipient: { select: { name: true, country: true } },
           user: { select: { email: true } },
         },
       }),
@@ -158,7 +157,8 @@ export class AdminService {
       items: items.map((t) => ({
         id: t.id,
         userEmail: t.user.email,
-        recipient: t.recipient,
+        // Snapshot, not the live recipient row — see Transfer in schema.prisma.
+        recipient: { name: t.recipientName, country: t.recipientCountry },
         sendAmount: t.sendAmount.toString(),
         sendCurrency: t.sendCurrency,
         receiveAmount: t.receiveAmount?.toString() ?? null,
@@ -186,7 +186,19 @@ export class AdminService {
     return {
       id: transfer.id,
       user: transfer.user,
-      recipient: transfer.recipient,
+      // What the money was actually sent to, as recorded at the time.
+      recipient: {
+        name: transfer.recipientName,
+        country: transfer.recipientCountry,
+        bankAccount: transfer.recipientBankAccount,
+        bankName: transfer.recipientBankName,
+        bankCode: transfer.recipientBankCode,
+      },
+      // The saved recipient as it stands today. Deliberately exposed alongside
+      // the snapshot: if a customer edited the recipient after sending, an
+      // operations analyst needs to see that the two differ rather than being
+      // shown one and left to assume it was always so.
+      savedRecipient: transfer.recipient,
       sendAmount: transfer.sendAmount.toString(),
       sendCurrency: transfer.sendCurrency,
       receiveAmount: transfer.receiveAmount?.toString() ?? null,

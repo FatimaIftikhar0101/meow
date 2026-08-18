@@ -71,7 +71,9 @@ model Wallet {
   currency  String   // ISO 4217: CAD, USD, ...
   createdAt DateTime @default(now())
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: a wallet is the anchor for its ledger entries, and
+  // removing it would destroy the balance history those entries constitute.
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   ledgerEntries LedgerEntry[]
 
   @@unique([userId, currency])
@@ -96,7 +98,10 @@ model Recipient {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: transfers reference recipients, and a recipient is
+  // part of the record of where money went. `remove()` already soft-deletes
+  // (active: false) rather than deleting — this stops anything else trying.
+  user      User       @relation(fields: [userId], references: [id], onDelete: Restrict)
   transfers Transfer[]
 
   @@index([userId])
@@ -142,6 +147,25 @@ model Transfer {
   id              String         @id @default(uuid())
   userId          String
   recipientId     String
+
+  // ── Beneficiary, snapshotted at creation ──────────────────────────────────
+  //
+  // Recipients are mutable: a customer can edit a saved recipient's bank
+  // account at any time. A transfer is not — it is a record of what actually
+  // happened. Reading the beneficiary back through the `recipient` relation
+  // meant editing a recipient retroactively rewrote every past transfer to
+  // them, so a delivered transfer's receipt would show an account the money
+  // had never been sent to.
+  //
+  // These columns are the beneficiary as it stood the moment the transfer was
+  // created. The relation below is kept for grouping and for "send again", but
+  // must never be the source of truth for what a transfer did.
+  recipientName        String
+  recipientCountry     String
+  recipientBankAccount String
+  recipientBankName    String?
+  recipientBankCode    String?
+
   sendAmount      Decimal        @db.Decimal(20, 4)
   sendCurrency    String
   receiveAmount   Decimal?       @db.Decimal(20, 4)
@@ -237,10 +261,33 @@ model KycRecord {
   providerRef String?
   reason      String?
   verifiedAt  DateTime?
+
+  // ── Evidence ──────────────────────────────────────────────────────────────
+  //
+  // Record-keeping means being able to show *what* was verified, *how*, and
+  // *what the provider actually said* — a status column alone proves nothing
+  // years later when someone asks how this customer was identified.
+  //
+  // The current provider is a mock and has no evidence to give, so these stay
+  // empty until a real one is wired in. The columns exist now so that
+  // integration is a code change rather than a migration against live data.
+  verifiedName     String?   // name as matched by the provider
+  verifiedDob      DateTime? // date of birth as matched
+  verifiedAddress  String?
+  documentType     String?   // passport, drivers_licence, national_id, ...
+  documentLast4    String?   // never the full number
+  documentExpiry   DateTime?
+  method           String?   // document, database, credit_file, biometric, ...
+  providerResponse Json?     // verbatim provider payload, for the audit trail
+  reviewedById     String?   // set when a human overrode the provider
+  reviewedAt       DateTime?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: identity verification is evidence, subject to a
+  // retention obligation, and must outlive any attempt to remove the account.
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId])
 }
@@ -303,8 +350,10 @@ model Referral {
   rewardedAt           DateTime?
   createdAt            DateTime       @default(now())
 
-  referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
-  referee  User @relation("RefereeReferral", fields: [refereeId], references: [id], onDelete: Cascade)
+  // Restrict on both sides: a qualified referral has paid a bonus into the
+  // ledger, so the referral row is the justification for a real credit.
+  referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Restrict)
+  referee  User @relation("RefereeReferral", fields: [refereeId], references: [id], onDelete: Restrict)
 
   @@index([referrerId])
 }
@@ -321,6 +370,21 @@ model AuditLog {
   entityType String?
   entityId   String?
   metadata   Json?
+
+  // Who, denormalised. The relation below is SetNull, so if a user row ever
+  // does go the trail would otherwise lose its actor entirely — which is the
+  // one thing an audit log may not do. Copied at write time.
+  actorEmail String?
+
+  // What changed. `metadata` was carrying whatever each call site felt like:
+  // corridor updates stored the incoming DTO (new values only), suspend stored
+  // nothing at all. An effectiveness review needs the prior value, the new
+  // value and why — so those get columns of their own rather than a convention
+  // nobody follows.
+  beforeValue Json?
+  afterValue  Json?
+  reason      String?
+
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())

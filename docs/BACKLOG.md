@@ -1,0 +1,82 @@
+# Meow — backlog
+
+Everything outstanding, in one place. The `#n` numbers are the ones I use in chat.
+
+**Legend:** ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked on someone else
+
+---
+
+## Mobile app — parked until the kitten clips arrive
+
+| # | Item | Status |
+|---|---|---|
+| 16 | **Serpentine journey path** on the transfer-tracking screen. Six stations on one screen, no scrolling. Map stays above but demoted so the path owns progress. Yarn thread trail drawn in code as a filling stroke, mirroring the flown-arc language already in `WorldMap.tsx`. Stub the mascot slot and the held/failed/delivered states. No new dependencies needed. | ⬜ |
+| 17 | **Integrate the kitten clips.** Waiting on the 8 generated + SAM2-extracted clips per `mobile/design/kitten-video-prompts.md`. I measure alpha WebM against a sprite sheet on a real device and pick whichever holds edge quality at acceptable size, then wire clips to transfer status. Rule: the mascot never covers a number and never delays information. Back to you for a look-and-feel check. | ⛔ you |
+| 18 | **Google sign-in.** Two things on your side: create an Android OAuth client in Google Cloud Console (package `com.meow.app` + the SHA-1 from `npx eas credentials --platform android`), and set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in every `mobile/eas.json` profile. Also: the Railway backend is stale — `POST /auth/google/native` returns 404 while `GET /auth/google` returns 302, so the code exists but is not deployed. | ⛔ you |
+| 19 | **Outbound email.** Set `RESEND_API_KEY` and `MAIL_FROM` on Railway. Code is written and uses the Resend HTTP API rather than SMTP because managed hosts block ports 25/465/587. `onboarding@resend.dev` works for testing with no domain verification. Blocks email verification and password reset in the end-to-end test. | ⛔ you |
+| 20 | **End-to-end money-path test** on the physical phone: register with referral → verify email → KYC → fund → add PK recipient → send → watch all six statuses live over the socket (~25s) → notification → PDF receipt. Then idempotency (kill mid-submit, retry, confirm one transfer and one debit) and session revocation. | ⬜ |
+| 21 | **Open the PR** for `feat/react-native-app` — `gh` here is authenticated as a read-only account so I cannot. Branch is pushed and in sync: <https://github.com/FatimaIftikhar0101/meow/pull/new/feat/react-native-app>. Also delete the test account `meow-contract-check+…@example.com` from the deployed database. Note `.claude/launch.json` holds a local-only path and must stay uncommitted — stash/pop it around EAS builds. | ⛔ you |
+
+---
+
+## Backend — validated findings, being fixed now
+
+Re-verified against the actual code, not from memory. See `docs/admin-panel-plan.md` §8 for
+detail and for the one finding I had to withdraw.
+
+| # | Item | Status |
+|---|---|---|
+| 22a | **Transfers did not snapshot recipient details.** `Transfer` held only `recipientId`, and `recipients.update()` mutates the row in place — so editing a recipient retroactively rewrote what every past transfer said it did. Fixed: five snapshot columns on `Transfer`, populated at creation, with all six read sites (transfers, admin ×2, wallet) redirected to them. API response shape unchanged, so no client changes needed. Migration backfills existing rows. 5 regression tests added. | ✅ |
+| 22b | **Bank account numbers stored in plaintext.** `Recipient.bankAccount` holds an IBAN as a plain string, and there is no encryption anywhere in the backend. Needs encryption at rest with a managed key, masked display, audited reveal. **Next up — the largest of the six.** | ⬜ |
+| 22c | **Audit log captures no before/after values.** Schema done — `beforeValue`, `afterValue`, `reason` and a denormalised `actorEmail` are now columns rather than a convention nobody followed. Still to do: wire the ~12 `auditLog.create` call sites, which means threading the full `AuditUser` through the admin service instead of just `adminUserId`. | 🟨 |
+| 22d | **Cascading deletes on financial records.** Done. `Wallet`, `Recipient`, `KycRecord` and both `Referral` sides now `Restrict` instead of `Cascade`. `Session` deliberately still cascades (operational state, not evidence) and `TransferEvent` still cascades from `Transfer` (an event has no meaning without its transfer). | ✅ |
+| 22e | **`KycRecord` held no identity evidence.** Done at the structural level: 10 evidence columns added (verified name/DOB/address, document type, last-4 only, expiry, method, verbatim provider response, reviewer and review time). All nullable — the mock provider has nothing to put in them, so they fill when a real provider is wired, without a migration against live data. | ✅ |
+| 23 | **Travel-rule fields on `Transfer`** — originator and beneficiary detail. Beneficiary side is now covered by 22a. Still needs originator detail and addresses; confirm the exact required field list against current FINTRAC guidance before finalising. | ⬜ |
+
+---
+
+## Admin panel — planned, not started
+
+Full plan in `docs/admin-panel-plan.md`. Desktop app (Tauri), same backend, RBAC with
+maker-checker. Build order:
+
+| Step | Item | Status |
+|---|---|---|
+| 0 | Schema hardening (the #22 items above) | 🟨 |
+| 1 | RBAC foundation — extend `UserRole`, permission map, `PermissionsGuard`, staff TOTP MFA, staff management | ⬜ |
+| 2 | Tauri shell — scaffold, staff auth + TOTP, keychain token storage, auto-update, app frame | ⬜ |
+| 3 | Operations — transfer queue, aging/SLA view, transfer detail, retry | ⬜ |
+| 4 | Support — customer 360, lookup, masked PII with audited reveal, notes | ⬜ |
+| 5 | Maker-checker — `ApprovalRequest`, request/approve flows, wire the gated actions | ⬜ |
+| 6 | KYC queue + audit log UI | ⬜ |
+| 7 | Ledger explorer | ⬜ |
+| 8 | Compliance — rules engine, alerts, cases, blocklist | ⬜ |
+| 9 | Sanctions screening — vendor integration + adjudication queue | ⛔ vendor |
+| 10 | Finance and regulatory — reconciliation, FX/fee/limits, FINTRAC exports, dashboards | ⬜ |
+
+Steps 1–7 are a usable back office. Steps 8–10 are what a regulator expects to see.
+
+---
+
+## Decisions parked with you
+
+| Item | Note |
+|---|---|
+| **Screening vendor** | You are discussing with your team lead. Options: **OpenSanctions** (open data, self-hostable, no licence cost, you own match quality), **ComplyAdvantage** or **Sanctions.io** (maintained lists + PEP, common for remittance startups), **Refinitiv World-Check** / **Dow Jones** (enterprise). Whichever you pick, the adjudication queue and decision record stay ours — never let a vendor score auto-decline someone with no human record of why. |
+| **Data residency** | Railway is in **US East (West Virginia)**. Fine for the dummy-money phase. Before real money moves, Canadian customer data in a US region is a question to put to whoever advises on the licence — relocating is far cheaper before launch than after. |
+| **Funding rail** | Client to supply later; likely a third party handling actual movement. When it lands, use hosted fields or tokenisation so a card number never reaches our backend and PCI-DSS scope stays in the lightest bracket. |
+| **Code signing** | Tauri desktop builds need a signing certificate or Windows SmartScreen will flag them for the staff installing. OV certificate is roughly $200–400/year. |
+| **Design questions the client never answered** | Bundling a specific serif font; the added `#A34434` failure colour; whether dark mode is ever in scope (the dark half of the theme file is currently an empty stub). |
+
+---
+
+## Done
+
+Expo app scaffold · backend `POST /auth/google/native` · auth screens + native Google sign-in ·
+home, greetings, KYC banner, wallet · recipients CRUD + send flow · activity list + live
+tracking · notifications, referrals, profile, sessions · admin section behind role gate (to be
+removed — see plan §9) · EAS build config, APK, README · generic semantic token system ·
+revision-3 palette across all 28 screens · real `Brand.tsx` gold mark · splash centring and the
+invisible login button · time-of-day greeting moved out of the dashboard · "Unknown OS" in
+Devices & sessions · world map with real geographic pins · corridor never drawn when
+unresolvable.

@@ -123,7 +123,11 @@ export class WalletService {
         transfer: {
           select: {
             id: true,
-            recipient: { select: { name: true, country: true } },
+            // Snapshot, not the live recipient row — see Transfer in
+            // schema.prisma. A statement line must not change meaning because
+            // the customer later edited a saved recipient.
+            recipientName: true,
+            recipientCountry: true,
           },
         },
       },
@@ -137,7 +141,13 @@ export class WalletService {
       description: e.description,
       createdAt: e.createdAt,
       transfer: e.transfer
-        ? { id: e.transfer.id, recipient: e.transfer.recipient }
+        ? {
+            id: e.transfer.id,
+            recipient: {
+              name: e.transfer.recipientName,
+              country: e.transfer.recipientCountry,
+            },
+          }
         : null,
     }));
   }

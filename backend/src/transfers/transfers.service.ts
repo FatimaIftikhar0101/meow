@@ -67,7 +67,6 @@ export class TransfersService {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take,
-      include: { recipient: { select: { name: true, country: true } } },
     });
     return transfers.map(serialiseSummary);
   }
@@ -76,7 +75,6 @@ export class TransfersService {
     const transfer = await this.prisma.transfer.findUnique({
       where: { id },
       include: {
-        recipient: { select: { name: true, country: true, bankAccount: true } },
         timeline: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -155,6 +153,13 @@ export class TransfersService {
         data: {
           userId,
           recipientId: recipient.id,
+          // The beneficiary as it stands right now. Copied rather than joined,
+          // because the recipient row can change and this record must not.
+          recipientName: recipient.name,
+          recipientCountry: recipient.country,
+          recipientBankAccount: recipient.bankAccount,
+          recipientBankName: recipient.bankName,
+          recipientBankCode: recipient.bankCode,
           sendAmount,
           sendCurrency,
           receiveAmount: quote.receiveAmount,
@@ -490,16 +495,26 @@ function messageFor(status: TransferStatus): string {
   }
 }
 
-type TransferSummary = Prisma.TransferGetPayload<{
-  include: { recipient: { select: { name: true; country: true } } };
-}>;
+type TransferSummary = Prisma.TransferGetPayload<object>;
 
 type TransferDetail = Prisma.TransferGetPayload<{
-  include: {
-    recipient: { select: { name: true; country: true; bankAccount: true } };
-    timeline: true;
-  };
+  include: { timeline: true };
 }>;
+
+/**
+ * The beneficiary, read from the transfer's own snapshot rather than from the
+ * live recipient row.
+ *
+ * The response shape is unchanged, so clients keep working — but the values now
+ * describe what the transfer actually did rather than what the recipient
+ * happens to look like today.
+ */
+function beneficiaryOf(t: {
+  recipientName: string;
+  recipientCountry: string;
+}): { name: string; country: string } {
+  return { name: t.recipientName, country: t.recipientCountry };
+}
 
 function serialiseSummary(t: TransferSummary) {
   return {
@@ -510,7 +525,7 @@ function serialiseSummary(t: TransferSummary) {
     receiveCurrency: t.receiveCurrency,
     status: t.status,
     createdAt: t.createdAt,
-    recipient: t.recipient,
+    recipient: beneficiaryOf(t),
   };
 }
 
@@ -535,7 +550,12 @@ function serialiseDetail(t: TransferDetail) {
     status: t.status,
     failureReason: t.failureReason,
     createdAt: t.createdAt,
-    recipient: t.recipient,
+    recipient: {
+      ...beneficiaryOf(t),
+      bankAccount: t.recipientBankAccount,
+      bankName: t.recipientBankName,
+      bankCode: t.recipientBankCode,
+    },
     timeline: t.timeline.map((e) => ({
       id: e.id,
       status: e.status,
