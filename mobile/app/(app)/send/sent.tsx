@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CatMark } from '../../../components/CatMark';
+import { Kitten } from '../../../components/Kitten';
 import { Body, Button, Card, Loader, Row, Title } from '../../../components/ui';
 import api from '../../../lib/api';
 import { formatMoney } from '../../../lib/money';
@@ -30,9 +30,10 @@ export default function Sent() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
       <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 14 }}>
-          {/* The mark brings its own roundel, which is the dark ground the gold
-              needs — a soft accent disc behind it left the cat at 1.9:1. */}
-          <CatMark size={84} />
+          {/* The money has just left. The mascot carries the moment so the
+              copy does not have to shout; the amount and the recipient below
+              are still the first things that render. */}
+          <Kitten state="travel" width={168} accessibilityLabel="Transfer sent" />
           <Title size={26} style={{ textAlign: 'center' }}>
             On its way.
           </Title>

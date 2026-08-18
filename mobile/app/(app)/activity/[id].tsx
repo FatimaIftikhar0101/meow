@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../../components/BackBar';
+import { Kitten, kittenStateFor } from '../../../components/Kitten';
 import { StatusPill } from '../../../components/StatusPill';
 import { WorldMap, countryForCurrency } from '../../../components/WorldMap';
 import {
@@ -84,13 +85,24 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
         </Body>
       </Row>
 
-      <View style={{ alignItems: 'center', marginTop: 10 }}>
-        <Body size={13.5} tone="onSlab" weight="600">
-          {failed
-            ? (transfer.failureReason ?? STATUS_LABEL[transfer.status])
-            : STATUS_LABEL[transfer.status]}
-        </Body>
-      </View>
+      {/* The mascot sits beside the status line, never over it. The rule the
+          whole feature lives under: it must not cover a number and must not
+          delay information — the status text renders whether or not the clip
+          has loaded. */}
+      <Row gap={10} style={{ alignItems: 'center', justifyContent: 'center', marginTop: 6 }}>
+        <Kitten
+          state={kittenStateFor(transfer.status)}
+          width={104}
+          accessibilityLabel={STATUS_LABEL[transfer.status]}
+        />
+        <View style={{ flexShrink: 1 }}>
+          <Body size={13.5} tone="onSlab" weight="600">
+            {failed
+              ? (transfer.failureReason ?? STATUS_LABEL[transfer.status])
+              : STATUS_LABEL[transfer.status]}
+          </Body>
+        </View>
+      </Row>
     </View>
   );
 }
