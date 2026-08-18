@@ -5,6 +5,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { writeAudit } from '../common/audit/audit';
+import {
+  decryptField,
+  encryptField,
+  last4,
+} from '../common/crypto/field-crypto';
 import { CreateRecipientDto } from './dto/create-recipient.dto';
 import { UpdateRecipientDto } from './dto/update-recipient.dto';
 
@@ -12,8 +17,8 @@ import { UpdateRecipientDto } from './dto/update-recipient.dto';
 export class RecipientsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(userId: string) {
-    return this.prisma.recipient.findMany({
+  async list(userId: string) {
+    const rows = await this.prisma.recipient.findMany({
       where: { userId, active: true },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -28,23 +33,26 @@ export class RecipientsService {
         createdAt: true,
       },
     });
+    return rows.map(withPlainAccount);
   }
 
   async create(userId: string, dto: CreateRecipientDto) {
     const recipient = await this.prisma.recipient.create({
-      data: { ...dto, userId },
+      data: { ...dto, bankAccount: encryptField(dto.bankAccount), userId },
     });
     await this.audit(userId, 'recipient.create', recipient.id, {
       after: recipientState(recipient),
     });
-    return recipient;
+    return withPlainAccount(recipient);
   }
 
   async update(userId: string, id: string, dto: UpdateRecipientDto) {
     const before = await this.ensureOwned(userId, id);
     const updated = await this.prisma.recipient.update({
       where: { id },
-      data: dto,
+      data: dto.bankAccount
+        ? { ...dto, bankAccount: encryptField(dto.bankAccount) }
+        : dto,
     });
     // Editing a saved recipient is how someone would quietly redirect future
     // payments, so this is one of the more interesting entries in the log.
@@ -53,7 +61,7 @@ export class RecipientsService {
       before: recipientState(before),
       after: recipientState(updated),
     });
-    return updated;
+    return withPlainAccount(updated);
   }
 
   async remove(userId: string, id: string) {
@@ -113,6 +121,17 @@ export class RecipientsService {
 }
 
 /**
+ * Hand a recipient back with its account number readable.
+ *
+ * Only ever used on the owner's own records — they typed the number in, and
+ * the app shows it masked anyway. Staff-facing paths deliberately do not call
+ * this: see admin.service, which serves the last four.
+ */
+function withPlainAccount<T extends { bankAccount: string }>(r: T): T {
+  return { ...r, bankAccount: decryptField(r.bankAccount) };
+}
+
+/**
  * A recipient's fields, with the account number reduced to its last four.
  *
  * The audit log is read by staff and retained for years; putting a full
@@ -134,7 +153,7 @@ function recipientState(r: {
     email: r.email,
     phone: r.phone,
     country: r.country,
-    bankAccountLast4: r.bankAccount.slice(-4),
+    bankAccountLast4: last4(decryptField(r.bankAccount)),
     bankName: r.bankName,
     bankCode: r.bankCode,
     active: r.active,

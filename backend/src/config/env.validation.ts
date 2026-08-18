@@ -12,6 +12,12 @@ export const envSchema = Joi.object({
        node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
      Rotate in production by deploying a new secret + forcing logout. */
   JWT_SECRET: Joi.string().min(32).required(),
+  /* AES-256 key for column encryption, base64 of exactly 32 bytes. Generate:
+       node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+     Rotating this needs a re-encryption pass over every encrypted column —
+     see scripts/backfill-encryption.ts — so it is not a value to change
+     casually. Losing it makes stored account numbers unrecoverable. */
+  ENCRYPTION_KEY: Joi.string().base64().length(44).required(),
   JWT_EXPIRES_IN: Joi.string()
     .pattern(/^\d+[smhd]$/)
     .default('7d'),

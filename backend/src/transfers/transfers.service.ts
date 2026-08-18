@@ -19,6 +19,7 @@ import { CreateTransferDto } from './dto/create-transfer.dto';
 import { TransfersGateway } from './transfers.gateway';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { writeAudit } from '../common/audit/audit';
+import { decryptField } from '../common/crypto/field-crypto';
 
 const CANCELLABLE: TransferStatus[] = [
   'initiated',
@@ -154,6 +155,10 @@ export class TransfersService {
           recipientId: recipient.id,
           // The beneficiary as it stands right now. Copied rather than joined,
           // because the recipient row can change and this record must not.
+          //
+          // bankAccount arrives already encrypted from the recipient row and is
+          // stored that way — the snapshot must not be the one plaintext copy
+          // of a number encrypted everywhere else.
           recipientName: recipient.name,
           recipientCountry: recipient.country,
           recipientBankAccount: recipient.bankAccount,
@@ -558,7 +563,9 @@ function serialiseDetail(t: TransferDetail) {
     createdAt: t.createdAt,
     recipient: {
       ...beneficiaryOf(t),
-      bankAccount: t.recipientBankAccount,
+      // The customer's own transfer: they chose this beneficiary and the
+      // receipt has to show where their money went.
+      bankAccount: decryptField(t.recipientBankAccount),
       bankName: t.recipientBankName,
       bankCode: t.recipientBankCode,
     },

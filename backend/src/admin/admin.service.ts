@@ -3,6 +3,10 @@ import { Prisma, TransferStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { writeStaffAudit } from '../common/audit/audit';
+import {
+  decryptField,
+  maskAccount,
+} from '../common/crypto/field-crypto';
 import { WalletService } from '../wallet/wallet.service';
 import { UpdateCorridorDto } from './dto/update-corridor.dto';
 
@@ -202,7 +206,11 @@ export class AdminService {
       recipient: {
         name: transfer.recipientName,
         country: transfer.recipientCountry,
-        bankAccount: transfer.recipientBankAccount,
+        // Staff see the last four, not the number. Full reveal belongs behind
+        // an explicit, audited action in the back-office panel — a support
+        // agent opening a ticket has no reason to read a whole account number,
+        // and "it was on the screen" is how these end up in a chat message.
+        bankAccountMasked: maskAccount(decryptField(transfer.recipientBankAccount)),
         bankName: transfer.recipientBankName,
         bankCode: transfer.recipientBankCode,
       },
@@ -210,7 +218,13 @@ export class AdminService {
       // the snapshot: if a customer edited the recipient after sending, an
       // operations analyst needs to see that the two differ rather than being
       // shown one and left to assume it was always so.
-      savedRecipient: transfer.recipient,
+      savedRecipient: transfer.recipient && {
+        ...transfer.recipient,
+        bankAccount: undefined,
+        bankAccountMasked: maskAccount(
+          decryptField(transfer.recipient.bankAccount),
+        ),
+      },
       sendAmount: transfer.sendAmount.toString(),
       sendCurrency: transfer.sendCurrency,
       receiveAmount: transfer.receiveAmount?.toString() ?? null,

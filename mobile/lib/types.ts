@@ -251,7 +251,25 @@ export interface AdminTransferRow {
 export interface AdminTransferDetail {
   id: string;
   user: { id: string; email: string; country: string | null };
-  recipient: Recipient;
+  /**
+   * The beneficiary as recorded when the transfer was made, not the saved
+   * recipient as it stands now — editing a recipient does not rewrite history.
+   *
+   * The account number is masked: staff get the last four, and a full reveal
+   * belongs behind an explicit audited action in the back-office panel.
+   */
+  recipient: {
+    name: string;
+    country: string;
+    bankAccountMasked: string;
+    bankName: string | null;
+    bankCode: string | null;
+  };
+  /** The saved recipient today, so a divergence from the snapshot is visible
+   *  rather than something staff have to guess at. */
+  savedRecipient: (Omit<Recipient, 'bankAccount'> & {
+    bankAccountMasked: string;
+  }) | null;
   sendAmount: string;
   sendCurrency: string;
   receiveAmount: string | null;

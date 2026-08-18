@@ -10,7 +10,7 @@ interface LedgerEntry { id: string; direction: 'credit' | 'debit'; type: string;
 interface TransferDetail {
   id: string;
   user: { id: string; email: string; country: string | null };
-  recipient: { name: string; country: string; bankAccount: string; bankName: string | null };
+  recipient: { name: string; country: string; bankAccountMasked: string; bankName: string | null };
   sendAmount: string;
   sendCurrency: string;
   receiveAmount: string | null;
@@ -113,7 +113,7 @@ function AdminTransferDetailInner() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <h2 className="font-semibold text-slate-900 mb-3">Recipient</h2>
               <p className="text-sm font-medium">{transfer.recipient.name}</p>
-              <p className="text-xs text-slate-500 mt-1">{transfer.recipient.country} · {transfer.recipient.bankAccount}</p>
+              <p className="text-xs text-slate-500 mt-1">{transfer.recipient.country} · {transfer.recipient.bankAccountMasked}</p>
               {transfer.recipient.bankName && <p className="text-xs text-slate-500">{transfer.recipient.bankName}</p>}
             </div>
           </div>

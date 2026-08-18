@@ -117,7 +117,7 @@ export default function AdminTransferDetailScreen() {
             <View style={{ gap: 9 }}>
               <KV k="Sender" v={t.user.email} />
               <KV k="Recipient" v={t.recipient.name} />
-              <KV k="Account" v={t.recipient.bankAccount} />
+              <KV k="Account" v={t.recipient.bankAccountMasked} />
               <KV k="Destination" v={t.recipient.country} />
               <Divider />
               <KV k="Send amount" v={formatMoney(t.sendAmount, t.sendCurrency)} />

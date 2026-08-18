@@ -19,7 +19,7 @@ Everything outstanding, in one place. The `#n` numbers are the ones I use in cha
 
 ---
 
-## Backend — validated findings, being fixed now
+## Backend — validated findings, resolved
 
 Re-verified against the actual code, not from memory. See `docs/admin-panel-plan.md` §8 for
 detail and for the one finding I had to withdraw.
@@ -27,8 +27,8 @@ detail and for the one finding I had to withdraw.
 | # | Item | Status |
 |---|---|---|
 | 22a | **Transfers did not snapshot recipient details.** `Transfer` held only `recipientId`, and `recipients.update()` mutates the row in place — so editing a recipient retroactively rewrote what every past transfer said it did. Fixed: five snapshot columns on `Transfer`, populated at creation, with all six read sites (transfers, admin ×2, wallet) redirected to them. API response shape unchanged, so no client changes needed. Migration backfills existing rows. 5 regression tests added. | ✅ |
-| 22b | **Bank account numbers stored in plaintext.** `Recipient.bankAccount` holds an IBAN as a plain string, and there is no encryption anywhere in the backend. Needs encryption at rest with a managed key, masked display, audited reveal. **Next up — the largest of the six.** | ⬜ |
-| 22c | **Audit log captures no before/after values.** Schema done — `beforeValue`, `afterValue`, `reason` and a denormalised `actorEmail` are now columns rather than a convention nobody followed. Still to do: wire the ~12 `auditLog.create` call sites, which means threading the full `AuditUser` through the admin service instead of just `adminUserId`. | 🟨 |
+| 22b | **Bank account numbers were stored in plaintext.** Done. AES-256-GCM column encryption keyed from `ENCRYPTION_KEY`, applied to `Recipient.bankAccount` and the `Transfer` snapshot. Owners see their own numbers; staff get the last four only. Legacy plaintext rows are read transparently so the deploy can precede the backfill — run `scripts/backfill-encryption.ts` once afterwards. 14 tests. | ✅ |
+| 22c | **Audit log captured no before/after values.** Done. `writeAudit`/`writeStaffAudit` in `common/audit`, and all 21 call sites migrated — the staff variant requires reason, before and after in its type. Suspend/unsuspend now take a reason (both clients updated), KYC override's reason moves from optional to required, corridor updates gain one. Also fixed: audit writes inside transactions were not awaited. | ✅ |
 | 22d | **Cascading deletes on financial records.** Done. `Wallet`, `Recipient`, `KycRecord` and both `Referral` sides now `Restrict` instead of `Cascade`. `Session` deliberately still cascades (operational state, not evidence) and `TransferEvent` still cascades from `Transfer` (an event has no meaning without its transfer). | ✅ |
 | 22e | **`KycRecord` held no identity evidence.** Done at the structural level: 10 evidence columns added (verified name/DOB/address, document type, last-4 only, expiry, method, verbatim provider response, reviewer and review time). All nullable — the mock provider has nothing to put in them, so they fill when a real provider is wired, without a migration against live data. | ✅ |
 | 23 | **Travel-rule fields on `Transfer`** — originator and beneficiary detail. Beneficiary side is now covered by 22a. Still needs originator detail and addresses; confirm the exact required field list against current FINTRAC guidance before finalising. | ⬜ |
@@ -42,7 +42,7 @@ maker-checker. Build order:
 
 | Step | Item | Status |
 |---|---|---|
-| 0 | Schema hardening (the #22 items above) | 🟨 |
+| 0 | Schema hardening (the #22 items above) | ✅ |
 | 1 | RBAC foundation — extend `UserRole`, permission map, `PermissionsGuard`, staff TOTP MFA, staff management | ⬜ |
 | 2 | Tauri shell — scaffold, staff auth + TOTP, keychain token storage, auto-update, app frame | ⬜ |
 | 3 | Operations — transfer queue, aging/SLA view, transfer detail, retry | ⬜ |
