@@ -38,6 +38,10 @@ export type KittenState =
  * loop where `sorry` belongs is exactly the tonal mistake the state list exists
  * to prevent, so these must be replaced before this ships to a customer.
  */
+// require(), not import: React Native's asset pipeline resolves this to a
+// numeric asset id, which is what Image.resolveAssetSource needs to report the
+// artwork's intrinsic size. An ES import of a .webp has no such id.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const WAITING = require('../assets/kitten/waiting.webp') as number;
 
 const CLIPS: Record<KittenState, number> = {
@@ -125,6 +129,9 @@ export function Kitten({
         // animation stops and the first frame stands in.
         autoplay={!reduceMotion}
         transition={160}
+        // Decorative. The transfer status is announced by the wrapper above —
+        // a screen reader user needs the status, not a description of a cat.
+        alt=""
         accessible={false}
       />
     </View>

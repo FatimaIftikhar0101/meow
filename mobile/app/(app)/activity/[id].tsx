@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../../components/BackBar';
-import { Kitten, kittenStateFor } from '../../../components/Kitten';
+import { JourneyPath } from '../../../components/JourneyPath';
 import { StatusPill } from '../../../components/StatusPill';
 import { WorldMap, countryForCurrency } from '../../../components/WorldMap';
 import {
@@ -18,7 +18,7 @@ import {
   Title,
 } from '../../../components/ui';
 import api, { errorMessage } from '../../../lib/api';
-import { STATUS_LABEL, STATUS_STEPS, dateTimeOf, progressOf, stageIndex } from '../../../lib/format';
+import { STATUS_LABEL, progressOf } from '../../../lib/format';
 import { countryFlag, formatAmount, formatMoney } from '../../../lib/money';
 import { shareReceipt } from '../../../lib/receipt';
 import { useTransferStatus } from '../../../lib/sockets';
@@ -85,24 +85,13 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
         </Body>
       </Row>
 
-      {/* The mascot sits beside the status line, never over it. The rule the
-          whole feature lives under: it must not cover a number and must not
-          delay information — the status text renders whether or not the clip
-          has loaded. */}
-      <Row gap={10} style={{ alignItems: 'center', justifyContent: 'center', marginTop: 6 }}>
-        <Kitten
-          state={kittenStateFor(transfer.status)}
-          width={104}
-          accessibilityLabel={STATUS_LABEL[transfer.status]}
-        />
-        <View style={{ flexShrink: 1 }}>
-          <Body size={13.5} tone="onSlab" weight="600">
-            {failed
-              ? (transfer.failureReason ?? STATUS_LABEL[transfer.status])
-              : STATUS_LABEL[transfer.status]}
-          </Body>
-        </View>
-      </Row>
+      <View style={{ alignItems: 'center', marginTop: 10 }}>
+        <Body size={13.5} tone="onSlab" weight="600">
+          {failed
+            ? (transfer.failureReason ?? STATUS_LABEL[transfer.status])
+            : STATUS_LABEL[transfer.status]}
+        </Body>
+      </View>
     </View>
   );
 }
@@ -138,11 +127,6 @@ export default function TransferDetailScreen() {
   const total = transfer
     ? (Number(transfer.amount) + Number(transfer.feeAmount)).toFixed(2)
     : null;
-
-  const doneStages = useMemo(() => {
-    if (!transfer) return new Set<string>();
-    return new Set(transfer.timeline.map((e) => e.status));
-  }, [transfer]);
 
   const cancel = () => {
     Alert.alert(
@@ -258,66 +242,14 @@ export default function TransferDetailScreen() {
               </Row>
             </View>
           </Card>
-
-          {/* Timeline. Every stage is listed, including the ones still to come,
-              so the journey has a visible end rather than an open question. */}
+          {/* The journey. Six stations on one screen, no scrolling: the flat
+              list this replaces answered "what happened" but never "how far",
+              and the kitten now has somewhere to stand that means something. */}
           <Card>
-            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 12 }}>
-              TIMELINE
+            <Body size={11} tone="faint" weight="600" style={{ marginBottom: 4 }}>
+              JOURNEY
             </Body>
-            <View style={{ gap: 0 }}>
-              {STATUS_STEPS.map((step, i) => {
-                const event = transfer.timeline.find((e) => e.status === step);
-                const done = doneStages.has(step);
-                const current = transfer.status === step;
-                const reachable =
-                  transfer.status !== 'failed' && transfer.status !== 'cancelled';
-                const last = i === STATUS_STEPS.length - 1;
-                return (
-                  <Row key={step} gap={12} style={{ alignItems: 'flex-start' }}>
-                    <View style={{ alignItems: 'center', width: 14 }}>
-                      <View
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 5,
-                          marginTop: 4,
-                          backgroundColor: done ? colors.accent : 'transparent',
-                          borderWidth: done ? 0 : 1.4,
-                          borderColor: colors.lineStrong,
-                        }}
-                      />
-                      {!last && (
-                        <View
-                          style={{
-                            width: 1.5,
-                            flex: 1,
-                            minHeight: 22,
-                            backgroundColor: done ? colors.accent : colors.line,
-                          }}
-                        />
-                      )}
-                    </View>
-                    <View style={{ flex: 1, paddingBottom: last ? 0 : 12 }}>
-                      <Body
-                        size={13}
-                        tone={done ? 'ink' : 'faint'}
-                        weight={current ? '700' : done ? '600' : '400'}
-                      >
-                        {event?.message || STATUS_LABEL[step]}
-                      </Body>
-                      <Body size={11} tone="faint">
-                        {event
-                          ? dateTimeOf(event.createdAt)
-                          : reachable
-                            ? 'Pending'
-                            : 'Not reached'}
-                      </Body>
-                    </View>
-                  </Row>
-                );
-              })}
-            </View>
+            <JourneyPath status={transfer.status} timeline={transfer.timeline} />
           </Card>
 
           <View style={{ gap: 9 }}>

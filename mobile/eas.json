@@ -11,7 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://backend-production-4cbe.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://backend-production-4cbe.up.railway.app",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "642376082473-lstkhrbtsb71svqcp8f1thc91848varc.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -20,7 +21,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://backend-production-4cbe.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://backend-production-4cbe.up.railway.app",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "642376082473-lstkhrbtsb71svqcp8f1thc91848varc.apps.googleusercontent.com"
       }
     },
     "production": {
@@ -29,7 +31,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://backend-production-4cbe.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://backend-production-4cbe.up.railway.app",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "642376082473-lstkhrbtsb71svqcp8f1thc91848varc.apps.googleusercontent.com"
       }
     }
   },
