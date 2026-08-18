@@ -1,6 +1,11 @@
 import { Image } from 'expo-image';
 import React from 'react';
-import { AccessibilityInfo, View, type ViewStyle } from 'react-native';
+import {
+  AccessibilityInfo,
+  Image as RNImage,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import type { TransferStatus } from '../lib/types';
 
 /**
@@ -62,7 +67,18 @@ export function kittenStateFor(status: TransferStatus): KittenState {
   }
 }
 
-const RATIO = 320 / 242; // the artwork's aspect; keeps layout stable per clip
+/**
+ * Each clip's own aspect, read from the bundled asset.
+ *
+ * Not a constant: `key-clip.js` crops every clip to its own subject bounds, so
+ * a kitten curled up and a kitten in a plane come out different shapes. A
+ * hardcoded ratio would be right for exactly one of them and quietly letterbox
+ * or stretch the rest.
+ */
+function ratioOf(source: number): number {
+  const meta = RNImage.resolveAssetSource(source);
+  return meta?.width && meta?.height ? meta.width / meta.height : 4 / 3;
+}
 
 export function Kitten({
   state = 'idle',
@@ -96,7 +112,7 @@ export function Kitten({
 
   return (
     <View
-      style={[{ width, height: width / RATIO }, style]}
+      style={[{ width, height: width / ratioOf(CLIPS[state]) }, style]}
       accessible={accessibilityLabel != null}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="image"
