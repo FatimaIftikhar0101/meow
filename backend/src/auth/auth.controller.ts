@@ -60,7 +60,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   adminLogin(@Body() dto: LoginDto, @Req() req: Request) {
-    return this.auth.login(dto, 'admin', extractCtx(req));
+    return this.auth.login(dto, 'staff', extractCtx(req));
   }
 
   @Get('profile')

@@ -58,6 +58,15 @@ model User {
 
 enum UserRole {
   customer
+
+  // Back-office roles. Separate rather than one "staff" flag because the
+  // person who processes a payment must not be the person who clears it for
+  // AML — segregation of duties is an expectation of a licensed money services
+  // business, not internal tidiness. What each can actually do lives in
+  // src/auth/permissions.ts; this enum only says which bucket someone is in.
+  support
+  operations
+  compliance
   admin
 }
 

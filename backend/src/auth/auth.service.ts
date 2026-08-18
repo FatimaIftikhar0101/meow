@@ -14,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
+import { isStaff } from './permissions';
 import { writeAudit } from '../common/audit/audit';
 import { MailService } from '../mail/mail.service';
 import { ReferralsService } from '../referrals/referrals.service';
@@ -259,7 +260,16 @@ export class AuthService {
     return this.signToken(user.id, user.email, user.role, session.id);
   }
 
-  async login(dto: LoginDto, expectedRole?: UserRole, ctx?: RequestContext) {
+  /**
+   * @param audience which door the request came through — the customer app or
+   *        the back office. Not a role: staff roles other than admin must reach
+   *        the back office, and customers must not.
+   */
+  async login(
+    dto: LoginDto,
+    audience?: 'customer' | 'staff',
+    ctx?: RequestContext,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -288,15 +298,20 @@ export class AuthService {
       user.role = desiredRole;
     }
 
-    if (expectedRole && user.role !== expectedRole) {
-      throw new ForbiddenException(
-        expectedRole === 'admin' ? 'Not an admin account' : 'Use the admin portal',
-      );
+    // Which door was used, not which exact role. Staff roles other than admin
+    // — support, operations, compliance — must reach the back office, and an
+    // exact-match check against 'admin' would have locked every one of them out
+    // while telling them they were "not an admin account".
+    if (audience === 'staff' && !isStaff(user.role)) {
+      throw new ForbiddenException('Not a staff account');
+    }
+    if (audience === 'customer' && isStaff(user.role)) {
+      throw new ForbiddenException('Use the admin portal');
     }
 
     await writeAudit(this.prisma, {
       actor: { id: user.id, email: user.email },
-      action: expectedRole === 'admin' ? 'auth.admin_login' : 'auth.login',
+      action: audience === 'staff' ? 'auth.staff_login' : 'auth.login',
       entityType: 'user',
       entityId: user.id,
       context: { ip: ctx?.ip, userAgent: ctx?.userAgent },

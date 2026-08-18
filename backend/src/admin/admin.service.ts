@@ -3,6 +3,7 @@ import { Prisma, TransferStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { writeStaffAudit } from '../common/audit/audit';
+import { isStaff } from '../auth/permissions';
 import {
   decryptField,
   maskAccount,
@@ -129,8 +130,11 @@ export class AdminService {
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: targetId } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.role === 'admin') {
-      throw new ForbiddenException('Cannot suspend an admin account');
+    // No staff account, not just no admin. Suspending a colleague is an
+    // account-management action for the staff section, and routing it through
+    // the customer endpoint would skip whatever controls that section carries.
+    if (isStaff(user.role)) {
+      throw new ForbiddenException('Cannot suspend a staff account');
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: targetId }, data: { suspended } });
