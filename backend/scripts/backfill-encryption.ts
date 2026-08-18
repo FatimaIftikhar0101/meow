@@ -1,9 +1,20 @@
 /**
  * Encrypt account numbers that were written before column encryption existed.
  *
- * Run once, after deploying the code that reads them:
+ * Run once, after deploying the code that reads them.
  *
- *   npx ts-node scripts/backfill-encryption.ts
+ * Run it from your own machine with Railway's environment injected, NOT on the
+ * Railway container — ts-node is a devDependency and is not installed there:
+ *
+ *   npm i -g @railway/cli
+ *   railway login
+ *   cd backend && railway link          # pick the backend service, not Postgres
+ *   railway run npm run db:encrypt-backfill
+ *
+ * `railway run` runs the command locally but with the service's variables, so
+ * DATABASE_URL and ENCRYPTION_KEY come from Railway. That matters more than the
+ * convenience: encrypting with a local key would write rows the deployed app
+ * cannot decrypt, and there is no way back from that except restoring a backup.
  *
  * Safe to run more than once. `isEncrypted` skips anything already converted,
  * so an interrupted run resumes rather than double-encrypting — which would be
