@@ -1,4 +1,9 @@
-import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import React, {
   createContext,
   useCallback,
@@ -55,6 +60,55 @@ interface AuthValue {
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
+
+/** Whether the person simply backed out of the account picker. */
+function isCancellation(err: unknown): boolean {
+  if (!isErrorWithCode(err)) return false;
+  const code = String(err.code);
+  return code === '12501' || code === String(statusCodes.SIGN_IN_CANCELLED);
+}
+
+/**
+ * Turn a Play Services rejection into something a person can act on.
+ *
+ * These arrive as native module errors carrying only a numeric code, and the
+ * generic handler reported every one of them as "Could not sign in with
+ * Google" — true, useless, and indistinguishable from a network failure.
+ *
+ * The codes are Play Services' own (CommonStatusCodes and
+ * GoogleSignInStatusCodes); the library only names a few of them, so the raw
+ * numbers are handled too and the code is always included in the message.
+ */
+function describeGoogleError(err: unknown): string {
+  const code = isErrorWithCode(err) ? String(err.code) : undefined;
+  const detail = (err as Error | undefined)?.message ?? '';
+
+  switch (code) {
+    case '10':
+    case 'DEVELOPER_ERROR':
+      // The single most common cause, and it is always configuration rather
+      // than anything in this app: Play Services checks the package name and
+      // signing fingerprint against the Android OAuth client before it will
+      // issue a token, and refuses outright when they do not match.
+      return (
+        'Google rejected this build (DEVELOPER_ERROR, code 10). An Android ' +
+        'OAuth client for package com.meow.app with this build\u2019s SHA-1 ' +
+        'fingerprint must exist in the same Google Cloud project as the web ' +
+        'client ID.'
+      );
+    case '7':
+    case 'NETWORK_ERROR':
+      return 'Google could not be reached. Check the connection and try again.';
+    case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+      return 'Google Play Services is unavailable or out of date on this device.';
+    case statusCodes.IN_PROGRESS:
+      return 'A Google sign-in is already in progress.';
+    default:
+      return code
+        ? 'Google sign-in failed (code ' + code + ').' + (detail ? ' ' + detail : '')
+        : detail || 'Google sign-in failed.';
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
@@ -169,7 +223,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = useCallback(async (): Promise<'cancelled' | 'signedIn'> => {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    const response = await GoogleSignin.signIn();
+
+    let response;
+    try {
+      response = await GoogleSignin.signIn();
+    } catch (err) {
+      // Backing out of the account picker is a decision, not a failure: it
+      // returns like any other cancellation rather than raising a dialog.
+      if (isCancellation(err)) return 'cancelled';
+      throw new Error(describeGoogleError(err));
+    }
     if (!isSuccessResponse(response)) return 'cancelled';
 
     const idToken = response.data.idToken;
@@ -178,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // OAuth client — Play Services then returns a user with no ID token
       // rather than failing outright, which is confusing to debug.
       throw new Error(
-        'Google did not return an ID token. Check EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and the Android OAuth client fingerprint.',
+        'Google returned no ID token. EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be the Web client ID from the same Google Cloud project as the Android client.',
       );
     }
     const { data } = await api.post<{ access_token: string }>('/auth/google/native', {

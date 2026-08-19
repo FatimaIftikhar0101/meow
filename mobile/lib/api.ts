@@ -98,9 +98,22 @@ export function errorMessage(err: unknown, fallback = 'Something went wrong.'): 
     const msg = e.response.data?.message;
     if (Array.isArray(msg)) return msg.join('\n');
     if (typeof msg === 'string' && msg) return msg;
-    return fallback;
+    // The server failed but said nothing useful — a 500 from an unhandled
+    // exception looks like this. Without the status it is indistinguishable
+    // from a client-side failure, which cost real time debugging Google
+    // sign-in: the same words appeared whether Play Services had refused or
+    // the backend had thrown.
+    return `${fallback} (server error ${e.response.status})`;
   }
   if (e?.request) return 'Cannot reach the server. Check your connection.';
+
+  // Not an HTTP failure at all — a native module error, or one we threw
+  // ourselves. Returning the generic fallback here hid the only useful part
+  // of the message: a Google sign-in rejection reported as "Could not sign
+  // in with Google" when the error itself said exactly what was wrong.
+  const message = (err as Error | undefined)?.message;
+  if (typeof message === 'string' && message.trim()) return message;
+
   return fallback;
 }
 
