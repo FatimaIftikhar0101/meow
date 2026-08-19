@@ -5,41 +5,59 @@ import { Body } from './ui';
 import { Kitten, type KittenState } from './Kitten';
 import { STATUS_LABEL, STATUS_STEPS, dateTimeOf } from '../lib/format';
 import type { TransferEvent, TransferStatus } from '../lib/types';
-import { colors } from '../theme/tokens';
+import { colors, radius } from '../theme/tokens';
 
 /**
- * The transfer as a journey rather than a list.
+ * The transfer as a journey.
  *
- * Six stations on one screen, no scrolling — a flat timeline answered "what
- * happened" but never "how far", and scrolling to find out where your money is
- * would be decoration charging rent.
+ * The layout rule this is built on, learned the hard way: **the rail and the
+ * text occupy disjoint columns.** A first attempt let the path wander across
+ * the full width with labels beside each station, and the two fought for the
+ * same pixels — timestamps ended up struck through by the curve. Duolingo's
+ * path can wander because it carries no text; ours carries six labels and six
+ * timestamps, so the path lives in a fixed left gutter and the text starts
+ * where the gutter ends. Nothing can overlap because nothing shares an x range.
  *
- * The trail behind the kitten is the yarn it has unspooled, and it fills in
- * exactly the way the world map fills its flown arc: one path drawn twice, the
- * second dashed to the distance covered. Drawing the same geometry twice is
- * what stops the two ever disagreeing.
+ * The gutter is sized to the mascot rather than the other way round, so the
+ * kitten has somewhere real to stand instead of floating over the copy.
  */
 
-const NODE_R = 15;
-/** Vertical distance between stations. Two lines of label sit beside each. */
-const STEP = 64;
-const PAD_TOP = 34; // headroom for the kitten sitting above its station
-const PAD_BOTTOM = 12;
-/** How far in from each edge the stations sit, as a fraction of width. */
-const INSET = 0.2;
+/** The mascot, and therefore the gutter it lives in. */
+const KITTEN_W = 96;
+const GUTTER_W = 104;
+/** Centre of the rail within the gutter. */
+const RAIL_CX = 52;
+/**
+ * How far the rail drifts either side of centre.
+ *
+ * Deliberately small. The first version swung across the whole card and read
+ * as a seismograph — this is a journey, not a readout, and a bank's screen
+ * should feel composed. This is enough to read as a path and not enough to read
+ * as a zigzag.
+ */
+const AMP = 24;
+const ROW_H = 54;
+/**
+ * A fixed box the mascot is centred in.
+ *
+ * Tall enough for the tallest clip (the sorry pose, 320x356, which is 116pt at
+ * this width). Fixing the box rather than measuring each clip keeps every state
+ * sitting at exactly the same height on its station.
+ */
+const KITTEN_BOX = 112;
+/** Half the box, so the kitten never clips the card at the first or last stop. */
+const PAD_V = KITTEN_BOX / 2 + 8;
+const NODE_R = 7;
+const TEXT_X = GUTTER_W + 14;
 
 type Pt = { x: number; y: number };
 
 /**
  * A smooth curve through the stations.
  *
- * Catmull-Rom converted to cubic Béziers, which gives a curve that actually
- * passes through every point — a plain Bézier with the stations as control
- * points would sail past them, and a station the path misses is not a station.
- *
- * The sketch had square corners. Those were softened deliberately: a character
- * rounding a curve reads as movement, whereas one turning ninety degrees needs
- * a pivot animation nobody is going to draw.
+ * Catmull-Rom converted to cubic Béziers, so the curve passes through every
+ * station — a plain Bézier using the stations as control points would sail
+ * past them, and a station the path misses is not a station.
  */
 function curveThrough(pts: Pt[]): string {
   if (pts.length < 2) return '';
@@ -49,7 +67,6 @@ function curveThrough(pts: Pt[]): string {
     const p1 = pts[i];
     const p2 = pts[i + 1];
     const p3 = pts[i + 2] ?? p2;
-    // 1/6 is the standard Catmull-Rom to Bézier tangent scale.
     const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
     const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
     d.push(`C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}`);
@@ -60,9 +77,8 @@ function curveThrough(pts: Pt[]): string {
 /**
  * Distance along the curve to each station.
  *
- * react-native-svg has no getTotalLength, and the dash length has to be right
- * or the trail stops short of the kitten. Since the geometry is ours, the arc
- * length is sampled here rather than guessed.
+ * react-native-svg has no getTotalLength, and the dash length has to be exact
+ * or the travelled thread stops short of the kitten standing on it.
  */
 function cumulativeLengths(pts: Pt[]): number[] {
   const out = [0];
@@ -75,9 +91,8 @@ function cumulativeLengths(pts: Pt[]): number[] {
     const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
     const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
     let prev = p1;
-    const STEPS = 24;
-    for (let s = 1; s <= STEPS; s++) {
-      const t = s / STEPS;
+    for (let s = 1; s <= 24; s++) {
+      const t = s / 24;
       const u = 1 - t;
       const pt = {
         x: u * u * u * p1.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p2.x,
@@ -94,11 +109,9 @@ function cumulativeLengths(pts: Pt[]): number[] {
 export function JourneyPath({
   status,
   timeline,
-  kittenWidth = 96,
 }: {
   status: TransferStatus;
   timeline: TransferEvent[];
-  kittenWidth?: number;
 }) {
   const [width, setWidth] = React.useState(0);
 
@@ -109,11 +122,11 @@ export function JourneyPath({
   );
 
   /**
-   * Where the kitten is standing.
+   * Which station the kitten is standing on.
    *
-   * For a failed transfer the timeline stops wherever it got to, so the last
-   * stage actually reached is the station — not the failure itself, which is
-   * not one of the six.
+   * A failed transfer stops wherever it got to, and neither `failed` nor
+   * `cancelled` is one of the six stations — so the marker goes on the last
+   * stage actually reached rather than nowhere.
    */
   const currentIndex = React.useMemo(() => {
     if (failed) {
@@ -135,126 +148,146 @@ export function JourneyPath({
         ? 'waiting'
         : 'travel';
 
-  const height = PAD_TOP + STEP * (STATUS_STEPS.length - 1) + PAD_BOTTOM;
+  const height = PAD_V * 2 + ROW_H * (STATUS_STEPS.length - 1);
 
-  const nodes: Pt[] = React.useMemo(() => {
-    if (!width) return [];
-    const left = width * INSET;
-    const right = width * (1 - INSET);
-    return STATUS_STEPS.map((_, i) => ({
-      x: i % 2 === 0 ? left : right,
-      y: PAD_TOP + i * STEP,
-    }));
-  }, [width]);
+  const nodes: Pt[] = React.useMemo(
+    () =>
+      STATUS_STEPS.map((_, i) => ({
+        // One gentle wave over the whole list rather than a hard alternation,
+        // so consecutive segments lean into each other instead of snapping back.
+        x: RAIL_CX + AMP * Math.sin((i / (STATUS_STEPS.length - 1)) * Math.PI * 2),
+        y: PAD_V + i * ROW_H,
+      })),
+    [],
+  );
 
   const d = React.useMemo(() => curveThrough(nodes), [nodes]);
   const lengths = React.useMemo(() => cumulativeLengths(nodes), [nodes]);
   const total = lengths[lengths.length - 1] ?? 0;
   const travelled = lengths[currentIndex] ?? 0;
+  const doneColor = failed ? colors.pending : colors.accent;
 
   return (
-    <View
-      style={{ height }}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-    >
-      {width > 0 && (
-        <>
-          <Svg width={width} height={height} style={{ position: 'absolute' }}>
-            {/* The whole route, so the journey has a visible end rather than an
-                open question. */}
-            <Path
-              d={d}
-              fill="none"
-              stroke={colors.line}
-              strokeWidth={5}
-              strokeLinecap="round"
+    <View style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {/* The current stage, called out behind its text. The eye should land on
+          "where is my money right now" before anything else on this card. */}
+      <View
+        style={{
+          position: 'absolute',
+          left: TEXT_X - 12,
+          right: 0,
+          top: PAD_V + currentIndex * ROW_H - 22,
+          height: 44,
+          borderRadius: radius.sm,
+          backgroundColor: colors.inset,
+        }}
+        pointerEvents="none"
+      />
+
+      <Svg width={GUTTER_W} height={height} style={{ position: 'absolute' }}>
+        {/* The route still to come: dashed, so it reads as planned rather than
+            travelled. Drawn first and thinner, so the solid thread covers it. */}
+        <Path
+          d={d}
+          fill="none"
+          stroke={colors.lineStrong}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeDasharray="1 9"
+        />
+        {/* The thread already unspooled. Same geometry, dashed to the distance
+            covered — drawing the route twice is what stops the two disagreeing. */}
+        {travelled > 0 && (
+          <Path
+            d={d}
+            fill="none"
+            stroke={doneColor}
+            strokeWidth={4.5}
+            strokeLinecap="round"
+            strokeDasharray={`${travelled} ${total}`}
+          />
+        )}
+
+        {nodes.map((p, i) => {
+          const done = reached.has(STATUS_STEPS[i]);
+          // The kitten stands on the current station, so no dot is drawn there
+          // — the mascot is the marker, and two markers would be one too many.
+          if (i === currentIndex) return null;
+          return (
+            <Circle
+              key={STATUS_STEPS[i]}
+              cx={p.x}
+              cy={p.y}
+              r={NODE_R}
+              fill={done ? doneColor : colors.card}
+              stroke={done ? doneColor : colors.lineStrong}
+              strokeWidth={done ? 0 : 2}
             />
-            {/* The yarn already unspooled. Same path, dashed to the distance
-                covered, so the trail cannot drift from the route. */}
-            {travelled > 0 && (
-              <Path
-                d={d}
-                fill="none"
-                stroke={failed ? colors.pending : colors.accent}
-                strokeWidth={5}
-                strokeLinecap="round"
-                strokeDasharray={`${travelled} ${total}`}
-              />
-            )}
+          );
+        })}
+      </Svg>
 
-            {nodes.map((p, i) => {
-              const done = reached.has(STATUS_STEPS[i]);
-              const here = i === currentIndex;
-              return (
-                <Circle
-                  key={STATUS_STEPS[i]}
-                  cx={p.x}
-                  cy={p.y}
-                  r={here ? NODE_R : NODE_R - 4}
-                  fill={done ? (failed ? colors.pending : colors.accent) : colors.card}
-                  stroke={done ? (failed ? colors.pending : colors.accent) : colors.lineStrong}
-                  strokeWidth={done ? 0 : 2}
-                />
-              );
-            })}
-          </Svg>
-
-          {nodes.map((p, i) => {
-            const step = STATUS_STEPS[i];
-            const event = timeline.find((e) => e.status === step);
-            const done = reached.has(step);
-            const here = i === currentIndex;
-            const onLeft = i % 2 === 0;
-            return (
-              <View
-                key={step}
-                style={{
-                  position: 'absolute',
-                  top: p.y - 17,
-                  // Label sits on the inward side of its station, so the two
-                  // columns of text flank the path instead of fighting it.
-                  left: onLeft ? p.x + NODE_R + 10 : undefined,
-                  right: onLeft ? undefined : width - p.x + NODE_R + 10,
-                  maxWidth: width * (1 - INSET) - NODE_R - 18,
-                  alignItems: onLeft ? 'flex-start' : 'flex-end',
-                }}
-                pointerEvents="none"
-              >
-                <Body size={13} tone={done ? 'ink' : 'faint'} weight={here ? '700' : done ? '600' : '400'}>
-                  {STATUS_LABEL[step]}
-                </Body>
-                <Body size={11} tone="faint">
-                  {event
-                    ? dateTimeOf(event.createdAt)
-                    : failed
-                      ? 'Not reached'
-                      : 'Pending'}
-                </Body>
-              </View>
-            );
-          })}
-
-          {/* The kitten stands on the station it has reached. Above the node,
-              never over a label — the mascot is the last thing that should cost
-              anyone a piece of information. */}
-          {nodes[currentIndex] && (
+      {width > 0 &&
+        nodes.map((p, i) => {
+          const step = STATUS_STEPS[i];
+          const event = timeline.find((e) => e.status === step);
+          const done = reached.has(step);
+          const here = i === currentIndex;
+          return (
             <View
+              key={step}
               style={{
                 position: 'absolute',
-                left: nodes[currentIndex].x - kittenWidth / 2,
-                top: nodes[currentIndex].y - NODE_R - kittenWidth * 0.72,
+                left: TEXT_X,
+                right: 0,
+                top: p.y - 17,
               }}
               pointerEvents="none"
             >
-              <Kitten
-                state={kittenState}
-                width={kittenWidth}
-                accessibilityLabel={STATUS_LABEL[status]}
-              />
+              <Body
+                size={13.5}
+                tone={done ? 'ink' : 'faint'}
+                weight={here ? '700' : done ? '600' : '400'}
+                numberOfLines={1}
+              >
+                {STATUS_LABEL[step]}
+              </Body>
+              <Body size={11.5} tone="faint" numberOfLines={1}>
+                {event ? dateTimeOf(event.createdAt) : failed ? 'Not reached' : 'Pending'}
+              </Body>
             </View>
-          )}
-        </>
-      )}
+          );
+        })}
+
+      {/* The mascot, standing on its station inside the gutter. It cannot reach
+          the text column, so it can never cover a label or a time.
+
+          Centred inside a fixed box rather than offset by half its own width:
+          every clip is cropped to its own subject, so their heights differ —
+          the plane is wide and short, the sorry pose tall and narrow — and
+          offsetting by width would sit each one at a different height. */}
+      <View
+        style={{
+          position: 'absolute',
+          // Fixed horizontally at the centre of the gutter, moving only down.
+          // Following the rail's x as well would push the mascot off the card
+          // at the outer swings — and since the rail never leaves the mascot's
+          // own footprint, it still reads as standing on its station.
+          left: 0,
+          top: nodes[currentIndex].y - KITTEN_BOX / 2,
+          width: GUTTER_W,
+          height: KITTEN_BOX,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        pointerEvents="none"
+      >
+        <Kitten
+          state={kittenState}
+          width={KITTEN_W}
+          accessibilityLabel={STATUS_LABEL[status]}
+        />
+      </View>
     </View>
   );
 }

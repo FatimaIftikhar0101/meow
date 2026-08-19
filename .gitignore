@@ -31,6 +31,7 @@
 # local-only working notes and filled-in env templates — never committed
 *.local.md
 *.local.json
+*.local.html
 
 # debug
 npm-debug.log*
