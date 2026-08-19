@@ -95,11 +95,16 @@ function ratioOf(source: number): number {
 export function Kitten({
   state = 'idle',
   width = 132,
+  flip = false,
   style,
   accessibilityLabel,
 }: {
   state?: KittenState;
   width?: number;
+  /** Mirror horizontally. The travel clip is drawn facing left, so it has to
+   *  be flipped on any leg that runs left to right or the plane flies
+   *  backwards. Only meaningful for clips with a direction. */
+  flip?: boolean;
   style?: ViewStyle;
   /** Describe the *transfer state*, not the cat — a screen reader user needs
    *  the status, and the mascot is decoration they cannot see. */
@@ -131,7 +136,7 @@ export function Kitten({
     >
       <Image
         source={CLIPS[state]}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', transform: [{ scaleX: flip ? -1 : 1 }] }}
         contentFit="contain"
         // Reduce Motion is a real request, not a preference to weigh: the
         // animation stops and the first frame stands in.
