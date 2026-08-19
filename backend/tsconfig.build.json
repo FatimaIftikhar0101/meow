@@ -1,9 +1,24 @@
 {
   "extends": "./tsconfig.json",
-  // `prisma` must stay excluded: prisma/seed.ts is run through ts-node, never
-  // compiled. Including it makes the common source root the package root
-  // rather than src/, which shifts the emit to dist/src/main.js and breaks
-  // `start:prod` (node dist/main). Type checking of seed.ts still happens via
-  // the root tsconfig.json on `tsc --noEmit`.
-  "exclude": ["node_modules", "test", "dist", "prisma", "**/*spec.ts"]
+  "compilerOptions": {
+    // Pin the source root instead of letting TypeScript infer it from whatever
+    // files happen to be included. Inference takes the common ancestor of every
+    // input, so one compiled file outside src/ silently moves the emit from
+    // dist/main.js to dist/src/main.js and `start:prod` dies with
+    // `Cannot find module '/app/dist/main'` — at deploy time, not build time,
+    // because the build itself succeeds perfectly well. Pinned, that same
+    // mistake fails the build with the offending file named.
+    "rootDir": "./src"
+  },
+  // Everything here is run through ts-node and never compiled: prisma/seed.ts,
+  // and scripts/ (the one-off encryption backfill). They are still type checked
+  // by the root tsconfig.json on `tsc --noEmit`.
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "prisma",
+    "scripts",
+    "**/*spec.ts"
+  ]
 }
