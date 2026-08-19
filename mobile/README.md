@@ -103,7 +103,14 @@ npx eas credentials -p android
    - SHA-1: the fingerprint from step 2
 
    No secret is produced and nothing needs pasting back. No rebuild is required either —
-   Google checks the fingerprint server-side.
+   Google checks the fingerprint server-side, so an APK already installed on a phone
+   starts working the moment the client exists.
+
+   **The Android client ID it gives you is never used in code.** There is no
+   `androidClientId` option — `GoogleSignin.configure()` accepts only `webClientId` and
+   `iosClientId`. The Android client is matched implicitly, by package name and
+   fingerprint. Putting it in `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` would break sign-in, by
+   making the token’s `aud` stop matching what the backend verifies.
 
 4. Put the **web** client ID (the backend's existing `GOOGLE_CLIENT_ID`) into
    `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` — in `.env` locally, and in the `env` block of the
@@ -115,6 +122,11 @@ npx eas credentials -p android
    will issue a token to this package + signature at all.
 
 5. Deploy the backend — it needs `POST /auth/google/native`, added alongside this app.
+
+One Android client covers one signing key. Play App Signing re-signs the uploaded bundle
+with a key Google holds, so publishing to the Play Store later needs a **second** Android
+OAuth client carrying that fingerprint — from Play Console → Release → Setup → App
+signing — alongside the EAS one, which keeps internal APK builds working.
 
 If `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is empty the Google button is hidden and
 email/password still works, so the app is usable before any of this is done.
