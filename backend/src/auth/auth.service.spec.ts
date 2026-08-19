@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService, splitName } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { MfaService } from './mfa.service';
 import { ReferralsService } from '../referrals/referrals.service';
 
 jest.mock('bcrypt');
@@ -58,6 +59,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
+        { provide: MfaService, useValue: { verify: jest.fn() } },
         { provide: JwtService, useValue: { sign: jest.fn().mockReturnValue('test-jwt-token') } },
         {
           provide: ConfigService,

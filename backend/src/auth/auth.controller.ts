@@ -22,9 +22,11 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleNativeDto } from './dto/google-native.dto';
 import { LoginDto } from './dto/login.dto';
+import { MfaCodeDto, MfaLoginDto } from './dto/mfa.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthService } from './auth.service';
+import { MfaService } from './mfa.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { GoogleProfile } from './google.strategy';
 import { GoogleEnabledGuard } from './google-enabled.guard';
@@ -40,6 +42,7 @@ function extractCtx(req: Request) {
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly mfa: MfaService,
     private readonly config: ConfigService,
   ) {}
 
@@ -63,6 +66,41 @@ export class AuthController {
     return this.auth.login(dto, 'staff', extractCtx(req));
   }
 
+  /**
+   * Second half of a staff sign-in, exchanging the challenge for a session.
+   *
+   * Throttled harder than the password endpoint: a six-digit code is only
+   * a million possibilities, and the challenge lives for five minutes.
+   */
+  @Post('admin/login/mfa')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  adminLoginMfa(@Body() dto: MfaLoginDto, @Req() req: Request) {
+    return this.auth.completeMfaLogin(dto.mfaToken, dto.code, extractCtx(req));
+  }
+
+  /**
+   * Start two-factor enrolment.
+   *
+   * Behind JwtAuthGuard but deliberately not behind StaffGuard — an
+   * un-enrolled staff member has to be able to reach exactly this and
+   * nothing else, which is the whole shape of the requirement.
+   */
+  @Post('mfa/enrol')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  beginMfaEnrolment(@CurrentUser() user: AuthUser) {
+    return this.mfa.beginEnrolment(user.id, user.email);
+  }
+
+  @Post('mfa/confirm')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  confirmMfaEnrolment(@CurrentUser() user: AuthUser, @Body() dto: MfaCodeDto) {
+    return this.mfa.confirmEnrolment(user.id, user.email, dto.code);
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   profile(@CurrentUser() user: AuthUser) {
@@ -72,7 +110,11 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @Req() req: Request) {
+  changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
     return this.auth.changePassword(user.id, dto, extractCtx(req));
   }
 
@@ -124,8 +166,12 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleEnabledGuard, AuthGuard('google'))
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const { access_token } = await this.auth.googleLogin(req.user as GoogleProfile, extractCtx(req));
-    const frontend = this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
+    const { access_token } = await this.auth.googleLogin(
+      req.user as GoogleProfile,
+      extractCtx(req),
+    );
+    const frontend =
+      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
     res.redirect(`${frontend}/auth/google/callback?token=${access_token}`);
   }
 

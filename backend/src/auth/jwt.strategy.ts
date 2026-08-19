@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
@@ -10,6 +14,9 @@ export interface JwtPayload {
   email: string;
   role: UserRole;
   sid: string; // session id
+  /** Present only on the short-lived challenge issued between a staff
+   *  password check and its code. Never valid as an access token. */
+  typ?: string;
   iat?: number;
   exp?: number;
 }
@@ -34,6 +41,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    // A challenge token carries no session id, so the check below would reject
+    // it anyway. Named explicitly because "half-authenticated credential must
+    // not work as a whole one" is too important to rest on a side effect.
+    if (payload.typ && payload.typ !== 'access') {
+      throw new UnauthorizedException('Invalid token');
+    }
     if (!payload.sid) {
       throw new UnauthorizedException('Session expired, please sign in again');
     }
@@ -48,6 +61,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             role: true,
             suspended: true,
             passwordChangedAt: true,
+            mfaEnabledAt: true,
           },
         },
       },
@@ -70,7 +84,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new ForbiddenException('Account suspended');
     }
     if (payload.iat) {
-      const passwordChangedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      const passwordChangedAtSec = Math.floor(
+        user.passwordChangedAt.getTime() / 1000,
+      );
       if (payload.iat < passwordChangedAtSec) {
         throw new UnauthorizedException('Session ended, please sign in again');
       }
@@ -79,12 +95,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Best-effort lastSeenAt update (throttled to ~5 min)
     const fiveMin = 5 * 60 * 1000;
     if (Date.now() - session.lastSeenAt.getTime() > fiveMin) {
-      this.prisma.session.updateMany({
-        where: { id: session.id },
-        data: { lastSeenAt: new Date() },
-      }).catch(() => {});
+      this.prisma.session
+        .updateMany({
+          where: { id: session.id },
+          data: { lastSeenAt: new Date() },
+        })
+        .catch(() => {});
     }
 
-    return { id: user.id, email: user.email, role: user.role, sid: session.id };
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      sid: session.id,
+      mfaEnabled: Boolean(user.mfaEnabledAt),
+    };
   }
 }

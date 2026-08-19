@@ -41,19 +41,33 @@ model User {
   country            String?
   role               UserRole  @default(customer)
   suspended          Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+
+  // Two-factor, mandatory for every back-office role and unused by customers.
+  // The secret is a bearer credential — anyone holding it can mint valid codes
+  // forever — so it is encrypted at rest with the same field encryption as
+  // account numbers, never stored bare.
+  mfaSecret        String?
+  // Set only once a code has been proved to work. A secret without this is an
+  // enrolment in progress, which must not satisfy the requirement.
+  mfaEnabledAt     DateTime?
+  // bcrypt hashes, never the codes themselves. Consumed on use.
+  mfaRecoveryCodes String[]  @default([])
+  // The last time step accepted, so a code cannot be replayed inside its own
+  // validity window — the one thing a shoulder-surfer or a proxy needs.
+  mfaLastTimeStep  Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   referralCode String? @unique
 
-  wallets    Wallet[]
-  recipients Recipient[]
-  transfers  Transfer[]
-  kycRecords KycRecord[]
-  auditLogs  AuditLog[]
-  sessions   Session[]
-  referralsMade    Referral[] @relation("ReferrerReferrals")
-  referredBy       Referral?  @relation("RefereeReferral")
+  wallets       Wallet[]
+  recipients    Recipient[]
+  transfers     Transfer[]
+  kycRecords    KycRecord[]
+  auditLogs     AuditLog[]
+  sessions      Session[]
+  referralsMade Referral[]  @relation("ReferrerReferrals")
+  referredBy    Referral?   @relation("RefereeReferral")
 }
 
 enum UserRole {
@@ -77,7 +91,7 @@ enum UserRole {
 model Wallet {
   id        String   @id @default(uuid())
   userId    String
-  currency  String   // ISO 4217: CAD, USD, ...
+  currency  String // ISO 4217: CAD, USD, ...
   createdAt DateTime @default(now())
 
   // Restrict, not Cascade: a wallet is the anchor for its ledger entries, and
@@ -99,10 +113,10 @@ model Recipient {
   name        String
   email       String?
   phone       String?
-  country     String   // ISO 3166-1 alpha-2: PK, IN, PH, ...
-  bankAccount String   // IBAN or local account number
+  country     String // ISO 3166-1 alpha-2: PK, IN, PH, ...
+  bankAccount String // IBAN or local account number
   bankName    String?
-  bankCode    String?  // SWIFT/BIC, IFSC, etc.
+  bankCode    String? // SWIFT/BIC, IFSC, etc.
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -122,12 +136,12 @@ model Recipient {
 
 model Corridor {
   id            String  @id @default(uuid())
-  fromCurrency  String  // CAD
-  toCurrency    String  // PKR
-  fromCountry   String  // CA
-  toCountry     String  // PK
+  fromCurrency  String // CAD
+  toCurrency    String // PKR
+  fromCountry   String // CA
+  toCountry     String // PK
   baseRate      Decimal @db.Decimal(20, 8) // mock provider rate (1 fromCurrency = baseRate toCurrency)
-  marginBps     Int     @default(150)      // our spread in basis points (150 = 1.5%)
+  marginBps     Int     @default(150) // our spread in basis points (150 = 1.5%)
   feeFlat       Decimal @default(0) @db.Decimal(20, 4)
   feePercentBps Int     @default(0)
   minSendAmount Decimal @db.Decimal(20, 4)
@@ -153,9 +167,9 @@ enum TransferStatus {
 }
 
 model Transfer {
-  id              String         @id @default(uuid())
-  userId          String
-  recipientId     String
+  id          String @id @default(uuid())
+  userId      String
+  recipientId String
 
   // ── Beneficiary, snapshotted at creation ──────────────────────────────────
   //
@@ -183,8 +197,8 @@ model Transfer {
   feeAmount       Decimal        @default(0) @db.Decimal(20, 4)
   status          TransferStatus @default(initiated)
   idempotencyKey  String         @unique
-  providerName    String?        // e.g. "mock", "nium", "thunes"
-  providerRef     String?        // provider's transaction id
+  providerName    String? // e.g. "mock", "nium", "thunes"
+  providerRef     String? // provider's transaction id
   failureReason   String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -236,7 +250,7 @@ model LedgerEntry {
   id          String          @id @default(uuid())
   walletId    String
   transferId  String?
-  txGroupId   String          // both legs of a double-entry pair share this
+  txGroupId   String // both legs of a double-entry pair share this
   direction   LedgerDirection
   type        LedgerEntryType
   amount      Decimal         @db.Decimal(20, 4)
@@ -266,7 +280,7 @@ model KycRecord {
   id          String    @id @default(uuid())
   userId      String
   status      KycStatus @default(pending)
-  provider    String?   // "mock", "trulioo", "onfido", ...
+  provider    String? // "mock", "trulioo", "onfido", ...
   providerRef String?
   reason      String?
   verifiedAt  DateTime?
@@ -280,19 +294,19 @@ model KycRecord {
   // The current provider is a mock and has no evidence to give, so these stay
   // empty until a real one is wired in. The columns exist now so that
   // integration is a code change rather than a migration against live data.
-  verifiedName     String?   // name as matched by the provider
+  verifiedName     String? // name as matched by the provider
   verifiedDob      DateTime? // date of birth as matched
   verifiedAddress  String?
-  documentType     String?   // passport, drivers_licence, national_id, ...
-  documentLast4    String?   // never the full number
+  documentType     String? // passport, drivers_licence, national_id, ...
+  documentLast4    String? // never the full number
   documentExpiry   DateTime?
-  method           String?   // document, database, credit_file, biometric, ...
-  providerResponse Json?     // verbatim provider payload, for the audit trail
-  reviewedById     String?   // set when a human overrode the provider
+  method           String? // document, database, credit_file, biometric, ...
+  providerResponse Json? // verbatim provider payload, for the audit trail
+  reviewedById     String? // set when a human overrode the provider
   reviewedAt       DateTime?
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Restrict, not Cascade: identity verification is evidence, subject to a
   // retention obligation, and must outlive any attempt to remove the account.
@@ -308,7 +322,7 @@ model KycRecord {
 model Notification {
   id        String   @id @default(uuid())
   userId    String
-  type      String   // transfer_status, rate_alert, system
+  type      String // transfer_status, rate_alert, system
   title     String
   body      String
   read      Boolean  @default(false)
@@ -373,9 +387,9 @@ model Referral {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model AuditLog {
-  id         String   @id @default(uuid())
+  id         String  @id @default(uuid())
   userId     String?
-  action     String   // e.g. "auth.register", "transfer.create", "wallet.fund"
+  action     String // e.g. "auth.register", "transfer.create", "wallet.fund"
   entityType String?
   entityId   String?
   metadata   Json?
@@ -394,9 +408,9 @@ model AuditLog {
   afterValue  Json?
   reason      String?
 
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 

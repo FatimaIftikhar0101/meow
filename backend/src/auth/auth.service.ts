@@ -14,7 +14,8 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
-import { isStaff } from './permissions';
+import { MfaService } from './mfa.service';
+import { isStaff, permissionsFor } from './permissions';
 import { writeAudit } from '../common/audit/audit';
 import { MailService } from '../mail/mail.service';
 import { ReferralsService } from '../referrals/referrals.service';
@@ -25,6 +26,9 @@ import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import type { GoogleProfile } from './google.strategy';
 
+/** Long enough to fetch a phone from a pocket, short enough that a stolen
+ *  challenge token is useless by the time anyone finds it. */
+const MFA_CHALLENGE_TTL = '5m';
 const BCRYPT_ROUNDS = 10;
 const VERIFY_TOKEN_BYTES = 32;
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -83,6 +87,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mail: MailService,
+    private readonly mfa: MfaService,
     @Inject(forwardRef(() => ReferralsService))
     private readonly referrals: ReferralsService,
   ) {}
@@ -207,7 +212,10 @@ export class AuthService {
           where: { id: user.id },
           data: {
             googleId: profile.googleId,
-            authProvider: user.authProvider === 'local' ? 'local+google' : user.authProvider,
+            authProvider:
+              user.authProvider === 'local'
+                ? 'local+google'
+                : user.authProvider,
             emailVerified: true,
             firstName: user.firstName || profile.firstName || null,
             avatarUrl: user.avatarUrl || profile.avatarUrl || null,
@@ -313,6 +321,68 @@ export class AuthService {
       throw new ForbiddenException('Use the admin portal');
     }
 
+    // The password was right, but for enrolled staff it is only the first
+    // half. Hand back a challenge rather than a session: this token carries
+    // no session id, so JwtStrategy rejects it everywhere a real one works.
+    if (audience === 'staff' && user.mfaEnabledAt) {
+      return {
+        mfaRequired: true as const,
+        mfaToken: this.jwt.sign(
+          { sub: user.id, typ: 'mfa' },
+          { expiresIn: MFA_CHALLENGE_TTL },
+        ),
+      };
+    }
+
+    return this.issueSession(user, audience, ctx);
+  }
+
+  /**
+   * Second half of a staff sign-in.
+   *
+   * Deliberately vague about which half failed. Telling an attacker that the
+   * password was right and only the code was wrong confirms a valid
+   * credential, which is the more valuable of the two things to learn.
+   */
+  async completeMfaLogin(mfaToken: string, code: string, ctx?: RequestContext) {
+    let payload: { sub?: string; typ?: string };
+    try {
+      payload = this.jwt.verify(mfaToken);
+    } catch {
+      throw new UnauthorizedException(
+        'That sign-in attempt expired. Start again.',
+      );
+    }
+    if (payload.typ !== 'mfa' || !payload.sub) {
+      throw new UnauthorizedException('Invalid sign-in token');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+    if (!user || user.suspended || !isStaff(user.role)) {
+      throw new UnauthorizedException('Invalid sign-in token');
+    }
+
+    if (!(await this.mfa.verify(user.id, code))) {
+      await writeAudit(this.prisma, {
+        actor: { id: user.id, email: user.email },
+        action: 'auth.mfa.failed',
+        entityType: 'user',
+        entityId: user.id,
+        context: { ip: ctx?.ip, userAgent: ctx?.userAgent },
+      });
+      throw new UnauthorizedException('Invalid or expired code');
+    }
+
+    return this.issueSession(user, 'staff', ctx);
+  }
+
+  private async issueSession(
+    user: { id: string; email: string; role: UserRole },
+    audience: 'customer' | 'staff' | undefined,
+    ctx?: RequestContext,
+  ) {
     await writeAudit(this.prisma, {
       actor: { id: user.id, email: user.email },
       action: audience === 'staff' ? 'auth.staff_login' : 'auth.login',
@@ -353,16 +423,27 @@ export class AuthService {
         [user.firstName, user.lastName].filter(Boolean).join(' ') || null,
       country: user.country,
       role: user.role,
+      // What this account may actually do, so the back office builds its
+      // navigation from capabilities rather than from role names. A client that
+      // hardcodes `role === admin` drifts the moment a capability moves between
+      // roles; PermissionsGuard remains the enforcement either way.
+      permissions: permissionsFor(user.role),
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     };
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto, ctx?: RequestContext) {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    ctx?: RequestContext,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
     if (!user.passwordHash) {
-      throw new BadRequestException('This account uses Google sign-in and has no password to change');
+      throw new BadRequestException(
+        'This account uses Google sign-in and has no password to change',
+      );
     }
     const ok = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!ok) throw new BadRequestException('Current password is incorrect');
@@ -398,7 +479,9 @@ export class AuthService {
     });
     // Always return success to prevent email enumeration
     if (!user || !user.passwordHash) {
-      return { message: 'If that email is registered, a reset link has been sent' };
+      return {
+        message: 'If that email is registered, a reset link has been sent',
+      };
     }
     const resetToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
     await this.prisma.user.update({
@@ -415,7 +498,9 @@ export class AuthService {
       entityId: user.id,
     });
     this.mail.sendPasswordResetEmail(user.email, resetToken).catch(() => {});
-    return { message: 'If that email is registered, a reset link has been sent' };
+    return {
+      message: 'If that email is registered, a reset link has been sent',
+    };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
@@ -426,7 +511,9 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset link');
     }
     if (user.pwResetExpires && user.pwResetExpires < new Date()) {
-      throw new BadRequestException('Reset link has expired — request a new one');
+      throw new BadRequestException(
+        'Reset link has expired — request a new one',
+      );
     }
     const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
     await this.prisma.$transaction(async (tx) => {
@@ -469,7 +556,9 @@ export class AuthService {
       return { message: 'Email already verified' };
     }
     if (user.emailVerifyExpires && user.emailVerifyExpires < new Date()) {
-      throw new BadRequestException('Verification link has expired — request a new one');
+      throw new BadRequestException(
+        'Verification link has expired — request a new one',
+      );
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -591,15 +680,25 @@ export class AuthService {
     if (!match) return DEFAULT_SESSION_TTL_MS;
     const n = parseInt(match[1], 10);
     switch (match[2]) {
-      case 's': return n * 1000;
-      case 'm': return n * 60 * 1000;
-      case 'h': return n * 60 * 60 * 1000;
-      case 'd': return n * 24 * 60 * 60 * 1000;
-      default: return DEFAULT_SESSION_TTL_MS;
+      case 's':
+        return n * 1000;
+      case 'm':
+        return n * 60 * 1000;
+      case 'h':
+        return n * 60 * 60 * 1000;
+      case 'd':
+        return n * 24 * 60 * 60 * 1000;
+      default:
+        return DEFAULT_SESSION_TTL_MS;
     }
   }
 
-  private signToken(userId: string, email: string, role: UserRole, sid: string) {
+  private signToken(
+    userId: string,
+    email: string,
+    role: UserRole,
+    sid: string,
+  ) {
     const access_token = this.jwt.sign({ sub: userId, email, role, sid });
     return { access_token };
   }

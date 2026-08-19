@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { GoogleStrategy } from './google.strategy';
 import { JwtStrategy } from './jwt.strategy';
+import { MfaService } from './mfa.service';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { JwtStrategy } from './jwt.strategy';
   controllers: [AuthController],
   providers: [
     AuthService,
+    MfaService,
     JwtStrategy,
     // Registered only when Google is actually configured. passport-oauth2
     // throws `OAuth2Strategy requires a clientID option` from its constructor
@@ -56,6 +58,6 @@ import { JwtStrategy } from './jwt.strategy';
       },
     },
   ],
-  exports: [AuthService, JwtStrategy, PassportModule, JwtModule],
+  exports: [AuthService, MfaService, JwtStrategy, PassportModule, JwtModule],
 })
 export class AuthModule {}

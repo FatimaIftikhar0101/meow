@@ -28,6 +28,7 @@ const ADMIN: AuthUser = {
   email: 'boss@meow.test',
   role: 'admin',
   sid: 'sid-1',
+  mfaEnabled: true,
 };
 
 describe('StaffService', () => {

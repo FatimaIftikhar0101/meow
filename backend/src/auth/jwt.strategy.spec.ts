@@ -54,6 +54,7 @@ describe('JwtStrategy', () => {
       email: 'test@test.com',
       role: 'customer',
       sid: 'sess-1',
+      mfaEnabled: false,
     });
   });
 

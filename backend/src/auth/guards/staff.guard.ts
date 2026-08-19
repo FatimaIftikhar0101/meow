@@ -27,6 +27,15 @@ export class StaffGuard implements CanActivate {
     if (!req.user || !isStaff(req.user.role)) {
       throw new ForbiddenException('Staff access required');
     }
+    // Two-factor is a requirement of holding a back-office role, not a setting
+    // someone may decline. Enforcing it here rather than at login is what makes
+    // the enrolment endpoints — which sit under /auth, outside this guard — the
+    // only thing an un-enrolled staff session can reach.
+    if (!req.user.mfaEnabled) {
+      throw new ForbiddenException(
+        'Set up two-factor authentication before using the back office',
+      );
+    }
     return true;
   }
 }

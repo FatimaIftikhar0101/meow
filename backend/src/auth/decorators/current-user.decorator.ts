@@ -7,6 +7,9 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   sid: string;
+  /** Whether two-factor enrolment is complete. Staff routes require it; the
+   *  enrolment endpoints are the only thing reachable without it. */
+  mfaEnabled: boolean;
 }
 
 export const CurrentUser = createParamDecorator(
