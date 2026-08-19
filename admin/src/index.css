@@ -1,0 +1,99 @@
+@import 'tailwindcss';
+
+/**
+ * The same semantic tokens as mobile/theme/tokens.ts, as CSS variables.
+ *
+ * The names are the roles, not the colours — `canvas`, `ink`, `danger` — for
+ * the reason recorded in the mobile file: revision 2 was rejected for being
+ * too green and revision 3 replaced the palette outright, and neither should
+ * have required touching a screen. A token called `mint` cannot survive a
+ * brand that stops being green.
+ *
+ * Keeping the names identical across the two clients means a palette change is
+ * one edit per platform rather than a hunt, and a developer moving between the
+ * app and the panel is reading the same vocabulary.
+ *
+ * Tailwind v4 generates utilities from these directly: `--color-canvas` gives
+ * `bg-canvas`, `--color-ink` gives `text-ink`. So a literal hex in a class name
+ * is always a mistake — the role is missing, and the fix is to add one here.
+ */
+@theme {
+  /* Surfaces. There is no "almost white": canvas and card are both #FFFFFF and
+     separate by hairline, never by tint. */
+  --color-canvas: #ffffff;
+  --color-card: #ffffff;
+  --color-inset: #f4f7f8;
+  --color-slab: #55666f;
+  --color-slab-deep: #2e3b42;
+  --color-roundel: #3c3c3c;
+
+  /* Borders */
+  --color-line: #e7ecef;
+  --color-line-strong: #cbd6db;
+
+  /* Content */
+  --color-ink: #3c3c3c;
+  --color-ink-muted: #66737a;
+  --color-ink-faint: #8a959b;
+  --color-on-slab: #ffffff;
+  --color-on-slab-muted: #cbd6db;
+
+  /* Action */
+  --color-accent: #3e4e57;
+  --color-accent-deep: #2e3b42;
+  --color-accent-soft: #f4f7f8;
+  /* The client's Slate Blue Grey at full strength. Icons and inactive states
+     only — at 4.38:1 it is not safe for body text, which is why it is a role
+     of its own and must stay one. */
+  --color-accent-muted: #6b7b84;
+  --color-on-accent: #ffffff;
+
+  /* Status. Solid fills with light text; a pale chip disappears on white. */
+  --color-success: #2d4530;
+  --color-success-soft: #e3ebe4;
+  --color-on-success: #ffffff;
+  --color-pending: #5e4b3b;
+  --color-pending-soft: #f0eae3;
+  --color-on-pending: #ffffff;
+  --color-danger: #a34434;
+  --color-danger-soft: #f6e3de;
+  --color-on-danger: #ffffff;
+
+  /* Brand. The mark, and only the mark. */
+  --color-gold: #e0b259;
+  --color-gold-light: #fff1c2;
+  --color-gold-deep: #9a6d18;
+
+  --font-display: Georgia, 'Times New Roman', serif;
+}
+
+/**
+ * Dark mode is deliberately absent, matching the app.
+ *
+ * The mobile theme keeps a full dark scheme defined but unrendered, so turning
+ * it on stays mechanical rather than becoming a redesign. Same intent here: add
+ * a `@media (prefers-color-scheme: dark)` block that re-points these variables
+ * and nothing else has to change. Do not add one half-finished — a panel that
+ * is dark in places is worse than one that is light everywhere.
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers in tables must line up vertically — a money column that jitters is
+   harder to scan, and this panel is mostly money columns. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
