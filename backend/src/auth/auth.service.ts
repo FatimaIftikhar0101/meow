@@ -98,7 +98,6 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const { firstName, lastName } = splitName(dto.fullName);
     const currency = homeCurrencyFor(dto.country);
-    const role = this.isAdminEmail(dto.email) ? 'admin' : 'customer';
     const verifyToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
 
     const user = await this.prisma.$transaction(async (tx) => {
@@ -109,7 +108,6 @@ export class AuthService {
           firstName,
           lastName,
           country: dto.country?.trim() || null,
-          role,
           emailVerifyToken: verifyToken,
           emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
         },
@@ -216,7 +214,6 @@ export class AuthService {
           },
         });
       } else {
-        const role = this.isAdminEmail(profile.email) ? 'admin' : 'customer';
         user = await this.prisma.$transaction(async (tx) => {
           const created = await tx.user.create({
             data: {
@@ -226,7 +223,6 @@ export class AuthService {
               emailVerified: true,
               firstName: profile.firstName || null,
               avatarUrl: profile.avatarUrl || null,
-              role,
             },
           });
           await tx.wallet.create({
@@ -287,16 +283,16 @@ export class AuthService {
       throw new ForbiddenException('Account suspended');
     }
 
-    // Keep the role column in sync with ADMIN_EMAILS on every login so an
-    // existing customer added to the env list gets promoted on next sign-in.
-    const desiredRole: UserRole = this.isAdminEmail(user.email) ? 'admin' : user.role;
-    if (desiredRole !== user.role) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { role: desiredRole },
-      });
-      user.role = desiredRole;
-    }
+    // Authentication proves who someone is. It does not decide what they may
+    // do, and it never writes to the role column. Every role comes from staff
+    // management or the one-time bootstrap script, each of which records who
+    // granted it and why.
+    //
+    // This used to re-read ADMIN_EMAILS here on every login. That made the env
+    // var an invisible second source of truth: it silently undid demotions made
+    // in the panel, it only ever promoted (removing an address revoked nothing),
+    // and combined with registration it let anyone who claimed a listed address
+    // become an administrator without ever proving they could read that inbox.
 
     // Which door was used, not which exact role. Staff roles other than admin
     // — support, operations, compliance — must reach the back office, and an
@@ -304,6 +300,14 @@ export class AuthService {
     // while telling them they were "not an admin account".
     if (audience === 'staff' && !isStaff(user.role)) {
       throw new ForbiddenException('Not a staff account');
+    }
+    // Staff must have proved they control the inbox the invite was sent to.
+    // It is also the password-reset path, so an unverified staff address is a
+    // standing way in for whoever does own it.
+    if (audience === 'staff' && !user.emailVerified) {
+      throw new ForbiddenException(
+        'Verify your email address before signing in to the back office',
+      );
     }
     if (audience === 'customer' && isStaff(user.role)) {
       throw new ForbiddenException('Use the admin portal');
@@ -433,6 +437,11 @@ export class AuthService {
           passwordChangedAt: new Date(),
           pwResetToken: null,
           pwResetExpires: null,
+          // Completing a reset proves the person reads that inbox, which is the
+          // same thing the verification email establishes. It also makes the
+          // staff invite flow work: an invitee claims their account through
+          // this path, and staff sign-in requires a verified address.
+          emailVerified: true,
         },
       });
       await tx.session.updateMany({
@@ -588,14 +597,6 @@ export class AuthService {
       case 'd': return n * 24 * 60 * 60 * 1000;
       default: return DEFAULT_SESSION_TTL_MS;
     }
-  }
-
-  private isAdminEmail(email: string): boolean {
-    const list = (this.config.get<string>('ADMIN_EMAILS') ?? '')
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-    return list.includes(email.trim().toLowerCase());
   }
 
   private signToken(userId: string, email: string, role: UserRole, sid: string) {

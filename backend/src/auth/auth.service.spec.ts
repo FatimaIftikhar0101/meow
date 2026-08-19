@@ -149,6 +149,94 @@ describe('AuthService', () => {
     });
   });
 
+  /**
+   * ADMIN_EMAILS used to grant the admin role from three places: registration,
+   * Google sign-up, and every single login. Nothing tested it, which is how it
+   * survived long enough to become the way in.
+   *
+   * The config mock above still sets ADMIN_EMAILS, deliberately — these assert
+   * that the variable is present and ignored, not merely absent.
+   */
+  describe('ADMIN_EMAILS grants nothing', () => {
+    it('registers a listed address as a customer', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
+      const create = jest.fn().mockResolvedValue({
+        id: 'u-1',
+        email: 'admin@test.com',
+        role: 'customer',
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          user: { create },
+          wallet: { create: jest.fn().mockResolvedValue({}) },
+          auditLog: { create: jest.fn().mockResolvedValue({}) },
+        }),
+      );
+      prisma.session.create.mockResolvedValue({ id: 'sess-1' });
+
+      await service.register({
+        email: 'admin@test.com',
+        password: 'Password123',
+        fullName: 'Ada Lovelace',
+      } as any);
+
+      // Not 'customer' explicitly — the column is simply never written, so the
+      // schema default decides. Passing any role here would be the bug.
+      expect(create.mock.calls[0][0].data.role).toBeUndefined();
+    });
+
+    it('does not rewrite the role on login', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        email: 'admin@test.com',
+        passwordHash: 'hashed',
+        suspended: false,
+        emailVerified: true,
+        role: 'customer',
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      prisma.auditLog.create.mockResolvedValue({});
+      prisma.session.create.mockResolvedValue({ id: 'sess-1' });
+
+      await service.login({ email: 'admin@test.com', password: 'Password123' } as any);
+
+      // A demotion made in the panel used to be undone right here.
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('staff sign-in', () => {
+    const staffUser = {
+      id: 'u-2',
+      email: 'analyst@meow.test',
+      passwordHash: 'hashed',
+      suspended: false,
+      role: 'compliance',
+    };
+
+    it('refuses a staff account whose address is not verified', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...staffUser, emailVerified: false });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(
+        service.login({ email: staffUser.email, password: 'Password123' } as any, 'staff'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.session.create).not.toHaveBeenCalled();
+    });
+
+    it('admits a verified staff account', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...staffUser, emailVerified: true });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      prisma.auditLog.create.mockResolvedValue({});
+      prisma.session.create.mockResolvedValue({ id: 'sess-1' });
+
+      await expect(
+        service.login({ email: staffUser.email, password: 'Password123' } as any, 'staff'),
+      ).resolves.toEqual({ access_token: 'test-jwt-token' });
+    });
+  });
+
   describe('listSessions', () => {
     it('returns active sessions and flags the current one', async () => {
       prisma.session.findMany.mockResolvedValue([

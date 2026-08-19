@@ -38,37 +38,10 @@
  * leave the running code handing ciphertext to customers as their account
  * number.
  */
-import { PrismaClient } from '@prisma/client';
 import { encryptField, isEncrypted } from '../src/common/crypto/field-crypto';
+import { scriptPrisma } from './script-db';
 
-/**
- * Prefer the public proxy address, since this runs outside Railway.
- *
- * Checking for the private hostname explicitly earns its few lines: without it
- * the failure is a Prisma connection stack trace naming a host that looks
- * perfectly plausible, and nothing in it suggests the address is simply not
- * meant to be reachable from here.
- */
-function databaseUrl(): string {
-  const url = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error(
-      'Neither DATABASE_PUBLIC_URL nor DATABASE_URL is set. Run this through ' +
-        '`railway run` so the service variables are injected.',
-    );
-  }
-  if (url.includes('.railway.internal')) {
-    throw new Error(
-      "DATABASE_URL points at Railway's private network " +
-        '(postgres.railway.internal), which cannot be reached from this ' +
-        'machine. Add DATABASE_PUBLIC_URL = ${{Postgres.DATABASE_PUBLIC_URL}} ' +
-        "to the backend service's variables and run again.",
-    );
-  }
-  return url;
-}
-
-const prisma = new PrismaClient({ datasourceUrl: databaseUrl() });
+const prisma = scriptPrisma();
 
 async function main() {
   let recipients = 0;

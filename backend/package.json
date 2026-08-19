@@ -24,7 +24,8 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:deploy": "prisma migrate deploy",
-    "db:encrypt-backfill": "ts-node scripts/backfill-encryption.ts"
+    "db:encrypt-backfill": "ts-node scripts/backfill-encryption.ts",
+    "staff:bootstrap": "ts-node scripts/bootstrap-admin.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
