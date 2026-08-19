@@ -16,6 +16,18 @@
  * convenience: encrypting with a local key would write rows the deployed app
  * cannot decrypt, and there is no way back from that except restoring a backup.
  *
+ * One extra step, because those two requirements pull against each other.
+ * Railway's DATABASE_URL is `postgres.railway.internal`, which resolves only
+ * inside Railway's private network — unreachable from the machine actually
+ * running this. The public proxy address is published as DATABASE_PUBLIC_URL
+ * on the Postgres service, so add a reference to it on the *backend* service
+ * and `railway run` will inject that too:
+ *
+ *   DATABASE_PUBLIC_URL = ${{Postgres.DATABASE_PUBLIC_URL}}
+ *
+ * (Substitute your Postgres service's actual name if it is not `Postgres`.)
+ * ENCRYPTION_KEY still comes from Railway, which is the part that matters.
+ *
  * Safe to run more than once. `isEncrypted` skips anything already converted,
  * so an interrupted run resumes rather than double-encrypting — which would be
  * unrecoverable, since the second decrypt would return the first ciphertext.
@@ -29,7 +41,34 @@
 import { PrismaClient } from '@prisma/client';
 import { encryptField, isEncrypted } from '../src/common/crypto/field-crypto';
 
-const prisma = new PrismaClient();
+/**
+ * Prefer the public proxy address, since this runs outside Railway.
+ *
+ * Checking for the private hostname explicitly earns its few lines: without it
+ * the failure is a Prisma connection stack trace naming a host that looks
+ * perfectly plausible, and nothing in it suggests the address is simply not
+ * meant to be reachable from here.
+ */
+function databaseUrl(): string {
+  const url = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      'Neither DATABASE_PUBLIC_URL nor DATABASE_URL is set. Run this through ' +
+        '`railway run` so the service variables are injected.',
+    );
+  }
+  if (url.includes('.railway.internal')) {
+    throw new Error(
+      "DATABASE_URL points at Railway's private network " +
+        '(postgres.railway.internal), which cannot be reached from this ' +
+        'machine. Add DATABASE_PUBLIC_URL = ${{Postgres.DATABASE_PUBLIC_URL}} ' +
+        "to the backend service's variables and run again.",
+    );
+  }
+  return url;
+}
+
+const prisma = new PrismaClient({ datasourceUrl: databaseUrl() });
 
 async function main() {
   let recipients = 0;
