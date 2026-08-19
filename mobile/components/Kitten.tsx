@@ -33,24 +33,32 @@ export type KittenState =
 /**
  * State to artwork.
  *
- * Only `waiting` has real artwork so far; the rest point at it while the other
- * clips are produced. That is a placeholder, not a design decision — a playful
- * loop where `sorry` belongs is exactly the tonal mistake the state list exists
- * to prevent, so these must be replaced before this ships to a customer.
+ * Built by scripts/key-clip.js from the ProRes masters in design/clips — those
+ * carry a real alpha channel, so the mattes here are the ones the artist
+ * authored rather than anything reconstructed.
+ *
+ * `idle` shares the waiting clip deliberately: both are the kitten sitting
+ * still with its toy untouched, and a second near-identical loop would cost a
+ * megabyte to say the same thing.
  */
-// require(), not import: React Native's asset pipeline resolves this to a
-// numeric asset id, which is what Image.resolveAssetSource needs to report the
-// artwork's intrinsic size. An ES import of a .webp has no such id.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+/* eslint-disable @typescript-eslint/no-require-imports --
+   require(), not import: React Native's asset pipeline resolves these to
+   numeric asset ids, which is what Image.resolveAssetSource needs to report an
+   artwork's intrinsic size. An ES import of a .webp has no such id. */
 const WAITING = require('../assets/kitten/waiting.webp') as number;
+const PLAY = require('../assets/kitten/play.webp') as number;
+const TRAVEL = require('../assets/kitten/travel.webp') as number;
+const DELIVERED = require('../assets/kitten/delivered.webp') as number;
+const SORRY = require('../assets/kitten/sorry.webp') as number;
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 const CLIPS: Record<KittenState, number> = {
   idle: WAITING,
-  play: WAITING,
-  travel: WAITING,
-  delivered: WAITING,
+  play: PLAY,
+  travel: TRAVEL,
+  delivered: DELIVERED,
   waiting: WAITING,
-  sorry: WAITING,
+  sorry: SORRY,
 };
 
 /** Which clip a transfer's status calls for. */

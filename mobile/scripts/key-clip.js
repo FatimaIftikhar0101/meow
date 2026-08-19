@@ -50,23 +50,39 @@ const HI = 46;
 /** Anything above this counts as subject when measuring the bounding box. */
 const BBOX_T = 24;
 
-function readFrames(src, filter) {
+function readFrames(src, filter, pixFmt) {
   const args = ['-v', 'error', '-i', src];
   if (filter) args.push('-vf', filter);
-  args.push('-f', 'rawvideo', '-pix_fmt', 'rgb24', '-');
+  args.push('-f', 'rawvideo', '-pix_fmt', pixFmt, '-');
   const r = spawnSync('ffmpeg', args, { maxBuffer: 1 << 30 });
   if (r.status !== 0) throw new Error(r.stderr.toString());
   return r.stdout;
 }
 
-const dims = execFileSync(
+const probe = execFileSync(
   'ffprobe',
   ['-v', 'error', '-select_streams', 'v:0', '-show_entries',
-   'stream=width,height', '-of', 'csv=p=0:s=x', INPUT],
+   'stream=width,height,pix_fmt', '-of', 'csv=p=0:s=x', INPUT],
   { encoding: 'utf8' },
 ).trim();
-const [W, H] = dims.split('x').map(Number);
-console.log('input ' + path.basename(INPUT) + '  ' + W + 'x' + H);
+const [wStr, hStr, PIX_FMT] = probe.split('x');
+const W = Number(wStr);
+const H = Number(hStr);
+
+/**
+ * Does the source carry a real alpha channel?
+ *
+ * ProRes 4444 (yuva444p12le) does; the VP9 WebM exported alongside it does not
+ * — that export flattens alpha onto black, which is why the keying path below
+ * exists at all. When genuine alpha is available it is always the better
+ * source: no threshold to pick, no enclosed-shadow problem, and edge softness
+ * that was authored rather than inferred.
+ */
+const HAS_ALPHA = /^yuva|^rgba|^bgra|^ya/.test(PIX_FMT || '');
+console.log(
+  'input ' + path.basename(INPUT) + '  ' + W + 'x' + H + '  ' + PIX_FMT +
+  (HAS_ALPHA ? '  (real alpha — keying skipped)' : '  (no alpha — keying from black)'),
+);
 
 /* ── 1. Union bounding box of the subject across every frame ──────────────
  *
@@ -75,8 +91,11 @@ console.log('input ' + path.basename(INPUT) + '  ' + W + 'x' + H);
  * cropdetect is no help: compression noise in the black leaves a few non-zero
  * pixels at the very edge and it reports that no crop is possible at all.
  */
-const full = readFrames(INPUT, null);
-const FS = W * H * 3;
+const PIX = HAS_ALPHA ? 'rgba' : 'rgb24';
+const BPP = HAS_ALPHA ? 4 : 3;
+
+const full = readFrames(INPUT, null, PIX);
+const FS = W * H * BPP;
 const frameCount = Math.floor(full.length / FS);
 let minX = W, maxX = -1, minY = H, maxY = -1;
 for (let f = 0; f < frameCount; f++) {
@@ -84,9 +103,14 @@ for (let f = 0; f < frameCount; f++) {
   for (let y = 0; y < H; y++) {
     let row = false;
     for (let x = 0; x < W; x++) {
-      const i = off + (y * W + x) * 3;
-      const L = 0.2126 * full[i] + 0.7152 * full[i + 1] + 0.0722 * full[i + 2];
-      if (L > BBOX_T) {
+      const i = off + (y * W + x) * BPP;
+      // With a real matte the subject is simply wherever alpha is. Without one
+      // it has to be inferred: anything brighter than the black it was
+      // flattened onto.
+      const inside = HAS_ALPHA
+        ? full[i + 3] > 8
+        : 0.2126 * full[i] + 0.7152 * full[i + 1] + 0.0722 * full[i + 2] > BBOX_T;
+      if (inside) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         row = true;
@@ -98,7 +122,13 @@ for (let f = 0; f < frameCount; f++) {
     }
   }
 }
-if (maxX < 0) throw new Error('no subject found — is the background actually dark?');
+if (maxX < 0) {
+  throw new Error(
+    HAS_ALPHA
+      ? 'no subject found — the alpha channel is empty'
+      : 'no subject found — is the background actually dark?',
+  );
+}
 
 const bw = maxX - minX + 1;
 const bh = maxY - minY + 1;
@@ -113,11 +143,34 @@ console.log(
   '  ->  crop ' + cw + 'x' + ch + ' at ' + cx + ',' + cy,
 );
 
-/* ── 2. Key ───────────────────────────────────────────────────────────────── */
-const cropped = readFrames(INPUT, 'crop=' + cw + ':' + ch + ':' + cx + ':' + cy);
-const CFS = cw * ch * 3;
+/* ── 2. Alpha ─────────────────────────────────────────────────────────────── */
+const cropped = readFrames(
+  INPUT,
+  'crop=' + cw + ':' + ch + ':' + cx + ':' + cy,
+  PIX,
+);
+const CFS = cw * ch * BPP;
 const n = Math.floor(cropped.length / CFS);
 const out = Buffer.alloc(cw * ch * 4 * n);
+
+if (HAS_ALPHA) {
+  // Nothing to infer. The matte was authored, so it is copied through as-is:
+  // no threshold to pick, no enclosed-shadow problem, and the edge softness is
+  // the one the artist produced rather than one reconstructed from luma.
+  cropped.copy(out, 0, 0, Math.min(cropped.length, out.length));
+  console.log('copied ' + n + ' frames with their authored alpha');
+} else {
+  keyFromBlack();
+}
+
+/**
+ * Recover a matte from footage flattened onto black.
+ *
+ * Only reached when the source has no alpha — the VP9 WebM export, typically.
+ * Kept because that is what tends to arrive, but it is strictly the worse
+ * input: see the header for the two failure modes it has to work around.
+ */
+function keyFromBlack() {
 const bg = new Uint8Array(cw * ch);
 const stack = new Int32Array(cw * ch);
 const alpha = new Uint8Array(cw * ch);
@@ -173,6 +226,7 @@ for (let f = 0; f < n; f++) {
   }
 }
 console.log('keyed ' + n + ' frames; ' + enclosed + ' enclosed dark px kept opaque');
+}
 
 /* ── 3. Encode ────────────────────────────────────────────────────────────── */
 const tmp = path.join(os.tmpdir(), 'keyclip-' + process.pid + '.rgba');
