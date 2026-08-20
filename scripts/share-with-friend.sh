@@ -57,7 +57,7 @@ echo "       frontend public URL: $FRONT_URL"
 # 4. Frontend dev server — pointed at the backend tunnel via NEXT_PUBLIC_API_URL.
 #    Also tells the backend to accept the frontend tunnel as a CORS origin.
 echo "[4/4] starting frontend on :3001 (wired to $BACK_URL)…"
-NEXT_PUBLIC_API_URL="$BACK_URL" npm run dev >"$LOG/front.log" 2>&1 &
+(cd web && NEXT_PUBLIC_API_URL="$BACK_URL" npm run dev) >"$LOG/front.log" 2>&1 &
 
 # Push the FRONTEND_ORIGIN into the running backend so CORS accepts the tunnel.
 # Easiest path: write it into backend/.env and let nodemon restart pick it up.

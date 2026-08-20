@@ -13,8 +13,9 @@ npm run start:dev
 ```
 Wait until you see: `Nest application successfully started`
 
-**Terminal 3 — Frontend**
+**Terminal 3 — Web app**
 ```powershell
+cd web
 npm run dev
 ```
 Wait until you see: `✓ Ready in ...`
@@ -25,7 +26,7 @@ Wait until you see: `✓ Ready in ...`
 
 | What | URL |
 |------|-----|
-| Frontend | http://localhost:3001 |
+| Web app | http://localhost:3001 |
 | Admin portal | http://localhost:3001/admin/login |
 | Backend API | http://localhost:3000 |
 | Health check | http://localhost:3000/health |

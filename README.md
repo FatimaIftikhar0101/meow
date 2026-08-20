@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meow
 
-## Getting Started
+Remittance from Canada to Pakistan and India. One backend, three clients.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+backend/   NestJS + Prisma + Postgres — the API, the ledger, the money
+web/       Next.js customer site
+mobile/    React Native (Expo) Android app
+admin/     React + Vite back office, wrapped by Tauri as a desktop app
+docs/      backlog, plans, decisions
+scripts/   repo-level helpers
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Every folder at the root is a deployable thing or a place to keep notes. Nothing
+else belongs here — the web app used to sit at the root, which made it look like
+the repo *was* the web app and left `backend/` and `mobile/` reading as
+appendages of it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Running it
 
-## Learn More
+Postgres first, once, then leave it:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker compose up -d
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Then each app in its own terminal:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cd backend && npm run start:dev
+```
+```bash
+cd web && npm run dev
+```
+```bash
+cd admin && npm run dev
+```
 
-## Deploy on Vercel
+| What | URL |
+|---|---|
+| Web app | http://localhost:3001 |
+| Back office | http://localhost:5183 |
+| Backend API | http://localhost:3000 |
+| Health check | http://localhost:3000/health |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The mobile app needs a dev-client APK rather than a port — see `mobile/README.md`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Each app has its own `package.json` and its own `node_modules`. There is no
+workspace tool tying them together, deliberately: they deploy separately, on
+different schedules, and a shared lockfile would couple releases that have no
+reason to be coupled.
+
+---
+
+## Branches
+
+**`main` is the only long-lived branch, and it is what Railway deploys.** It
+should always be in a state you would be happy to deploy, because it is
+deployed.
+
+Everything else is short-lived and named for the work, not for the app it
+touches:
+
+```
+feat/…    a new capability          fix/…     a defect
+chore/…   tooling, deps, cleanup    docs/…    documentation only
+```
+
+Branch from `main`, keep it small, open a PR, merge, **delete the branch**.
+
+### Why not a long-lived branch per app
+
+Because that is what this repo had, and it went wrong in a specific way. A
+`feat/react-native-app` branch lived long enough to collect twenty-six commits,
+including backend work that had nothing to do with mobile — so Railway had to
+track a feature branch to deploy the API, and `main` sat months behind what was
+actually running. A branch per app sounds tidy and produces exactly that.
+
+A branch that only ever tracks one folder is also a merge conflict waiting to
+happen, since the interesting changes are the ones that cross folders: an
+endpoint plus the screen that calls it.
+
+### When a branch is fully contained in another
+
+If `git merge-base --is-ancestor A B` says A is inside B, then A holds nothing
+of its own — every commit on it also exists on B. Delete it. Keeping it around
+can only cause someone to branch from a stale copy.
+
+One ordering rule: **never delete the branch a deployment is watching.** Merge
+first, repoint the deployment, confirm a green build, then delete.

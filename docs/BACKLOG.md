@@ -15,7 +15,9 @@ Everything outstanding, in one place. The `#n` numbers are the ones I use in cha
 | 18 | **Google sign-in.** Working end to end on the phone. The missing piece was the Android OAuth client (package `com.meow.app` + the EAS keystore SHA-1) — nothing in the code, and no rebuild needed once created, since Google enforces the fingerprint check server-side. Also fixed a reporting bug that had hidden the cause: `errorMessage()` understood only axios errors, so every native Play Services rejection surfaced as the same generic sentence. | ✅ |
 | 19 | **Outbound email.** Done. `RESEND_API_KEY` and `MAIL_FROM` are set on Railway and the boot log confirms `Mail transport: Resend HTTP API (from onboarding@resend.dev)`. Note that the shared test sender generally only delivers to the address the Resend account was registered with, so register the end-to-end test user with that address. | ✅ |
 | 20 | **End-to-end money-path test** on the physical phone: register with referral → verify email → KYC → fund → add PK recipient → send → watch all six statuses live over the socket (~25s) → notification → PDF receipt. Then idempotency (kill mid-submit, retry, confirm one transfer and one debit) and session revocation. Unblocked: the backend is deployed, migrations applied, email working. | ⬜ |
-| 21 | **Open the PR** for `feat/react-native-app` — `gh` here is authenticated as a read-only account so I cannot. Branch is pushed and in sync: <https://github.com/FatimaIftikhar0101/meow/pull/new/feat/react-native-app>. Also delete the test account `meow-contract-check+…@example.com` from the deployed database. Note `.claude/launch.json` holds a local-only path and must stay uncommitted — stash/pop it around EAS builds. | ⛔ you |
+| 21 | **Repoint Railway to `main`, then let me delete the old branches.** Everything now lives on `main` (fast-forward, no conflicts). Railway still watches `feat/react-native-app`; change it once to `main` and it never needs changing again. `claude/check-code-status-OZqFV` holds zero unique commits and can go immediately; `feat/react-native-app` and `feat/admin-panel` go after the deploy is green — never delete the branch a deployment is watching. Also delete the test account `meow-contract-check+…@example.com` from the deployed database. `.claude/launch.json` holds a machine-specific path and must stay uncommitted. | ⛔ you |
+| 24 | **Wire up dark mode in the mobile app.** Not a design job: `mobile/theme/tokens.ts` already defines a complete `dark` scheme beside `light`, deliberately kept in step. What is missing is that nothing renders it — wrap the tree in `ThemeProvider` and swap `import { colors }` for `useTheme()` in the components that should react. Then check every screen, because a token that was never exercised in dark is where the contrast failures hide. Confirm with the client first: dark mode was scoped out of revision 1 and has not been agreed since. | ⬜ |
+| 25 | **Dark mode for the back office**, once #24 lands and the client has agreed. `admin/src/index.css` mirrors the same roles as CSS variables; adding a `prefers-color-scheme` block re-points them and nothing else changes. Do not ship it half-finished — a panel that is dark in places is worse than one that is light everywhere. | ⬜ |
 
 ---
 
@@ -43,8 +45,8 @@ maker-checker. Build order:
 | Step | Item | Status |
 |---|---|---|
 | 0 | Schema hardening (the #22 items above) | ✅ |
-| 1 | RBAC foundation — extend `UserRole`, permission map, `PermissionsGuard`, staff TOTP MFA, staff management | ⬜ |
-| 2 | Tauri shell — scaffold, staff auth + TOTP, keychain token storage, auto-update, app frame | ⬜ |
+| 1 | RBAC foundation — `UserRole`, permission map, `PermissionsGuard`, staff TOTP MFA, staff management, `ADMIN_EMAILS` retired for an audited bootstrap script | ✅ |
+| 2 | **Tauri shell.** The SPA is built and runs in a browser: staff sign-in with the two-step code, enrolment, permission-driven navigation, transfers, customers, audit, staff & roles. Still to wrap: Tauri scaffold, keychain token storage (currently `sessionStorage`), auto-update, native notifications, and the `tauri://localhost` CORS decision. | 🟨 |
 | 3 | Operations — transfer queue, aging/SLA view, transfer detail, retry | ⬜ |
 | 4 | Support — customer 360, lookup, masked PII with audited reveal, notes | ⬜ |
 | 5 | Maker-checker — `ApprovalRequest`, request/approve flows, wire the gated actions | ⬜ |
@@ -71,6 +73,14 @@ Steps 1–7 are a usable back office. Steps 8–10 are what a regulator expects 
 ---
 
 ## Done
+
+**Repo layout and branches, 2026-08-20.** The web app moved out of the repo root into
+`web/`, so the root now holds only deployable things — `backend/`, `web/`, `mobile/`,
+`admin/` — plus `docs/` and `scripts/`. All branches merged into `main` as a
+fast-forward. `main` is now the only long-lived branch and the one Railway deploys;
+everything else is short-lived and deleted after merge. See the README for why a
+long-lived branch per app is what caused the tangle.
+
 
 Expo app scaffold · backend `POST /auth/google/native` · auth screens + native Google sign-in ·
 home, greetings, KYC banner, wallet · recipients CRUD + send flow · activity list + live
