@@ -3,21 +3,33 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 
 /**
  * Transactional email.
  *
- * Two transports, chosen at construction:
+ * Three transports, chosen at construction in this order:
  *
- *  - **Resend HTTP API** when RESEND_API_KEY is set. This is the one that
- *    works in production. Managed hosts (Railway, Render, Heroku, Vercel)
- *    block outbound SMTP ports 25/465/587 to stop themselves being used as
- *    spam relays, so nodemailer there fails with `Connection timeout` —
- *    a TCP connect that never completes, before any credential is sent.
- *    Sending over HTTPS on 443 sidesteps that entirely.
+ *  - **Brevo HTTP API** when BREVO_API_KEY is set. Brevo verifies a *single
+ *    sender address* rather than a whole domain, which is the one thing that
+ *    matters before you own a domain: a shared test sender — Resend's
+ *    `onboarding@resend.dev`, and every provider has an equivalent — will only
+ *    deliver to the account owner's own inbox. That is not a setting; it is
+ *    what stops anyone sending mail as anyone. Verifying one address you
+ *    control lifts it, and you can then send to anybody.
+ *
+ *  - **Resend HTTP API** when RESEND_API_KEY is set. The better long-term
+ *    choice *once a domain exists*, because a verified domain with SPF and
+ *    DKIM is what actually keeps mail out of spam folders.
  *
  *  - **SMTP via nodemailer** otherwise, so local development against
  *    Mailhog/Mailpit or a self-hosted relay keeps working unchanged.
+ *
+ * Both HTTP transports exist because managed hosts (Railway, Render, Heroku,
+ * Vercel) block outbound SMTP ports 25/465/587 to stop themselves being used
+ * as spam relays. Nodemailer there fails with `Connection timeout` — a TCP
+ * connect that never completes, before any credential is sent. Sending over
+ * HTTPS on 443 sidesteps that entirely.
  *
  * The public methods are transport-agnostic; callers never know which is used.
  */
@@ -25,10 +37,12 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly resendKey?: string;
+  private readonly brevoKey?: string;
   private readonly from: string;
   private transporter?: nodemailer.Transporter;
 
   constructor(private readonly config: ConfigService) {
+    this.brevoKey = config.get<string>('BREVO_API_KEY') || undefined;
     this.resendKey = config.get<string>('RESEND_API_KEY') || undefined;
     // MAIL_FROM is the transport-neutral name; SMTP_FROM is still honoured so
     // existing deployments keep working without an env change.
@@ -37,11 +51,30 @@ export class MailService {
       config.get<string>('SMTP_FROM') ||
       'onboarding@resend.dev';
 
-    if (this.resendKey) {
+    if (this.brevoKey) {
+      this.logger.log(`Mail transport: Brevo HTTP API (from ${this.from})`);
+      if (/@(gmail|yahoo|outlook|hotmail)\./i.test(this.from)) {
+        // Not fatal, and worth saying every boot. A consumer mailbox as the
+        // sender fails the receiving side's DMARC alignment check, so the mail
+        // is delivered but is far more likely to be filtered. Fine for testing,
+        // not something to hand over.
+        this.logger.warn(
+          `MAIL_FROM is a consumer address (${this.from}). Delivery will work but ` +
+            'spam placement is likely — verify a domain before this goes to real users.',
+        );
+      }
+    } else if (this.resendKey) {
       this.logger.log(`Mail transport: Resend HTTP API (from ${this.from})`);
+      if (this.from.endsWith('@resend.dev')) {
+        this.logger.warn(
+          'MAIL_FROM is Resend’s shared test sender, which only delivers to the ' +
+            'address that owns the Resend account. Verify a domain, or set ' +
+            'BREVO_API_KEY to send from a single verified address instead.',
+        );
+      }
     } else {
       this.logger.warn(
-        'RESEND_API_KEY not set — falling back to SMTP. Note that most managed hosts block outbound SMTP ports, so this will time out in production.',
+        'No mail API key set (BREVO_API_KEY or RESEND_API_KEY) — falling back to SMTP. Most managed hosts block outbound SMTP ports, so this will time out in production.',
       );
       const host = config.get<string>('SMTP_HOST') || 'smtp.gmail.com';
       const port = Number(config.get('SMTP_PORT') ?? 587);
@@ -50,7 +83,9 @@ export class MailService {
       // erroring cleanly, because each side waits for the other to speak.
       const secure = port === 465;
 
-      this.logger.log(`Mail transport: SMTP ${host}:${port} (secure=${secure})`);
+      this.logger.log(
+        `Mail transport: SMTP ${host}:${port} (secure=${secure})`,
+      );
       this.transporter = nodemailer.createTransport({
         host,
         port,
@@ -77,42 +112,72 @@ export class MailService {
   }
 
   private async send(to: string, subject: string, html: string) {
-    if (!this.resendKey) {
-      await this.transporter!.sendMail({
-        from: `"Meow" <${this.from}>`,
-        to,
-        subject,
-        html,
-      });
+    if (this.brevoKey) {
+      await this.post(
+        'Brevo',
+        BREVO_ENDPOINT,
+        { 'api-key': this.brevoKey, accept: 'application/json' },
+        {
+          sender: { name: 'Meow', email: this.from },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        },
+      );
       return;
     }
 
-    const res = await fetch(RESEND_ENDPOINT, {
+    if (this.resendKey) {
+      await this.post(
+        'Resend',
+        RESEND_ENDPOINT,
+        { Authorization: `Bearer ${this.resendKey}` },
+        { from: `Meow <${this.from}>`, to: [to], subject, html },
+      );
+      return;
+    }
+
+    await this.transporter!.sendMail({
+      from: `"Meow" <${this.from}>`,
+      to,
+      subject,
+      html,
+    });
+  }
+
+  /**
+   * One HTTP send, shared by both API transports.
+   *
+   * Surfaces the provider's own message rather than a bare status code. Their
+   * failures are specific and actionable — "domain is not verified", "You can
+   * only send testing emails to your own address", "sender not valid" — and
+   * swallowing them sends someone hunting through logs for a problem the
+   * response already named.
+   */
+  private async post(
+    provider: string,
+    endpoint: string,
+    headers: Record<string, string>,
+    body: unknown,
+  ) {
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `Meow <${this.from}>`,
-        to: [to],
-        subject,
-        html,
-      }),
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      // Surface Resend's own message — its failures are specific and
-      // actionable ("domain is not verified", "You can only send testing
-      // emails to your own address"), and a bare status code would send
-      // someone hunting through logs for no reason.
       const detail = await res.text().catch(() => '');
-      throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 300)}`);
+      throw new Error(
+        `${provider} responded ${res.status}: ${detail.slice(0, 300)}`,
+      );
     }
   }
 
   private frontend(): string {
-    return this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
+    return (
+      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001'
+    );
   }
 
   async sendPasswordResetEmail(to: string, token: string) {

@@ -35,10 +35,16 @@ export const envSchema = Joi.object({
   ADMIN_EMAILS: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
-  GOOGLE_CALLBACK_URL: Joi.string().uri().default('http://localhost:3000/auth/google/callback'),
+  GOOGLE_CALLBACK_URL: Joi.string()
+    .uri()
+    .default('http://localhost:3000/auth/google/callback'),
   /* Resend HTTP API key. When present it is used instead of SMTP, because
      managed hosts block outbound SMTP ports (25/465/587) and nodemailer there
      fails with a connection timeout before any credential is sent. */
+  // Optional, and checked before RESEND_API_KEY. Brevo verifies a single
+  // sender address rather than a whole domain, which is what lets mail reach
+  // any recipient before a domain exists. See MailService.
+  BREVO_API_KEY: Joi.string().allow('').default(''),
   RESEND_API_KEY: Joi.string().allow('').default(''),
   /* Sender address, transport-neutral. Falls back to SMTP_FROM. With Resend
      this must be either a verified domain or onboarding@resend.dev — and the
