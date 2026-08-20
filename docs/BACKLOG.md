@@ -56,6 +56,28 @@ maker-checker. Build order:
 | 9 | Sanctions screening — vendor integration + adjudication queue | ⛔ vendor |
 | 10 | Finance and regulatory — reconciliation, FX/fee/limits, FINTRAC exports, dashboards | ⬜ |
 
+### Before the desktop app ships to anyone
+
+All of this is fine while the panel runs in a browser through the Vite proxy. It only
+bites once a packaged installer exists.
+
+| # | Item | Status |
+|---|---|---|
+| 26 | **Allow the packaged app's origin in `CORS_ORIGINS` on Railway.** A packaged Tauri app does not load from `http://localhost` — it loads from a custom scheme, and which one depends on the platform: `https://tauri.localhost` on Windows and Android (pinned via `useHttpsScheme` in `tauri.conf.json`), `tauri://localhost` on macOS and Linux. Add both. Until then the desktop build gets a blocked request that looks exactly like the server being down, which is a miserable thing to debug on handover day. | ⬜ |
+| 27 | **Revisit `connect-src` in the Tauri CSP.** It names the Railway backend literally, so pointing the panel at a different backend fails with a console error and no visible symptom. It should derive from the same value the build uses. | ⬜ |
+| 28 | **Code-signing certificate.** An unsigned Windows build trips SmartScreen and looks untrustworthy to whoever installs it. An OV certificate is roughly $200–400 a year — a purchasing decision with a lead time, not something to discover the week of handover. | ⛔ you |
+| 29 | **Auto-update and native notifications** — the two Tauri capabilities in the plan that are not built. Auto-update matters most: for a panel that can move money, being able to retire an old build is the point of shipping a desktop app at all. | ⬜ |
+
+**Why not Tauri's HTTP plugin**, which would avoid #26 entirely by issuing requests from
+Rust where CORS does not apply: it gives the desktop build a different network stack from
+the browser build, so everything verified in a browser becomes a different code path from
+what ships. That is the coupling the "plain web SPA, wrapped" approach exists to avoid.
+Allowing the origin costs nothing real — this API authenticates with a bearer token rather
+than a cookie, and `backend/src/main.ts` already records that CORS is not its access
+control. See `admin/README.md`.
+
+---
+
 Steps 1–7 are a usable back office. Steps 8–10 are what a regulator expects to see.
 
 ---
