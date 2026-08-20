@@ -36,7 +36,17 @@ export function databaseUrl(): string {
   return url;
 }
 
-/** A client pointed at whatever `databaseUrl()` resolved to. */
+/**
+ * A client pointed at whatever `databaseUrl()` resolved to, held to a single
+ * connection.
+ *
+ * The public proxy does not tolerate a pool the way a direct connection does:
+ * several queries issued at once come back as `Can't reach database server`,
+ * which reads like the database is down rather than like too many sockets.
+ * One connection is plenty for a one-off script and removes the failure mode.
+ */
 export function scriptPrisma(): PrismaClient {
-  return new PrismaClient({ datasourceUrl: databaseUrl() });
+  const url = new URL(databaseUrl());
+  url.searchParams.set('connection_limit', '1');
+  return new PrismaClient({ datasourceUrl: url.toString() });
 }

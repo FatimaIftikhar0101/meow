@@ -35,16 +35,19 @@ async function main() {
   }
   console.log(`  latest: ${migrations[0]?.migration_name ?? '(none)'}`);
 
-  const [users, staff, admins, wallets, recipients, transfers, audits] =
-    await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { role: { not: 'customer' } } }),
-      prisma.user.count({ where: { role: 'admin' } }),
-      prisma.wallet.count(),
-      prisma.recipient.count(),
-      prisma.transfer.count(),
-      prisma.auditLog.count(),
-    ]);
+  // Sequential, not Promise.all. Through Railway's public proxy a burst of
+  // concurrent queries fails as `Can't reach database server`, which reads as
+  // an outage rather than as too many sockets. Nothing here is slow enough for
+  // the parallelism to have been worth that.
+  const users = await prisma.user.count();
+  const staff = await prisma.user.count({
+    where: { role: { not: 'customer' } },
+  });
+  const admins = await prisma.user.count({ where: { role: 'admin' } });
+  const wallets = await prisma.wallet.count();
+  const recipients = await prisma.recipient.count();
+  const transfers = await prisma.transfer.count();
+  const audits = await prisma.auditLog.count();
 
   console.log('\nrows');
   console.log(`  users ${users} (staff ${staff}, admin ${admins})`);
