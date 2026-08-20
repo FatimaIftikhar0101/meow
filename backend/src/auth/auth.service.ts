@@ -15,6 +15,13 @@ import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { MfaService } from './mfa.service';
+import {
+  checkCode,
+  codeExpiry,
+  generateCode,
+  hashCode,
+  MAX_ATTEMPTS,
+} from './one-time-code';
 import { isStaff, permissionsFor } from './permissions';
 import { writeAudit } from '../common/audit/audit';
 import { MailService } from '../mail/mail.service';
@@ -103,7 +110,8 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const { firstName, lastName } = splitName(dto.fullName);
     const currency = homeCurrencyFor(dto.country);
-    const verifyToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
+    const verifyCode = generateCode();
+    const verifyHash = await hashCode(verifyCode);
 
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -113,8 +121,8 @@ export class AuthService {
           firstName,
           lastName,
           country: dto.country?.trim() || null,
-          emailVerifyToken: verifyToken,
-          emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
+          emailVerifyToken: verifyHash,
+          emailVerifyExpires: codeExpiry(),
         },
       });
       await tx.wallet.create({
@@ -130,7 +138,7 @@ export class AuthService {
       return created;
     });
 
-    this.mail.sendVerificationEmail(user.email, verifyToken).catch(() => {});
+    this.mail.sendVerificationEmail(user.email, verifyCode).catch(() => {});
 
     if (dto.referralCode) {
       this.referrals.attachReferral(user.id, dto.referralCode).catch(() => {});
@@ -483,12 +491,15 @@ export class AuthService {
         message: 'If that email is registered, a reset link has been sent',
       };
     }
-    const resetToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
+    const resetCode = generateCode();
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        pwResetToken: resetToken,
-        pwResetExpires: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+        pwResetToken: await hashCode(resetCode),
+        pwResetExpires: codeExpiry(),
+        // A new code resets the budget. Otherwise someone who fumbled the
+        // last one five times could never use a fresh one either.
+        pwResetAttempts: 0,
       },
     });
     await writeAudit(this.prisma, {
@@ -497,23 +508,56 @@ export class AuthService {
       entityType: 'user',
       entityId: user.id,
     });
-    this.mail.sendPasswordResetEmail(user.email, resetToken).catch(() => {});
+    this.mail.sendPasswordResetEmail(user.email, resetCode).catch(() => {});
     return {
       message: 'If that email is registered, a reset link has been sent',
     };
   }
 
+  /**
+   * Set a new password from a six-digit code.
+   *
+   * The email is part of the input because a six-digit code is not unique on
+   * its own — without it an attacker guesses against every outstanding code
+   * at once rather than against one account.
+   */
   async resetPassword(dto: ResetPasswordDto) {
-    const user = await this.prisma.user.findFirst({
-      where: { pwResetToken: dto.token },
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email.trim().toLowerCase() },
     });
-    if (!user) {
-      throw new BadRequestException('Invalid or expired reset link');
-    }
-    if (user.pwResetExpires && user.pwResetExpires < new Date()) {
-      throw new BadRequestException(
-        'Reset link has expired — request a new one',
-      );
+
+    // Same words for every failure below. Distinguishing "no such account"
+    // from "wrong code" would turn this endpoint into a way to discover who
+    // has an account here.
+    const reject = () =>
+      new BadRequestException('That code is not valid. Request a new one.');
+
+    if (!user) throw reject();
+
+    const check = await checkCode(dto.code, {
+      hash: user.pwResetToken,
+      expires: user.pwResetExpires,
+      attempts: user.pwResetAttempts,
+    });
+
+    if (!check.ok) {
+      // Persisting the increment is the whole rate limit. A check that does
+      // not record the failed attempt caps nothing.
+      if (check.attempts !== user.pwResetAttempts) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { pwResetAttempts: check.attempts },
+        });
+      }
+      if (check.attempts >= MAX_ATTEMPTS) {
+        await writeAudit(this.prisma, {
+          actor: { id: user.id, email: user.email },
+          action: 'auth.reset_code_locked',
+          entityType: 'user',
+          entityId: user.id,
+        });
+      }
+      throw reject();
     }
     const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
     await this.prisma.$transaction(async (tx) => {
@@ -524,6 +568,7 @@ export class AuthService {
           passwordChangedAt: new Date(),
           pwResetToken: null,
           pwResetExpires: null,
+          pwResetAttempts: 0,
           // Completing a reset proves the person reads that inbox, which is the
           // same thing the verification email establishes. It also makes the
           // staff invite flow work: an invitee claims their account through
@@ -545,20 +590,31 @@ export class AuthService {
     return { message: 'Password reset successfully' };
   }
 
-  async verifyEmail(token: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { emailVerifyToken: token },
+  async verifyEmail(email: string, code: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
     });
-    if (!user) {
-      throw new BadRequestException('Invalid or expired verification link');
-    }
+    const reject = () =>
+      new BadRequestException('That code is not valid. Request a new one.');
+
+    if (!user) throw reject();
     if (user.emailVerified) {
       return { message: 'Email already verified' };
     }
-    if (user.emailVerifyExpires && user.emailVerifyExpires < new Date()) {
-      throw new BadRequestException(
-        'Verification link has expired — request a new one',
-      );
+
+    const check = await checkCode(code, {
+      hash: user.emailVerifyToken,
+      expires: user.emailVerifyExpires,
+      attempts: user.emailVerifyAttempts,
+    });
+    if (!check.ok) {
+      if (check.attempts !== user.emailVerifyAttempts) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifyAttempts: check.attempts },
+        });
+      }
+      throw reject();
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -567,6 +623,7 @@ export class AuthService {
           emailVerified: true,
           emailVerifyToken: null,
           emailVerifyExpires: null,
+          emailVerifyAttempts: 0,
         },
       });
       await writeAudit(tx, {
@@ -587,15 +644,16 @@ export class AuthService {
     if (user.emailVerified) {
       return { message: 'Email already verified' };
     }
-    const verifyToken = crypto.randomBytes(VERIFY_TOKEN_BYTES).toString('hex');
+    const verifyCode = generateCode();
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        emailVerifyToken: verifyToken,
-        emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
+        emailVerifyToken: await hashCode(verifyCode),
+        emailVerifyExpires: codeExpiry(),
+        emailVerifyAttempts: 0,
       },
     });
-    await this.mail.sendVerificationEmail(user.email, verifyToken);
+    await this.mail.sendVerificationEmail(user.email, verifyCode);
     return { message: 'Verification email sent' };
   }
 

@@ -60,7 +60,10 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: MfaService, useValue: { verify: jest.fn() } },
-        { provide: JwtService, useValue: { sign: jest.fn().mockReturnValue('test-jwt-token') } },
+        {
+          provide: JwtService,
+          useValue: { sign: jest.fn().mockReturnValue('test-jwt-token') },
+        },
         {
           provide: ConfigService,
           useValue: {
@@ -75,8 +78,16 @@ describe('AuthService', () => {
             },
           },
         },
-        { provide: MailService, useValue: { sendVerificationEmail: jest.fn().mockResolvedValue(undefined) } },
-        { provide: ReferralsService, useValue: { attachReferral: jest.fn().mockResolvedValue(undefined) } },
+        {
+          provide: MailService,
+          useValue: {
+            sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: ReferralsService,
+          useValue: { attachReferral: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -87,19 +98,26 @@ describe('AuthService', () => {
     it('creates user, wallet, session, and returns a JWT with sid', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
-      const createdUser = { id: 'u-1', email: 'test@test.com', role: 'customer' };
-      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          user: { create: jest.fn().mockResolvedValue(createdUser) },
-          wallet: { create: jest.fn().mockResolvedValue({}) },
-          auditLog: { create: jest.fn().mockResolvedValue({}) },
-        }),
+      const createdUser = {
+        id: 'u-1',
+        email: 'test@test.com',
+        role: 'customer',
+      };
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => unknown) =>
+          fn({
+            user: { create: jest.fn().mockResolvedValue(createdUser) },
+            wallet: { create: jest.fn().mockResolvedValue({}) },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
+          }),
       );
       prisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
-      const result = await service.register(
-        { email: 'test@test.com', password: 'Password123', fullName: 'Ada Lovelace' } as any,
-      );
+      const result = await service.register({
+        email: 'test@test.com',
+        password: 'Password123',
+        fullName: 'Ada Lovelace',
+      });
 
       expect(result).toEqual({ access_token: 'test-jwt-token' });
       expect(prisma.session.create).toHaveBeenCalledWith({
@@ -111,7 +129,11 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
 
       await expect(
-        service.register({ email: 'dup@test.com', password: 'Password123', fullName: 'Dup User' } as any),
+        service.register({
+          email: 'dup@test.com',
+          password: 'Password123',
+          fullName: 'Dup User',
+        } as any),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -130,7 +152,10 @@ describe('AuthService', () => {
       prisma.auditLog.create.mockResolvedValue({});
       prisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
-      const result = await service.login({ email: 'test@test.com', password: 'Password123' } as any);
+      const result = await service.login({
+        email: 'test@test.com',
+        password: 'Password123',
+      });
 
       expect(result).toEqual({ access_token: 'test-jwt-token' });
       expect(prisma.session.create).toHaveBeenCalled();
@@ -168,12 +193,13 @@ describe('AuthService', () => {
         email: 'admin@test.com',
         role: 'customer',
       });
-      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          user: { create },
-          wallet: { create: jest.fn().mockResolvedValue({}) },
-          auditLog: { create: jest.fn().mockResolvedValue({}) },
-        }),
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => unknown) =>
+          fn({
+            user: { create },
+            wallet: { create: jest.fn().mockResolvedValue({}) },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
+          }),
       );
       prisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
@@ -181,7 +207,7 @@ describe('AuthService', () => {
         email: 'admin@test.com',
         password: 'Password123',
         fullName: 'Ada Lovelace',
-      } as any);
+      });
 
       // Not 'customer' explicitly — the column is simply never written, so the
       // schema default decides. Passing any role here would be the bug.
@@ -201,7 +227,10 @@ describe('AuthService', () => {
       prisma.auditLog.create.mockResolvedValue({});
       prisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
-      await service.login({ email: 'admin@test.com', password: 'Password123' } as any);
+      await service.login({
+        email: 'admin@test.com',
+        password: 'Password123',
+      });
 
       // A demotion made in the panel used to be undone right here.
       expect(prisma.user.update).not.toHaveBeenCalled();
@@ -218,23 +247,35 @@ describe('AuthService', () => {
     };
 
     it('refuses a staff account whose address is not verified', async () => {
-      prisma.user.findUnique.mockResolvedValue({ ...staffUser, emailVerified: false });
+      prisma.user.findUnique.mockResolvedValue({
+        ...staffUser,
+        emailVerified: false,
+      });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       await expect(
-        service.login({ email: staffUser.email, password: 'Password123' } as any, 'staff'),
+        service.login(
+          { email: staffUser.email, password: 'Password123' } as any,
+          'staff',
+        ),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.session.create).not.toHaveBeenCalled();
     });
 
     it('admits a verified staff account', async () => {
-      prisma.user.findUnique.mockResolvedValue({ ...staffUser, emailVerified: true });
+      prisma.user.findUnique.mockResolvedValue({
+        ...staffUser,
+        emailVerified: true,
+      });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       prisma.auditLog.create.mockResolvedValue({});
       prisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
       await expect(
-        service.login({ email: staffUser.email, password: 'Password123' } as any, 'staff'),
+        service.login(
+          { email: staffUser.email, password: 'Password123' } as any,
+          'staff',
+        ),
       ).resolves.toEqual({ access_token: 'test-jwt-token' });
     });
   });
@@ -242,8 +283,20 @@ describe('AuthService', () => {
   describe('listSessions', () => {
     it('returns active sessions and flags the current one', async () => {
       prisma.session.findMany.mockResolvedValue([
-        { id: 'sess-1', userAgent: 'Chrome', ipAddress: '1.2.3.4', lastSeenAt: new Date(), createdAt: new Date() },
-        { id: 'sess-2', userAgent: 'Safari', ipAddress: '5.6.7.8', lastSeenAt: new Date(), createdAt: new Date() },
+        {
+          id: 'sess-1',
+          userAgent: 'Chrome',
+          ipAddress: '1.2.3.4',
+          lastSeenAt: new Date(),
+          createdAt: new Date(),
+        },
+        {
+          id: 'sess-2',
+          userAgent: 'Safari',
+          ipAddress: '5.6.7.8',
+          lastSeenAt: new Date(),
+          createdAt: new Date(),
+        },
       ]);
 
       const result = await service.listSessions('u-1', 'sess-1');
@@ -261,18 +314,19 @@ describe('AuthService', () => {
         userId: 'u-1',
         revokedAt: null,
       });
-      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          session: { update: jest.fn().mockResolvedValue({}) },
-          auditLog: { create: jest.fn().mockResolvedValue({}) },
-        }),
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => unknown) =>
+          fn({
+            session: { update: jest.fn().mockResolvedValue({}) },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
+          }),
       );
 
       const result = await service.revokeSession('u-1', 'sess-2');
       expect(result.message).toBe('Session revoked');
     });
 
-    it('refuses to revoke another user\'s session', async () => {
+    it("refuses to revoke another user's session", async () => {
       prisma.session.findUnique.mockResolvedValue({
         id: 'sess-2',
         userId: 'other-user',
@@ -287,11 +341,12 @@ describe('AuthService', () => {
 
   describe('revokeOtherSessions', () => {
     it('revokes all sessions except current', async () => {
-      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          session: { updateMany: jest.fn().mockResolvedValue({ count: 3 }) },
-          auditLog: { create: jest.fn().mockResolvedValue({}) },
-        }),
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => unknown) =>
+          fn({
+            session: { updateMany: jest.fn().mockResolvedValue({ count: 3 }) },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
+          }),
       );
 
       const result = await service.revokeOtherSessions('u-1', 'sess-current');
@@ -309,25 +364,26 @@ describe('AuthService', () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
-      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          user: {
-            update: jest.fn().mockResolvedValue({
-              id: 'u-1',
-              email: 'test@test.com',
-              role: 'customer',
-            }),
-          },
-          session: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
-          auditLog: { create: jest.fn().mockResolvedValue({}) },
-        }),
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => unknown) =>
+          fn({
+            user: {
+              update: jest.fn().mockResolvedValue({
+                id: 'u-1',
+                email: 'test@test.com',
+                role: 'customer',
+              }),
+            },
+            session: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
+          }),
       );
       prisma.session.create.mockResolvedValue({ id: 'new-sess' });
 
-      const result = await service.changePassword(
-        'u-1',
-        { currentPassword: 'OldPass123', newPassword: 'NewPass456' } as any,
-      );
+      const result = await service.changePassword('u-1', {
+        currentPassword: 'OldPass123',
+        newPassword: 'NewPass456',
+      });
 
       expect(result).toEqual({ access_token: 'test-jwt-token' });
       expect(prisma.session.create).toHaveBeenCalledWith({
@@ -377,7 +433,9 @@ describe('AuthService', () => {
       });
       prisma.session.create.mockResolvedValue({ id: 'sess-9' });
 
-      const result = await service.googleNativeLogin(validToken, { ip: '1.2.3.4' });
+      const result = await service.googleNativeLogin(validToken, {
+        ip: '1.2.3.4',
+      });
 
       expect(result).toEqual({ access_token: 'test-jwt-token' });
       // The audience must be the web client ID — that is what the ID token
@@ -393,12 +451,20 @@ describe('AuthService', () => {
     it('normalises the email before looking the account up', async () => {
       mockVerifyIdToken.mockResolvedValue({ getPayload: () => payload });
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          user: { create: jest.fn().mockResolvedValue({ id: 'u-10', email: 'native@test.com', role: 'customer', suspended: false }) },
-          wallet: { create: jest.fn() },
-          auditLog: { create: jest.fn() },
-        }),
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: unknown) => unknown) =>
+          fn({
+            user: {
+              create: jest.fn().mockResolvedValue({
+                id: 'u-10',
+                email: 'native@test.com',
+                role: 'customer',
+                suspended: false,
+              }),
+            },
+            wallet: { create: jest.fn() },
+            auditLog: { create: jest.fn() },
+          }),
       );
       prisma.session.create.mockResolvedValue({ id: 'sess-10' });
 
@@ -431,7 +497,9 @@ describe('AuthService', () => {
     });
 
     it('rejects a payload with no subject', async () => {
-      mockVerifyIdToken.mockResolvedValue({ getPayload: () => ({ email: 'a@b.com' }) });
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({ email: 'a@b.com' }),
+      });
 
       await expect(service.googleNativeLogin(validToken)).rejects.toThrow(
         UnauthorizedException,
@@ -456,7 +524,10 @@ describe('AuthService', () => {
 
 describe('splitName', () => {
   it('splits a two-part name into given name and the rest', () => {
-    expect(splitName('Ada Lovelace')).toEqual({ firstName: 'Ada', lastName: 'Lovelace' });
+    expect(splitName('Ada Lovelace')).toEqual({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    });
   });
 
   it('keeps every token after the first as the last name', () => {
@@ -467,7 +538,10 @@ describe('splitName', () => {
   });
 
   it('returns a null lastName for a single-token name rather than duplicating it', () => {
-    expect(splitName('Prince')).toEqual({ firstName: 'Prince', lastName: null });
+    expect(splitName('Prince')).toEqual({
+      firstName: 'Prince',
+      lastName: null,
+    });
   });
 
   it('collapses runs of whitespace and trims', () => {

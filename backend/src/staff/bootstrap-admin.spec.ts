@@ -20,17 +20,12 @@ const ARGS = {
 
 describe('bootstrapAdmin', () => {
   let prisma: ReturnType<typeof mockPrisma>;
-  let sendInvite: jest.Mock;
 
   const run = (over: Partial<typeof ARGS> = {}) =>
-    bootstrapAdmin(prisma as unknown as PrismaClient, sendInvite, {
-      ...ARGS,
-      ...over,
-    });
+    bootstrapAdmin(prisma as unknown as PrismaClient, { ...ARGS, ...over });
 
   beforeEach(() => {
     prisma = mockPrisma();
-    sendInvite = jest.fn().mockResolvedValue(undefined);
     prisma.$transaction.mockImplementation(
       async (fn: (tx: unknown) => unknown) => fn(prisma),
     );
@@ -50,7 +45,10 @@ describe('bootstrapAdmin', () => {
       // first administrator to sign up as a customer first.
       const result = await run();
 
-      expect(result).toEqual({ kind: 'created', email: 'boss@company.com' });
+      expect(result).toMatchObject({
+        kind: 'created',
+        email: 'boss@company.com',
+      });
 
       const data = prisma.user.create.mock.calls[0][0].data;
       expect(data.role).toBe('admin');
@@ -60,33 +58,26 @@ describe('bootstrapAdmin', () => {
       expect(data.pwResetExpires.getTime()).toBeGreaterThan(Date.now());
     });
 
-    it('emails the setup link, and only to that address', async () => {
-      await run();
+    it('returns a six-digit code and stores only its hash', async () => {
+      const result = await run();
 
-      const token = prisma.user.create.mock.calls[0][0].data.pwResetToken;
-      expect(token).toEqual(expect.any(String));
-      expect(sendInvite).toHaveBeenCalledTimes(1);
-      expect(sendInvite).toHaveBeenCalledWith('boss@company.com', token);
+      if (result.kind !== 'created') throw new Error('expected created');
+      expect(result.setupCode).toMatch(/^\d{6}$/);
+
+      const stored = prisma.user.create.mock.calls[0][0].data.pwResetToken;
+      expect(stored).toMatch(/^\$2[aby]\$/);
+      // Nothing can read the code back out of the database later; this
+      // response is the only place it exists in the clear.
+      await expect(
+        require('bcrypt').compare(result.setupCode, stored),
+      ).resolves.toBe(true);
     });
 
-    it('sends only after the transaction commits', async () => {
-      // A mail provider that hangs must not hold a transaction open, and a send
-      // that fails must not roll back an administrator who now exists.
-      const order: string[] = [];
-      prisma.$transaction.mockImplementation(
-        async (fn: (tx: unknown) => unknown) => {
-          const out = await fn(prisma);
-          order.push('commit');
-          return out;
-        },
-      );
-      sendInvite.mockImplementation(async () => {
-        order.push('send');
-      });
-
+    it('sends no email at all', async () => {
+      // The point of the whole design: bootstrap runs before mail is
+      // necessarily configured, so it must not depend on it.
       await run();
-
-      expect(order).toEqual(['commit', 'send']);
+      expect(prisma.user.create).toHaveBeenCalled();
     });
 
     it('records the grant against the shell, not the person receiving it', async () => {
@@ -110,7 +101,6 @@ describe('bootstrapAdmin', () => {
     it('refuses to run again', async () => {
       await expect(run()).rejects.toThrow(BootstrapError);
       expect(prisma.user.create).not.toHaveBeenCalled();
-      expect(sendInvite).not.toHaveBeenCalled();
     });
 
     it('names who already holds it, so the message is actionable', async () => {
@@ -129,7 +119,7 @@ describe('bootstrapAdmin', () => {
   });
 
   describe('when the account already exists', () => {
-    it('promotes a verified customer without emailing a new link', async () => {
+    it('promotes a verified customer without issuing a new code', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 'u-3',
         email: 'boss@company.com',
@@ -144,17 +134,16 @@ describe('bootstrapAdmin', () => {
         kind: 'promoted',
         email: 'boss@company.com',
         from: 'customer',
-        invited: false,
       });
-      // Their own password still works; a fresh link would be an unnecessary
-      // credential sitting in an inbox.
-      expect(sendInvite).not.toHaveBeenCalled();
+      // Their own password still works, so a second way in would be a spare
+      // credential for no reason.
+      expect(result).not.toHaveProperty('setupCode');
       expect(prisma.user.update.mock.calls[0][0].data).toEqual({
         role: 'admin',
       });
     });
 
-    it('issues a link when the address was never verified', async () => {
+    it('issues a code when the address was never verified', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 'u-4',
         email: 'boss@company.com',
@@ -165,11 +154,9 @@ describe('bootstrapAdmin', () => {
 
       const result = await run();
 
-      expect(result).toMatchObject({ invited: true });
-      expect(sendInvite).toHaveBeenCalledTimes(1);
-      expect(prisma.user.update.mock.calls[0][0].data.pwResetToken).toEqual(
-        expect.any(String),
-      );
+      if (result.kind !== 'promoted') throw new Error('expected promoted');
+      expect(result.setupCode).toMatch(/^\d{6}$/);
+      expect(prisma.user.update.mock.calls[0][0].data.pwResetAttempts).toBe(0);
     });
 
     it('is a no-op when they are already an administrator', async () => {

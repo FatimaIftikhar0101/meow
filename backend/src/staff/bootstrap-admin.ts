@@ -1,5 +1,5 @@
 import { PrismaClient, UserRole } from '@prisma/client';
-import * as crypto from 'crypto';
+import { codeExpiry, generateCode, hashCode } from '../auth/one-time-code';
 import { writeAudit } from '../common/audit/audit';
 
 /**
@@ -14,15 +14,9 @@ import { writeAudit } from '../common/audit/audit';
  * where the grant is attributable to a person; hence the refusal to run again.
  */
 
-const INVITE_TOKEN_BYTES = 32;
-const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
-
-/** Emails the setup link. Injected so a test does not send anything. */
-export type SendInvite = (email: string, token: string) => Promise<void>;
-
 export type BootstrapOutcome =
-  | { kind: 'created'; email: string }
-  | { kind: 'promoted'; email: string; from: UserRole; invited: boolean }
+  | { kind: 'created'; email: string; setupCode: string }
+  | { kind: 'promoted'; email: string; from: UserRole; setupCode?: string }
   | { kind: 'already-admin'; email: string };
 
 export interface BootstrapArgs {
@@ -35,7 +29,6 @@ export class BootstrapError extends Error {}
 
 export async function bootstrapAdmin(
   prisma: PrismaClient,
-  sendInvite: SendInvite,
   args: BootstrapArgs,
 ): Promise<BootstrapOutcome> {
   const email = args.email.trim().toLowerCase();
@@ -64,20 +57,21 @@ export async function bootstrapAdmin(
     },
   });
 
-  const token = crypto.randomBytes(INVITE_TOKEN_BYTES).toString('hex');
-  const expires = new Date(Date.now() + INVITE_TTL_MS);
+  const setupCode = generateCode();
+  const codeHash = await hashCode(setupCode);
+  const expires = codeExpiry();
 
   if (!existing) {
     // The ordinary case on a fresh deployment: nobody has an account at all.
-    // Create one the same way the panel creates any staff account — no
-    // password set here, none emailed, and the address proves itself by
-    // claiming the link. No wallet either; staff hold no funds.
-    const created = await prisma.$transaction(async (tx) => {
+    // Create one the same way the panel creates any staff account — no password
+    // set here, and the account proved by whoever holds the code. No wallet
+    // either; staff hold no funds.
+    await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           email,
           role: 'admin',
-          pwResetToken: token,
+          pwResetToken: codeHash,
           pwResetExpires: expires,
         },
       });
@@ -94,11 +88,11 @@ export async function bootstrapAdmin(
       return user;
     });
 
-    // After the commit, not inside it: a mail provider that hangs must not
-    // hold a database transaction open, and a send that fails must not roll
-    // back an administrator who now exists.
-    await sendInvite(created.email, token);
-    return { kind: 'created', email };
+    // Printed by the caller, never emailed. This runs before anyone can sign
+    // in, and often before mail is configured at all — making the first
+    // administrator depend on a working mail provider would be a poor place to
+    // discover it is not.
+    return { kind: 'created', email, setupCode };
   }
 
   if (existing.suspended) {
@@ -109,16 +103,20 @@ export async function bootstrapAdmin(
   }
 
   // The account already exists — someone registered first, or an earlier run
-  // created it. Promote rather than duplicate. Only re-issue a setup link when
-  // there is no verified address to reset from; otherwise their own password
-  // still works and a fresh link would be an unnecessary credential in an
-  // inbox.
-  const invited = !existing.emailVerified;
+  // created it. Promote rather than duplicate, and only issue a code when there
+  // is no verified address behind an existing password. Someone who can already
+  // sign in does not need a second way to.
+  const needsCode = !existing.emailVerified;
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: existing.id },
-      data: invited
-        ? { role: 'admin', pwResetToken: token, pwResetExpires: expires }
+      data: needsCode
+        ? {
+            role: 'admin',
+            pwResetToken: codeHash,
+            pwResetExpires: expires,
+            pwResetAttempts: 0,
+          }
         : { role: 'admin' },
     });
     await writeAudit(tx, {
@@ -134,6 +132,10 @@ export async function bootstrapAdmin(
     });
   });
 
-  if (invited) await sendInvite(existing.email, token);
-  return { kind: 'promoted', email, from: existing.role, invited };
+  return {
+    kind: 'promoted',
+    email,
+    from: existing.role,
+    ...(needsCode ? { setupCode } : {}),
+  };
 }

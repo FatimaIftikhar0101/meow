@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffService } from './staff.service';
 
@@ -34,12 +33,9 @@ const ADMIN: AuthUser = {
 describe('StaffService', () => {
   let service: StaffService;
   let prisma: ReturnType<typeof mockPrisma>;
-  let mail: { sendPasswordResetEmail: jest.Mock };
 
   beforeEach(async () => {
     prisma = mockPrisma();
-    mail = { sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined) };
-
     // Run the callback against the same mock, so audit writes inside a
     // transaction land on the spy the assertions read.
     prisma.$transaction.mockImplementation(
@@ -47,11 +43,7 @@ describe('StaffService', () => {
     );
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        StaffService,
-        { provide: PrismaService, useValue: prisma },
-        { provide: MailService, useValue: mail },
-      ],
+      providers: [StaffService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get(StaffService);
@@ -64,7 +56,7 @@ describe('StaffService', () => {
       reason: 'Joining the AML team',
     };
 
-    it('creates the account without a password and emails a claim link', async () => {
+    it('creates the account without a password and returns a setup code', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.user.create.mockResolvedValue({
         id: 'u-9',
@@ -78,16 +70,32 @@ describe('StaffService', () => {
       expect(created.passwordHash).toBeUndefined();
       // Lower-cased, or the invitee could never log in with what they typed.
       expect(created.email).toBe('new.analyst@meow.test');
-      expect(created.pwResetToken).toEqual(expect.any(String));
       expect(created.pwResetExpires.getTime()).toBeGreaterThan(Date.now());
       expect(result.pending).toBe(true);
 
-      // The token goes to the address, never back to the caller.
-      expect(mail.sendPasswordResetEmail).toHaveBeenCalledWith(
-        'new.analyst@meow.test',
-        created.pwResetToken,
-      );
-      expect(JSON.stringify(result)).not.toContain(created.pwResetToken);
+      // Six digits, handed to the admin to pass on. Email is not in this flow
+      // at all — a colleague blocked from the back office by a spam folder is
+      // the failure this design exists to remove.
+      expect(result.setupCode).toMatch(/^\d{6}$/);
+    });
+
+    it('stores only a hash of the code, never the code itself', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u-9',
+        email: 'new.analyst@meow.test',
+        role: 'compliance',
+      });
+
+      const result = await service.invite(ADMIN, input);
+      const stored = prisma.user.create.mock.calls[0][0].data.pwResetToken;
+
+      expect(stored).toMatch(/^\$2[aby]\$/);
+      expect(stored).not.toContain(result.setupCode);
+      // The response is the only place it exists in the clear, once.
+      await expect(
+        require('bcrypt').compare(result.setupCode, stored),
+      ).resolves.toBe(true);
     });
 
     it('records who granted the access and why', async () => {

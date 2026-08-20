@@ -19,7 +19,12 @@ import { PermissionsGuard } from './guards/permissions.guard';
 describe('roles', () => {
   it('treats only back-office roles as staff', () => {
     expect(isStaff('customer')).toBe(false);
-    for (const r of ['support', 'operations', 'compliance', 'admin'] as UserRole[]) {
+    for (const r of [
+      'support',
+      'operations',
+      'compliance',
+      'admin',
+    ] as UserRole[]) {
       expect(isStaff(r)).toBe(true);
     }
   });
@@ -56,7 +61,12 @@ describe('segregation of duties', () => {
   it('operations can unstick payments but cannot clear them for AML', () => {
     expect(can('operations', 'transfer.retry')).toBe(true);
     expect(can('operations', 'transfer.cancel')).toBe(true);
-    denied('operations', ['kyc.decide', 'kyc.override', 'alert.adjudicate', 'corridor.write']);
+    denied('operations', [
+      'kyc.decide',
+      'kyc.override',
+      'alert.adjudicate',
+      'corridor.write',
+    ]);
   });
 
   it('operations can request an approval but never grant one', () => {
@@ -69,7 +79,12 @@ describe('segregation of duties', () => {
     expect(can('compliance', 'kyc.override')).toBe(true);
     expect(can('compliance', 'alert.adjudicate')).toBe(true);
     expect(can('compliance', 'blocklist.write')).toBe(true);
-    denied('compliance', ['corridor.write', 'fee.write', 'staff.write', 'role.assign']);
+    denied('compliance', [
+      'corridor.write',
+      'fee.write',
+      'staff.write',
+      'role.assign',
+    ]);
   });
 
   it('restores access only through an administrator', () => {
@@ -86,7 +101,12 @@ describe('segregation of duties', () => {
   });
 
   it('lets nobody but an administrator assign roles', () => {
-    for (const r of ['customer', 'support', 'operations', 'compliance'] as UserRole[]) {
+    for (const r of [
+      'customer',
+      'support',
+      'operations',
+      'compliance',
+    ] as UserRole[]) {
       expect(can(r, 'role.assign')).toBe(false);
     }
     expect(can('admin', 'role.assign')).toBe(true);
@@ -114,21 +134,23 @@ describe('PermissionsGuard', () => {
   });
 
   it('allows a role that holds the permission', () => {
-    expect(guard.canActivate(ctx({ role: 'compliance' }, 'kyc.override'))).toBe(true);
+    expect(guard.canActivate(ctx({ role: 'compliance' }, 'kyc.override'))).toBe(
+      true,
+    );
   });
 
   it('refuses a role that does not', () => {
-    expect(() => guard.canActivate(ctx({ role: 'support' }, 'kyc.override'))).toThrow(
-      ForbiddenException,
-    );
+    expect(() =>
+      guard.canActivate(ctx({ role: 'support' }, 'kyc.override')),
+    ).toThrow(ForbiddenException);
   });
 
   it('names the missing permission', () => {
     // This endpoint is only reachable by authenticated staff, so a bare
     // "forbidden" just turns into a support ticket.
-    expect(() => guard.canActivate(ctx({ role: 'support' }, 'transfer.refund'))).toThrow(
-      /transfer\.refund/,
-    );
+    expect(() =>
+      guard.canActivate(ctx({ role: 'support' }, 'transfer.refund')),
+    ).toThrow(/transfer\.refund/);
   });
 
   it('refuses when there is no authenticated user', () => {

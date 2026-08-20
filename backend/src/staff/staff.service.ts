@@ -6,24 +6,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import * as crypto from 'crypto';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { generateCode, hashCode } from '../auth/one-time-code';
 import { isStaff, permissionsFor, STAFF_ROLES } from '../auth/permissions';
 import { writeStaffAudit } from '../common/audit/audit';
-import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** An invite is a standing grant of back-office access until it is claimed, so
- *  it should not sit unused in an inbox indefinitely. */
-const INVITE_TOKEN_BYTES = 32;
-const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * How long a setup code stays good.
+ *
+ * Longer than the fifteen minutes a password reset gets, because this one is
+ * read out or messaged to a colleague rather than waiting in their inbox — the
+ * clock starts when the admin creates it, not when the person sits down. Still
+ * short enough that an unclaimed grant does not linger for days.
+ */
+const INVITE_TTL_MS = 2 * 60 * 60 * 1000;
 
 @Injectable()
 export class StaffService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly mail: MailService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async list() {
     const staff = await this.prisma.user.findMany({
@@ -52,12 +53,22 @@ export class StaffService {
   }
 
   /**
-   * Create a back-office account and email its owner a link to claim it.
+   * Create a back-office account and hand its setup code back to the admin.
    *
-   * No password is set here and none is ever transmitted. The invitee follows
-   * the existing reset-password flow, which both sets their password and marks
-   * the address verified — so claiming the invite *is* the proof that they hold
-   * the inbox it was sent to.
+   * The code is returned in the response and **not emailed**. Staff are hired,
+   * not signed up: the person creating the account knows the person receiving
+   * it and can pass six digits over directly. That removes email from the flow
+   * where failure hurts most — this product has no domain, so mail is often
+   * filtered, and a colleague blocked from the back office by a spam folder is
+   * a bad way to start.
+   *
+   * It is also the safer shape. Nothing sits in an inbox waiting to be read,
+   * forwarded, or fetched by a scanner, and the code is only ever seen by two
+   * people who already work together.
+   *
+   * No password is set here and none is transmitted. Claiming the code both
+   * sets the password and marks the address verified, so it is still the
+   * invitee who proves the address is theirs.
    */
   async invite(
     actor: AuthUser,
@@ -82,7 +93,8 @@ export class StaffService {
       );
     }
 
-    const token = crypto.randomBytes(INVITE_TOKEN_BYTES).toString('hex');
+    const setupCode = generateCode();
+    const codeHash = await hashCode(setupCode);
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
@@ -92,7 +104,7 @@ export class StaffService {
           lastName: input.lastName?.trim() || null,
           // No wallet, unlike a customer registration: staff hold no funds
           // here, and the customer endpoints refuse a staff role anyway.
-          pwResetToken: token,
+          pwResetToken: codeHash,
           pwResetExpires: new Date(Date.now() + INVITE_TTL_MS),
         },
       });
@@ -108,8 +120,16 @@ export class StaffService {
       return created;
     });
 
-    await this.mail.sendPasswordResetEmail(user.email, token);
-    return { id: user.id, email: user.email, role: user.role, pending: true };
+    // Returned exactly once, to the admin who created the account. It is a
+    // bcrypt hash from here on, so nothing can read it back out later.
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      pending: true,
+      setupCode,
+      expiresInMinutes: INVITE_TTL_MS / 60000,
+    };
   }
 
   async assignRole(

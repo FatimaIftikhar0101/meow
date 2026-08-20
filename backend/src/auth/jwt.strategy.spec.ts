@@ -11,7 +11,9 @@ const mockPrisma = () => ({
 });
 
 function makeStrategy(prisma: ReturnType<typeof mockPrisma>): JwtStrategy {
-  const config = { get: (key: string) => key === 'JWT_SECRET' ? 'test-secret' : undefined } as unknown as ConfigService;
+  const config = {
+    get: (key: string) => (key === 'JWT_SECRET' ? 'test-secret' : undefined),
+  } as unknown as ConfigService;
   return new JwtStrategy(config, prisma as unknown as PrismaService);
 }
 
@@ -60,7 +62,9 @@ describe('JwtStrategy', () => {
 
   it('rejects a token with no sid', async () => {
     const payload = { ...basePayload, sid: '' };
-    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(payload)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('rejects a revoked session', async () => {
@@ -78,7 +82,9 @@ describe('JwtStrategy', () => {
       },
     });
 
-    await expect(strategy.validate(basePayload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(basePayload)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('rejects an expired session', async () => {
@@ -96,12 +102,16 @@ describe('JwtStrategy', () => {
       },
     });
 
-    await expect(strategy.validate(basePayload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(basePayload)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('rejects a missing session', async () => {
     prisma.session.findUnique.mockResolvedValue(null);
-    await expect(strategy.validate(basePayload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(basePayload)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('rejects a suspended user', async () => {
@@ -119,7 +129,9 @@ describe('JwtStrategy', () => {
       },
     });
 
-    await expect(strategy.validate(basePayload)).rejects.toThrow(ForbiddenException);
+    await expect(strategy.validate(basePayload)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('rejects token issued before password change', async () => {
@@ -137,7 +149,12 @@ describe('JwtStrategy', () => {
       },
     });
 
-    const payload = { ...basePayload, iat: Math.floor(Date.now() / 1000) - 3600 };
-    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+    const payload = {
+      ...basePayload,
+      iat: Math.floor(Date.now() / 1000) - 3600,
+    };
+    await expect(strategy.validate(payload)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

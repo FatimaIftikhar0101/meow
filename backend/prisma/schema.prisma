@@ -20,27 +20,31 @@ datasource db {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model User {
-  id                 String    @id @default(uuid())
-  email              String    @unique
-  passwordHash       String?
-  passwordChangedAt  DateTime  @default(now())
-  authProvider       String    @default("local")
-  googleId           String?   @unique
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  passwordHash        String?
+  passwordChangedAt   DateTime  @default(now())
+  authProvider        String    @default("local")
+  googleId            String?   @unique
   // firstName drives the greeting; lastName completes the legal name shown on
   // receipts. Both nullable: accounts created before full name was collected
   // (and Google sign-ups, which only yield a given name) have no value, and
   // the UI falls back to the email local-part.
-  firstName          String?
-  lastName           String?
-  avatarUrl          String?
-  emailVerified      Boolean   @default(false)
-  emailVerifyToken   String?
-  emailVerifyExpires DateTime?
-  pwResetToken       String?
-  pwResetExpires     DateTime?
-  country            String?
-  role               UserRole  @default(customer)
-  suspended          Boolean   @default(false)
+  firstName           String?
+  lastName            String?
+  avatarUrl           String?
+  emailVerified       Boolean   @default(false)
+  // Holds a bcrypt hash of the six-digit code, not a URL token. Attempts are
+  // counted because six digits is only safe while guessing is capped.
+  emailVerifyToken    String?
+  emailVerifyAttempts Int       @default(0)
+  emailVerifyExpires  DateTime?
+  pwResetToken        String?
+  pwResetAttempts     Int       @default(0)
+  pwResetExpires      DateTime?
+  country             String?
+  role                UserRole  @default(customer)
+  suspended           Boolean   @default(false)
 
   // Two-factor, mandatory for every back-office role and unused by customers.
   // The secret is a bearer credential — anyone holding it can mint valid codes

@@ -24,7 +24,7 @@ import { GoogleNativeDto } from './dto/google-native.dto';
 import { LoginDto } from './dto/login.dto';
 import { MfaCodeDto, MfaLoginDto } from './dto/mfa.dto';
 import { RegisterDto } from './dto/register.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResetPasswordDto, VerifyEmailDto } from './dto/reset-password.dto';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -132,9 +132,14 @@ export class AuthController {
     return this.auth.resetPassword(dto);
   }
 
-  @Get('verify-email')
-  async verifyEmail(@Query('token') token: string) {
-    return this.auth.verifyEmail(token);
+  // POST, not GET. A verification link was a GET that changed state, which is
+  // how mail scanners fetching URLs consumed the token before the recipient
+  // opened the message. A code posted from a form cannot be spent by a fetch.
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.auth.verifyEmail(dto.email, dto.code);
   }
 
   @Post('resend-verification')

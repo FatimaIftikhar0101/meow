@@ -63,7 +63,9 @@ async function main() {
     select: { actorEmail: true, beforeValue: true, reason: true },
   });
   await prisma.transfer.findFirst({ select: { recipientBankAccount: true } });
-  console.log('\nnew columns present: mfa*, audit before/after, transfer snapshot');
+  console.log(
+    '\nnew columns present: mfa*, audit before/after, transfer snapshot',
+  );
 
   console.log('\nencryption');
   let checked = 0;

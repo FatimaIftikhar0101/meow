@@ -26,8 +26,8 @@ describe('MfaService', () => {
     resetEncryptionKeyCache();
 
     prisma = mockPrisma();
-    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-      fn(prisma),
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prisma),
     );
 
     const module: TestingModule = await Test.createTestingModule({
@@ -41,7 +41,10 @@ describe('MfaService', () => {
     it('stores the secret encrypted and does not enable anything yet', async () => {
       prisma.user.findUnique.mockResolvedValue({ mfaEnabledAt: null });
 
-      const { secret, uri } = await service.beginEnrolment('u-1', 'a@meow.test');
+      const { secret, uri } = await service.beginEnrolment(
+        'u-1',
+        'a@meow.test',
+      );
 
       const written = prisma.user.update.mock.calls[0][0].data;
       // The secret mints valid codes forever — closer to a password than to a
@@ -77,7 +80,9 @@ describe('MfaService', () => {
 
     it('rejects a code that does not match', async () => {
       prisma.user.findUnique.mockResolvedValue({
-        mfaSecret: require('../common/crypto/field-crypto').encryptField(secret),
+        mfaSecret: require('../common/crypto/field-crypto').encryptField(
+          secret,
+        ),
         mfaEnabledAt: null,
       });
       await expect(
@@ -157,7 +162,8 @@ describe('MfaService', () => {
       // Learn the step the way the service does, then replay against it.
       prisma.user.findUnique.mockResolvedValue(enrolled());
       await service.verify('u-1', token);
-      const spentStep = prisma.user.update.mock.calls[0][0].data.mfaLastTimeStep;
+      const spentStep =
+        prisma.user.update.mock.calls[0][0].data.mfaLastTimeStep;
 
       prisma.user.update.mockClear();
       prisma.user.findUnique.mockResolvedValue(

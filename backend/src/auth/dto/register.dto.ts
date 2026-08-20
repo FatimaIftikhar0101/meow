@@ -29,7 +29,8 @@ export class RegisterDto {
    */
   @IsString()
   @Transform(({ value }: TransformFnParams): unknown =>
-    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : value)
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : value,
+  )
   @Length(2, 100)
   fullName!: string;
 
@@ -49,6 +50,7 @@ export class RegisterDto {
   @IsString()
   @MaxLength(20)
   @Transform(({ value }: TransformFnParams): unknown =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value)
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   referralCode?: string;
 }

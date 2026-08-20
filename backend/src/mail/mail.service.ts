@@ -174,55 +174,52 @@ export class MailService {
     }
   }
 
-  private frontend(): string {
-    return (
-      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001'
+  /**
+   * The body of a code email.
+   *
+   * Deliberately plain. Without a verified domain this mail is already scored
+   * down by every receiving server, and heavy HTML with images and buttons is
+   * the other thing filters weight against — so there is nothing here but the
+   * code and a sentence saying what it is for.
+   *
+   * No link, on purpose. Mail scanners fetch URLs to check them, which spends
+   * a single-use token before its owner has opened the message; the user then
+   * clicks and is told it is invalid. A code cannot be consumed by being read.
+   */
+  private codeBody(heading: string, purpose: string, code: string): string {
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+        <h2 style="color: #3C3C3C; font-size: 22px; margin-bottom: 8px;">${heading}</h2>
+        <p style="color: #66737A; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">${purpose}</p>
+        <p style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 32px; letter-spacing: 8px; color: #3C3C3C; background: #F4F7F8; padding: 16px 24px; border-radius: 12px; text-align: center; margin: 0;">${code}</p>
+        <p style="color: #8A959B; font-size: 13px; margin-top: 28px; line-height: 1.5;">
+          This code expires in 15 minutes and can be used once. If you didn't ask for it, ignore this email — nothing will change.
+        </p>
+      </div>
+    `;
+  }
+
+  async sendPasswordResetEmail(to: string, code: string) {
+    await this.send(
+      to,
+      'Your Meow password reset code',
+      this.codeBody(
+        'Reset your password',
+        'Enter this code in the app to choose a new password.',
+        code,
+      ),
     );
   }
 
-  async sendPasswordResetEmail(to: string, token: string) {
-    const link = `${this.frontend()}/auth/reset-password?token=${token}`;
+  async sendVerificationEmail(to: string, code: string) {
     await this.send(
       to,
-      'Reset your password — Meow',
-      `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-          <h2 style="color: #1a1a1a; font-size: 22px; margin-bottom: 8px;">Reset your password</h2>
-          <p style="color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 28px;">
-            We received a request to reset your Meow password. Tap the button below to choose a new one.
-          </p>
-          <a href="${link}"
-             style="display: inline-block; background: #E0B259; color: #1a1a1a; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
-            Reset password
-          </a>
-          <p style="color: #999; font-size: 13px; margin-top: 32px; line-height: 1.5;">
-            This link expires in 1 hour. If you didn't request this, you can safely ignore this email — your password won't change.
-          </p>
-        </div>
-      `,
-    );
-  }
-
-  async sendVerificationEmail(to: string, token: string) {
-    const link = `${this.frontend()}/auth/verify-email?token=${token}`;
-    await this.send(
-      to,
-      'Verify your email — Meow',
-      `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
-          <h2 style="color: #1a1a1a; font-size: 22px; margin-bottom: 8px;">Welcome to Meow</h2>
-          <p style="color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 28px;">
-            Tap the button below to verify your email and unlock all features.
-          </p>
-          <a href="${link}"
-             style="display: inline-block; background: #E0B259; color: #1a1a1a; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
-            Verify email
-          </a>
-          <p style="color: #999; font-size: 13px; margin-top: 32px; line-height: 1.5;">
-            This link expires in 24 hours. If you didn't create an account, ignore this email.
-          </p>
-        </div>
-      `,
+      'Your Meow verification code',
+      this.codeBody(
+        'Verify your email',
+        'Enter this code in the app to confirm this address is yours.',
+        code,
+      ),
     );
   }
 }
