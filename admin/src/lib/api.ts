@@ -9,11 +9,26 @@ import { getToken } from './token-store';
  * alternative was adding localhost to the deployed CORS allowlist, which would
  * leave a production API answering a development origin permanently.
  *
- * In a build it is the absolute URL, inlined by Vite. Note that the packaged
- * Tauri app loads from `tauri://localhost`, so that origin has to be allowed by
- * the backend — or the requests moved to Tauri's HTTP plugin, which issues them
- * from Rust where CORS does not apply. That decision belongs with the shell,
- * and until it is made this is a browser app pointed at a proxy.
+ * In a build it is the absolute URL, inlined by Vite.
+ *
+ * **Decided:** the packaged app keeps using this ordinary browser request path,
+ * and its origin is allowed by the backend. The alternative — Tauri's HTTP
+ * plugin, which issues requests from Rust where CORS does not apply — was
+ * rejected because it would give the desktop build a different network stack
+ * from the browser build. Everything I test in a browser would then be a
+ * different code path from what ships, which is exactly the coupling the "plain
+ * web SPA, wrapped" approach exists to avoid.
+ *
+ * Allowing the origin costs nothing real. CORS is a browser policy protecting
+ * users from cross-origin reads that carry ambient credentials; this API
+ * authenticates with a bearer token in a header, not a cookie, so CORS was
+ * never what protects it. `backend/src/main.ts` says the same at the allowlist.
+ *
+ * `useHttpsScheme` is set in tauri.conf.json so the Windows origin is
+ * deterministic. CORS_ORIGINS therefore needs:
+ *
+ *   https://tauri.localhost   Windows (and Android)
+ *   tauri://localhost         macOS and Linux
  */
 export const API_URL = import.meta.env.DEV
   ? '/api'

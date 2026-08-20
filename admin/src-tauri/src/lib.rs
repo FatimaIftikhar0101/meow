@@ -40,6 +40,10 @@ fn save_token(token: String) -> Result<(), String> {
 #[tauri::command]
 fn load_token() -> Result<Option<String>, String> {
     match entry()?.get_password() {
+        // An empty value is what `delete_token` leaves behind when it could not
+        // remove the entry outright. Reporting it as a token would hand the
+        // caller a string that cannot authenticate anything.
+        Ok(token) if token.is_empty() => Ok(None),
         Ok(token) => Ok(Some(token)),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(e) => Err(e.to_string()),
@@ -47,13 +51,23 @@ fn load_token() -> Result<Option<String>, String> {
 }
 
 /// Forget the token. Signing out must not leave the credential behind.
+///
+/// If the entry cannot be removed — a locked keyring, a backend that refuses —
+/// overwrite it before giving up. A blank credential is not a usable session,
+/// so the stored value stops being dangerous even when the delete itself
+/// cannot be made to work. Only if that fails too is this a real error, and
+/// then the caller has to be told rather than left assuming it worked.
 #[tauri::command]
 fn delete_token() -> Result<(), String> {
-    match entry()?.delete_credential() {
+    let entry = entry()?;
+    match entry.delete_credential() {
         Ok(()) => Ok(()),
         // Already gone is the outcome the caller wanted.
         Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.to_string()),
+        Err(delete_err) => match entry.set_password("") {
+            Ok(()) => Ok(()),
+            Err(_) => Err(delete_err.to_string()),
+        },
     }
 }
 

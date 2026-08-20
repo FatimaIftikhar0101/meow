@@ -49,7 +49,7 @@ export default function Shell() {
             {profile ? ROLE_LABEL[profile.role] : ''}
           </p>
           <button
-            onClick={signOut}
+            onClick={() => signOut()}
             className="mt-2 text-xs text-ink-muted underline hover:text-ink"
           >
             Sign out

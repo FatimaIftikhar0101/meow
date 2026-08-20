@@ -189,6 +189,24 @@ export class AuthController {
     return this.auth.revokeSession(user.id, id);
   }
 
+  /**
+   * End the current session.
+   *
+   * Sign-out used to be entirely client-side: drop the token and forget it.
+   * That leaves a token that is still valid until it expires, which is fine
+   * while the client is the only place it exists — and not fine once it is
+   * also written to an OS credential store that might fail to erase it.
+   *
+   * Revoking here means a copy left behind anywhere is already worthless, so
+   * the guarantee does not depend on the client succeeding at cleanup.
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  logout(@CurrentUser() user: AuthUser) {
+    return this.auth.revokeSession(user.id, user.sid);
+  }
+
   @Post('sessions/revoke-others')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)

@@ -12,7 +12,7 @@ import { useAuth } from '../lib/auth';
  * a reload, and it does not.
  */
 export default function SignIn() {
-  const { status, signIn, submitMfaCode, cancelMfa } = useAuth();
+  const { status, signIn, submitMfaCode, cancelMfa, signOutWarning } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -58,6 +58,12 @@ export default function SignIn() {
               : 'Staff access only.'}
           </p>
         </div>
+
+        {signOutWarning && !error && (
+          <div className="mb-4">
+            <Alert tone="pending">{signOutWarning}</Alert>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4">

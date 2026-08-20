@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -34,7 +35,8 @@ interface AuthValue {
   submitMfaCode: (code: string) => Promise<void>;
   cancelMfa: () => void;
   refresh: () => Promise<void>;
-  signOut: () => void;
+  signOut: (reason?: string) => void;
+  signOutWarning: string | null;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -44,15 +46,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [needsEnrolment, setNeedsEnrolment] = useState(false);
+  /** Set only when sign-out could not finish cleanly. Shown on the sign-in
+   *  screen, since by then there is nowhere else to put it. */
+  const [signOutWarning, setSignOutWarning] = useState<string | null>(null);
+  const signingOut = useRef(false);
 
-  const signOut = useCallback(() => {
-    // Not awaited: signing out must feel immediate, and the in-memory mirror is
-    // cleared synchronously inside clearToken before it reaches the keychain.
-    void clearToken();
+  /**
+   * End the session, in the order that matters if a step fails.
+   *
+   * The server is told first, because that is the step which makes every other
+   * copy of the token worthless. If the credential store then refuses to erase
+   * its copy, what is stranded is already a dead token rather than a live one.
+   *
+   * The UI is dropped regardless. Someone who clicked sign out must not still
+   * be looking at customer data because a keychain was slow.
+   */
+  const signOut = useCallback((reason?: string) => {
+    // Re-entry guard, and not a theoretical one. Signing out calls /auth/logout
+    // with the very token being discarded; if that returns 401 — an expired
+    // session, which is one of the ways we get here in the first place — the
+    // interceptor calls this again, which calls /auth/logout again, forever.
+    if (signingOut.current) return;
+    signingOut.current = true;
+
     setProfile(null);
     setMfaToken(null);
     setNeedsEnrolment(false);
     setStatus('signedOut');
+    setSignOutWarning(reason ?? null);
+
+    void (async () => {
+      try {
+        // Revoking needs the token, so this goes before the local clear.
+        await api.post('/auth/logout');
+      } catch {
+        // An expired or already-revoked session is the outcome we wanted, and
+        // an unreachable server cannot be waited for. Either way the local
+        // clear below still has to happen.
+      }
+      try {
+        await clearToken();
+      } catch {
+        // Only reachable under Tauri, and only when the OS store could neither
+        // delete nor overwrite the entry. Say so: the session is dead, but a
+        // credential is still on this machine and somebody should know.
+        setSignOutWarning(
+          'Signed out, but the saved credential could not be removed from this ' +
+            'computer. The session has been revoked on the server, so it can no ' +
+            'longer be used.',
+        );
+      }
+    })();
   }, []);
 
   const refresh = useCallback(async () => {
@@ -115,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      setSignOutWarning(null);
+      signingOut.current = false;
       await setToken(data.access_token);
       await refresh();
       await checkEnrolment();
@@ -129,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         '/auth/admin/login/mfa',
         { mfaToken, code },
       );
+      setSignOutWarning(null);
+      signingOut.current = false;
       await setToken(data.access_token);
       setMfaToken(null);
       await refresh();
@@ -158,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelMfa,
       refresh,
       signOut,
+      signOutWarning,
     }),
     [
       status,
@@ -169,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelMfa,
       refresh,
       signOut,
+      signOutWarning,
     ],
   );
 

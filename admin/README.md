@@ -102,12 +102,34 @@ backed by the OS credential store. The frontend picks the keychain when
 `isTauri()` and `sessionStorage` otherwise, so a browser build still runs —
 that is what keeps the choice of Tauri reversible.
 
-**Still open:** a packaged Tauri app loads from `tauri://localhost`, so either
-that origin joins the backend's allowlist, or requests move to Tauri's HTTP
-plugin, which issues them from Rust where CORS does not apply. The second is
-tidier. It is not decided yet, and `src/lib/api.ts` says so at the line it
-affects. The CSP in `tauri.conf.json` currently names the Railway origin
-explicitly under `connect-src`, which will need revisiting alongside it.
+### The packaged app's origin
+
+A packaged Tauri app does not load from `http://localhost`. It loads from a
+custom scheme, and which one depends on the platform:
+
+| Platform | Origin |
+|---|---|
+| Windows, Android | `https://tauri.localhost` (`useHttpsScheme: true`, set in `tauri.conf.json`) |
+| macOS, Linux | `tauri://localhost` |
+
+Both belong in the backend's `CORS_ORIGINS`. The scheme is pinned rather than
+left at its default so the Windows origin is deterministic instead of depending
+on a config nobody remembers.
+
+**Why not Tauri's HTTP plugin instead.** It issues requests from Rust, where
+CORS does not apply at all, and that is genuinely tidier in isolation. It was
+rejected because it gives the desktop build a different network stack from the
+browser build — everything verified in a browser would be a different code path
+from what ships, which is the exact coupling that "plain web SPA, wrapped"
+exists to avoid.
+
+Allowing the origin costs nothing real: CORS is a browser policy protecting
+users from cross-origin reads carrying ambient credentials, and this API
+authenticates with a bearer token in a header rather than a cookie. It was never
+what protects the API — `backend/src/main.ts` says so at the allowlist itself.
+
+The CSP in `tauri.conf.json` names the backend under `connect-src`, which is the
+webview-side half of the same constraint.
 
 ---
 
