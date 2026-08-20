@@ -76,11 +76,38 @@ code is keychain storage, auto-update and native notifications. If Tauri turns
 out to be friction, the same source ships as a web build and loses only the
 extension isolation — so that decision stays reversible.
 
+### Running the desktop build
+
+```bash
+npm run tauri dev
+```
+
+Starts Vite and opens the webview against it. The first run compiles the Rust
+side and takes a while; later runs are quick.
+
+```bash
+npm run tauri build
+```
+
+Produces an installer under `src-tauri/target/release/bundle/`.
+
+**Unsigned builds trip SmartScreen on Windows** and look untrustworthy to the
+staff installing them. An OV code-signing certificate is roughly $200–400 a
+year and is a real prerequisite before handing this to anyone.
+
+### What actually lives in Rust
+
+Three commands, and nothing else: `save_token`, `load_token`, `delete_token`,
+backed by the OS credential store. The frontend picks the keychain when
+`isTauri()` and `sessionStorage` otherwise, so a browser build still runs —
+that is what keeps the choice of Tauri reversible.
+
 **Still open:** a packaged Tauri app loads from `tauri://localhost`, so either
 that origin joins the backend's allowlist, or requests move to Tauri's HTTP
 plugin, which issues them from Rust where CORS does not apply. The second is
 tidier. It is not decided yet, and `src/lib/api.ts` says so at the line it
-affects.
+affects. The CSP in `tauri.conf.json` currently names the Railway origin
+explicitly under `connect-src`, which will need revisiting alongside it.
 
 ---
 

@@ -46,7 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needsEnrolment, setNeedsEnrolment] = useState(false);
 
   const signOut = useCallback(() => {
-    clearToken();
+    // Not awaited: signing out must feel immediate, and the in-memory mirror is
+    // cleared synchronously inside clearToken before it reaches the keychain.
+    void clearToken();
     setProfile(null);
     setMfaToken(null);
     setNeedsEnrolment(false);
@@ -83,12 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Restore a session on load.
   useEffect(() => {
     setUnauthorizedHandler(signOut);
-    const token = loadToken();
-    if (!token) {
-      setStatus('signedOut');
-      return;
-    }
     void (async () => {
+      const token = await loadToken();
+      if (!token) {
+        setStatus('signedOut');
+        return;
+      }
       try {
         await refresh();
         await checkEnrolment();
@@ -113,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setToken(data.access_token);
+      await setToken(data.access_token);
       await refresh();
       await checkEnrolment();
     },
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         '/auth/admin/login/mfa',
         { mfaToken, code },
       );
-      setToken(data.access_token);
+      await setToken(data.access_token);
       setMfaToken(null);
       await refresh();
       await checkEnrolment();
