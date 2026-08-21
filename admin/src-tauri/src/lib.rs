@@ -82,6 +82,12 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // Desktop-only, matching the Cargo target guard.
+            #[cfg(desktop)]
+            {
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle().plugin(tauri_plugin_process::init())?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

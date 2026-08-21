@@ -1,4 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { ThemeToggle } from './components/ThemeToggle';
+import { UpdateNotice } from './components/UpdateNotice';
 import { useAuth } from './lib/auth';
 import { ROLE_LABEL } from './lib/permissions';
 import { visibleNav } from './nav';
@@ -43,7 +45,12 @@ export default function Shell() {
           ))}
         </nav>
 
+        <UpdateNotice />
+
         <div className="border-t border-line px-5 py-4">
+          <div className="mb-3">
+            <ThemeToggle />
+          </div>
           <p className="truncate text-sm text-ink">{profile?.email}</p>
           <p className="text-xs text-ink-muted">
             {profile ? ROLE_LABEL[profile.role] : ''}

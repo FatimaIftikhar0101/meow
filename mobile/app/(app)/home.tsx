@@ -7,6 +7,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { CatMark } from '../../components/CatMark';
 import { CorridorCard } from '../../components/CorridorCard';
 import { Avatar, StatusPill } from '../../components/StatusPill';
+import { UpdateBanner } from '../../components/UpdateNotice';
 import { Body, Card, Kicker, Note, Row, SectionHeader, Title } from '../../components/ui';
 import api from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
@@ -14,8 +15,9 @@ import { corridorFor, useCorridors } from '../../lib/corridors';
 import { GREETING, dayPartFor, timeOf } from '../../lib/format';
 import { formatAmount, formatMoney } from '../../lib/money';
 import { useLive, useTransferStatus } from '../../lib/sockets';
+import { useAppUpdate } from '../../lib/updates';
 import type { Balance, ComplianceStatus, Recipient, TransferSummary } from '../../lib/types';
-import { colors, radius } from '../../theme/tokens';
+import { radius, useTheme } from '../../theme/tokens';
 
 const IN_FLIGHT = [
   'initiated',
@@ -72,6 +74,7 @@ function QuickIcon({ name, color }: { name: 'send' | 'add' | 'people' | 'bell'; 
  * Send carries the accent fill — it is the one action the screen exists for.
  */
 function QuickActions() {
+  const { colors } = useTheme();
   const router = useRouter();
   const items = [
     { key: 'send', label: 'Send', icon: 'send' as const, hero: true, go: () => router.push('/(app)/send') },
@@ -118,6 +121,8 @@ function QuickActions() {
 /* ── Screen ────────────────────────────────────────────────────────────── */
 
 export default function Home() {
+  const { name: scheme, colors } = useTheme();
+  const update = useAppUpdate();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
@@ -211,12 +216,18 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <StatusBar style="dark" />
+      {/* Follows the scheme. Hardcoded "dark" put dark glyphs on a dark
+          ground: the clock, the battery and the signal bars all vanish. */}
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 28, gap: 18 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <View style={{ paddingHorizontal: 16 }}>
+          <UpdateBanner update={update} />
+        </View>
+
         {/* The time-of-day scene used to live here and took the first third of
             the screen on every visit. It is a brief intro now, so the rate —
             the thing people open the app for — is above the fold. */}

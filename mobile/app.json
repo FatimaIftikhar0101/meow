@@ -6,8 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "meow",
-    "userInterfaceStyle": "light",
-    "backgroundColor": "#F1F3EE",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#FFFFFF",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.meow.app"
@@ -15,7 +15,7 @@
     "android": {
       "package": "com.meow.app",
       "adaptiveIcon": {
-        "backgroundColor": "#121714",
+        "backgroundColor": "#3C3C3C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -35,13 +35,17 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#121714",
-          "imageWidth": 180
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 180,
+          "dark": {
+            "backgroundColor": "#16191B"
+          }
         }
       ],
       "expo-web-browser",
       "@react-native-google-signin/google-signin",
-      "expo-image"
+      "expo-image",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true
@@ -51,6 +55,15 @@
       "eas": {
         "projectId": "3320840f-a18a-4297-a775-cd122f8fc3ff"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3320840f-a18a-4297-a775-cd122f8fc3ff",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
