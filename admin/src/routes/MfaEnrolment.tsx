@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import QRCode from 'react-qr-code';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Card, Field } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
@@ -21,7 +22,8 @@ interface Enrolment {
  * anyone typing it in by hand.
  */
 export default function MfaEnrolment() {
-  const { refresh, signOut } = useAuth();
+  const { completeEnrolment, signOut } = useAuth();
+  const [leaving, setLeaving] = useState(false);
   const [code, setCode] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,27 @@ export default function MfaEnrolment() {
             <li key={c}>{c}</li>
           ))}
         </ul>
-        <Button className="w-full" onClick={() => void refresh()}>
+        {error && (
+          <div className="mb-4">
+            <Alert>{error}</Alert>
+          </div>
+        )}
+        <Button
+          className="w-full"
+          busy={leaving}
+          onClick={() => {
+            setError(null);
+            setLeaving(true);
+            void completeEnrolment()
+              .catch(() =>
+                setError(
+                  'Two-factor is set up, but the panel could not confirm it. ' +
+                    'Reload the page.',
+                ),
+              )
+              .finally(() => setLeaving(false));
+          }}
+        >
           I have saved them
         </Button>
       </Centered>
@@ -102,14 +124,33 @@ export default function MfaEnrolment() {
         Add it to your authenticator app, then enter the code it shows.
       </p>
 
-      <div className="my-5 rounded-lg bg-inset p-4">
-        <p className="text-xs text-ink-muted">
-          Cannot scan? Enter this key by hand:
+      {/* White plate regardless of theme: a QR reader needs light modules on a
+          dark ground, and inverting it is the classic way to ship a code that
+          no phone will read. */}
+      <div className="my-5 flex justify-center rounded-lg bg-white p-4">
+        <QRCode
+          value={begin.data.uri}
+          size={176}
+          // Rendered here rather than fetched as an image, so the secret never
+          // travels to a third-party chart server — which is what most QR
+          // "APIs" are, and would hand the second factor to a stranger.
+          level="M"
+          bgColor="#FFFFFF"
+          fgColor="#3C3C3C"
+        />
+      </div>
+
+      <details className="mb-4">
+        <summary className="cursor-pointer text-xs text-ink-muted hover:text-ink">
+          Cannot scan it?
+        </summary>
+        <p className="mt-2 text-xs text-ink-muted">
+          Enter this key by hand instead:
         </p>
-        <p className="tabular mt-1 font-mono text-sm break-all text-ink">
+        <p className="tabular mt-1 rounded-lg bg-inset p-3 font-mono text-sm break-all text-ink">
           {begin.data.secret}
         </p>
-      </div>
+      </details>
 
       {error && (
         <div className="mb-4">

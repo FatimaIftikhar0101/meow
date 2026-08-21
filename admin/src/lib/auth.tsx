@@ -35,6 +35,9 @@ interface AuthValue {
   submitMfaCode: (code: string) => Promise<void>;
   cancelMfa: () => void;
   refresh: () => Promise<void>;
+  /** Call after finishing two-factor enrolment. Re-asks the server whether
+   *  this session is enrolled, which is what releases the gate. */
+  completeEnrolment: () => Promise<void>;
   signOut: (reason?: string) => void;
   signOutWarning: string | null;
 }
@@ -190,6 +193,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signedOut');
   }, []);
 
+  /**
+   * Leave the enrolment gate once two-factor is set up.
+   *
+   * `refresh()` alone is not enough and that was a real bug: it reloads the
+   * profile, but `needsEnrolment` is separate state answered by a different
+   * request, so the gate went on rendering the enrolment screen and the only
+   * way through was a page reload — which re-ran the whole startup effect and
+   * happened to ask again.
+   */
+  const completeEnrolment = useCallback(async () => {
+    await refresh();
+    await checkEnrolment();
+  }, [refresh, checkEnrolment]);
+
   const can = useCallback(
     (permission: Permission) => profile?.permissions.includes(permission) ?? false,
     [profile],
@@ -205,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       submitMfaCode,
       cancelMfa,
       refresh,
+      completeEnrolment,
       signOut,
       signOutWarning,
     }),
@@ -217,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       submitMfaCode,
       cancelMfa,
       refresh,
+      completeEnrolment,
       signOut,
       signOutWarning,
     ],
