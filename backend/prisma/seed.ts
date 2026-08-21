@@ -1,6 +1,14 @@
-import { PrismaClient } from '@prisma/client';
+import { scriptPrisma } from '../scripts/script-db';
 
-const prisma = new PrismaClient();
+/**
+ * The same connection every other one-off script uses.
+ *
+ * A bare `new PrismaClient()` reads DATABASE_URL, which on Railway names the
+ * private network — unreachable from a developer's machine, which is exactly
+ * where `railway run npm run db:seed` executes. `scriptPrisma` prefers the
+ * public proxy and explains itself when neither is set.
+ */
+const prisma = scriptPrisma();
 
 interface CorridorSeed {
   fromCurrency: string;
