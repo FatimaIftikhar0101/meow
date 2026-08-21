@@ -93,12 +93,7 @@ export default function Staff() {
       )}
 
       {inviting && (
-        <InviteForm
-          onDone={() => {
-            setInviting(false);
-            invalidate();
-          }}
-        />
+        <InviteForm onInvited={invalidate} onClose={() => setInviting(false)} />
       )}
 
       <Card>
@@ -180,17 +175,39 @@ export default function Staff() {
   );
 }
 
-function InviteForm({ onDone }: { onDone: () => void }) {
+interface InviteResult {
+  email: string;
+  setupCode: string;
+  expiresInMinutes: number;
+}
+
+function InviteForm({
+  onInvited,
+  onClose,
+}: {
+  onInvited: () => void;
+  onClose: () => void;
+}) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<StaffRole>('support');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<InviteResult | null>(null);
 
   const invite = useMutation({
     mutationFn: async () =>
-      api.post('/staff/invite', { email: email.trim(), role, reason }),
-    onSuccess: onDone,
-    onError: (e) => setError(errorMessage(e, 'Could not send that invitation.')),
+      (
+        await api.post<InviteResult>('/staff/invite', {
+          email: email.trim(),
+          role,
+          reason,
+        })
+      ).data,
+    onSuccess: (data) => {
+      setResult(data);
+      onInvited();
+    },
+    onError: (e) => setError(errorMessage(e, 'Could not create that account.')),
   });
 
   function onSubmit(e: FormEvent) {
@@ -199,12 +216,15 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     invite.mutate();
   }
 
+  if (result) return <InviteCode result={result} onClose={onClose} />;
+
   return (
     <Card className="mb-5 p-5">
       <form onSubmit={onSubmit} className="space-y-4">
         <p className="text-sm text-ink-muted">
-          They will be emailed a link to set their own password and enrol in
-          two-factor. No password is set here and none is ever emailed.
+          You will be given a six-digit setup code to pass to them directly.
+          Nothing is emailed, and no password is set here — they choose their
+          own and enrol in two-factor when they use the code.
         </p>
         {error && <Alert>{error}</Alert>}
         <div className="grid grid-cols-2 gap-4">
@@ -239,9 +259,72 @@ function InviteForm({ onDone }: { onDone: () => void }) {
           required
         />
         <Button type="submit" busy={invite.isPending}>
-          Send invitation
+          Create account
         </Button>
       </form>
+    </Card>
+  );
+}
+
+/**
+ * The one time this code is ever visible.
+ *
+ * It is stored as a bcrypt hash the moment it is created, so nothing — not
+ * this panel, not the database, not a support engineer — can read it back.
+ * Closing this card without passing it on means creating the account again.
+ * Hence the deliberate friction on the button, and the size of the digits:
+ * this is read aloud or typed into a chat window, not clicked through.
+ */
+function InviteCode({
+  result,
+  onClose,
+}: {
+  result: InviteResult;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(result.setupCode);
+      setCopied(true);
+    } catch {
+      // Clipboard access can be refused, and the code is on screen anyway.
+      setCopied(false);
+    }
+  }
+
+  return (
+    <Card className="mb-5 p-5">
+      <h3 className="font-display text-lg text-ink">
+        Account created for {result.email}
+      </h3>
+      <p className="mt-1 text-sm text-ink-muted">
+        Give them this code. It is shown once and cannot be looked up again.
+      </p>
+
+      <div className="my-5 flex items-center gap-4">
+        <span className="font-mono text-3xl tracking-[0.3em] text-ink">
+          {result.setupCode}
+        </span>
+        <Button variant="secondary" onClick={copy}>
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </div>
+
+      <p className="text-sm text-ink-muted">
+        They enter it on the sign-in screen under{' '}
+        <span className="text-ink">I have a setup code</span>, along with their
+        email address and a password of their choosing. It expires in{' '}
+        {result.expiresInMinutes >= 60
+          ? `${result.expiresInMinutes / 60} hours`
+          : `${result.expiresInMinutes} minutes`}
+        .
+      </p>
+
+      <div className="mt-5">
+        <Button onClick={onClose}>I have passed it on</Button>
+      </div>
     </Card>
   );
 }

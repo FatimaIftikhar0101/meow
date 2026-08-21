@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Field } from '../components/ui';
-import { errorMessage } from '../lib/api';
+import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import ClaimAccount from './ClaimAccount';
 
 /**
  * Sign-in, in its two halves.
@@ -18,8 +19,49 @@ export default function SignIn() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const awaitingCode = status === 'mfaRequired';
+
+  /**
+   * Ask for a code by email, then hand over to the same screen that claims an
+   * invitation — it is the same endpoint and the same six digits.
+   */
+  async function onForgotPassword() {
+    const address = email.trim();
+    if (!address) {
+      setError('Type your email address first, then choose this again.');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await api.post('/auth/forgot-password', { email: address });
+      setNotice(
+        'If that address has an account, a six-digit code is on its way. ' +
+          'It is good for fifteen minutes.',
+      );
+      setClaiming(true);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not send a code.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (claiming) {
+    return (
+      <ClaimAccount
+        notice={notice}
+        initialEmail={email.trim()}
+        onCancel={() => {
+          setClaiming(false);
+          setNotice(null);
+        }}
+      />
+    );
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -116,6 +158,22 @@ export default function SignIn() {
             <Button type="submit" busy={busy} className="w-full">
               Sign in
             </Button>
+            <div className="flex justify-between border-t border-line pt-4 text-sm">
+              <button
+                type="button"
+                onClick={() => setClaiming(true)}
+                className="text-ink-muted hover:text-ink"
+              >
+                I have a setup code
+              </button>
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-ink-muted hover:text-ink"
+              >
+                Forgot password
+              </button>
+            </div>
           </div>
         )}
       </form>
