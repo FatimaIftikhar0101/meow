@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffService } from './staff.service';
 
@@ -33,9 +34,11 @@ const ADMIN: AuthUser = {
 describe('StaffService', () => {
   let service: StaffService;
   let prisma: ReturnType<typeof mockPrisma>;
+  let mail: { sendStaffSetupEmail: jest.Mock };
 
   beforeEach(async () => {
     prisma = mockPrisma();
+    mail = { sendStaffSetupEmail: jest.fn().mockResolvedValue(undefined) };
     // Run the callback against the same mock, so audit writes inside a
     // transaction land on the spy the assertions read.
     prisma.$transaction.mockImplementation(
@@ -43,7 +46,11 @@ describe('StaffService', () => {
     );
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StaffService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        StaffService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: MailService, useValue: mail },
+      ],
     }).compile();
 
     service = module.get(StaffService);
@@ -113,6 +120,66 @@ describe('StaffService', () => {
       expect(audit.actorEmail).toBe(ADMIN.email);
       expect(audit.reason).toBe('Joining the AML team');
       expect(audit.afterValue).toMatchObject({ role: 'compliance' });
+    });
+
+    it('does not email the code unless asked', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u-9',
+        email: 'new.analyst@meow.test',
+        role: 'compliance',
+      });
+
+      const result = await service.invite(ADMIN, input);
+
+      expect(mail.sendStaffSetupEmail).not.toHaveBeenCalled();
+      expect(result.emailed).toBe(false);
+    });
+
+    it('emails the same code it returns, when asked', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u-9',
+        email: 'new.analyst@meow.test',
+        role: 'compliance',
+      });
+
+      const result = await service.invite(ADMIN, {
+        ...input,
+        sendEmail: true,
+      });
+
+      // The lower-cased address, not what was typed — otherwise the mail goes
+      // somewhere subtly different from the account that was created.
+      expect(mail.sendStaffSetupEmail).toHaveBeenCalledWith(
+        'new.analyst@meow.test',
+        result.setupCode,
+        result.expiresInMinutes,
+      );
+      expect(result.emailed).toBe(true);
+    });
+
+    it('still creates the account when the email fails', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u-9',
+        email: 'new.analyst@meow.test',
+        role: 'compliance',
+      });
+      mail.sendStaffSetupEmail.mockRejectedValue(new Error('550 rejected'));
+
+      // The account exists and the code is on the admin's screen. Throwing here
+      // would report a failed invitation for a copy that was never the primary
+      // way the code gets delivered.
+      const result = await service.invite(ADMIN, {
+        ...input,
+        sendEmail: true,
+      });
+
+      expect(result.setupCode).toMatch(/^\d{6}$/);
+      expect(result.emailed).toBe(false);
+      expect(result.emailError).toContain('550 rejected');
+      expect(prisma.user.create).toHaveBeenCalled();
     });
 
     it('refuses an address that already has an account', async () => {

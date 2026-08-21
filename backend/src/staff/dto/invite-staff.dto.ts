@@ -1,4 +1,11 @@
-import { IsEmail, IsIn, IsOptional, IsString, Length } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  Length,
+} from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 /** The roles that can be handed out. `customer` is not one of them — this
@@ -33,4 +40,15 @@ export class InviteStaffDto {
   @IsString()
   @Length(3, 200)
   reason!: string;
+
+  /**
+   * Send the setup code to their address as well as showing it.
+   *
+   * Off by default. The code is always returned to the admin who created the
+   * account, so this adds a second copy rather than choosing where it goes —
+   * useful when the new colleague is not in the room, pointless when they are.
+   */
+  @IsOptional()
+  @IsBoolean()
+  sendEmail?: boolean;
 }

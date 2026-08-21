@@ -186,14 +186,19 @@ export class MailService {
    * a single-use token before its owner has opened the message; the user then
    * clicks and is told it is invalid. A code cannot be consumed by being read.
    */
-  private codeBody(heading: string, purpose: string, code: string): string {
+  private codeBody(
+    heading: string,
+    purpose: string,
+    code: string,
+    expiry = 'This code expires in 15 minutes and can be used once.',
+  ): string {
     return `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
         <h2 style="color: #3C3C3C; font-size: 22px; margin-bottom: 8px;">${heading}</h2>
         <p style="color: #66737A; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">${purpose}</p>
         <p style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 32px; letter-spacing: 8px; color: #3C3C3C; background: #F4F7F8; padding: 16px 24px; border-radius: 12px; text-align: center; margin: 0;">${code}</p>
         <p style="color: #8A959B; font-size: 13px; margin-top: 28px; line-height: 1.5;">
-          This code expires in 15 minutes and can be used once. If you didn't ask for it, ignore this email — nothing will change.
+          ${expiry} If you didn't ask for it, ignore this email — nothing will change.
         </p>
       </div>
     `;
@@ -207,6 +212,39 @@ export class MailService {
         'Reset your password',
         'Enter this code in the app to choose a new password.',
         code,
+      ),
+    );
+  }
+
+  /**
+   * A back-office setup code, for an admin who chose to email it as well as
+   * reading it out.
+   *
+   * Separate from the reset email because the words matter to the person
+   * receiving it: this is a new account they were told to expect, not a
+   * password reset they did not ask for. The expiry differs too — a setup code
+   * lives two hours, not fifteen minutes.
+   *
+   * Sending this is never the only delivery. The code is on the inviting
+   * admin's screen either way, so a message that lands in spam delays somebody
+   * rather than stranding them.
+   */
+  async sendStaffSetupEmail(to: string, code: string, expiresInMinutes: number) {
+    const hours = expiresInMinutes / 60;
+    const window =
+      hours >= 1
+        ? `${hours} hour${hours === 1 ? '' : 's'}`
+        : `${expiresInMinutes} minutes`;
+    await this.send(
+      to,
+      'Your Meow back-office setup code',
+      this.codeBody(
+        'Set up your back-office account',
+        'An administrator created an account for you. Open the Meow back ' +
+          'office, choose "I have a setup code", and enter this with your ' +
+          'email address to choose a password.',
+        code,
+        `This code expires in ${window} and can be used once.`,
       ),
     );
   }

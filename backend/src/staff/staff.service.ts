@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
@@ -10,6 +11,7 @@ import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { generateCode, hashCode } from '../auth/one-time-code';
 import { isStaff, permissionsFor, STAFF_ROLES } from '../auth/permissions';
 import { writeStaffAudit } from '../common/audit/audit';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -24,7 +26,12 @@ const INVITE_TTL_MS = 2 * 60 * 60 * 1000;
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(StaffService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+  ) {}
 
   async list() {
     const staff = await this.prisma.user.findMany({
@@ -55,12 +62,17 @@ export class StaffService {
   /**
    * Create a back-office account and hand its setup code back to the admin.
    *
-   * The code is returned in the response and **not emailed**. Staff are hired,
-   * not signed up: the person creating the account knows the person receiving
-   * it and can pass six digits over directly. That removes email from the flow
-   * where failure hurts most — this product has no domain, so mail is often
-   * filtered, and a colleague blocked from the back office by a spam folder is
-   * a bad way to start.
+   * The code is **always** returned in the response, and emailed only if the
+   * admin asks for it. Staff are hired, not signed up: the person creating the
+   * account knows the person receiving it and can pass six digits over
+   * directly. That keeps email off the critical path — this product has no
+   * domain, so mail is often filtered, and a colleague blocked from the back
+   * office by a spam folder is a bad way to start.
+   *
+   * The optional copy exists because colleagues are not always in the room.
+   * It is a convenience layered on a delivery that already happened, which is
+   * why a failure to send is reported rather than thrown: the invitation
+   * succeeded, the account exists, and the code is on screen.
    *
    * It is also the safer shape. Nothing sits in an inbox waiting to be read,
    * forwarded, or fetched by a scanner, and the code is only ever seen by two
@@ -78,6 +90,7 @@ export class StaffService {
       firstName?: string;
       lastName?: string;
       reason: string;
+      sendEmail?: boolean;
     },
   ) {
     const email = input.email.trim().toLowerCase();
@@ -120,6 +133,28 @@ export class StaffService {
       return created;
     });
 
+    const expiresInMinutes = INVITE_TTL_MS / 60000;
+
+    // Deliberately after the account is committed, and deliberately not inside
+    // the transaction. Mail is a network call to somebody else's server: it can
+    // hang, and holding a database transaction open while it does is how a
+    // slow provider becomes a database problem.
+    let emailed = false;
+    let emailError: string | null = null;
+    if (input.sendEmail) {
+      try {
+        await this.mail.sendStaffSetupEmail(email, setupCode, expiresInMinutes);
+        emailed = true;
+      } catch (err) {
+        // Never rethrown. The account exists and the code is in the response —
+        // failing the whole request here would tell the admin the invitation
+        // did not work, when in fact only the optional copy of it did not.
+        emailError =
+          err instanceof Error ? err.message : 'The email could not be sent.';
+        this.logger.warn(`Setup code email to ${email} failed: ${emailError}`);
+      }
+    }
+
     // Returned exactly once, to the admin who created the account. It is a
     // bcrypt hash from here on, so nothing can read it back out later.
     return {
@@ -128,7 +163,9 @@ export class StaffService {
       role: user.role,
       pending: true,
       setupCode,
-      expiresInMinutes: INVITE_TTL_MS / 60000,
+      expiresInMinutes,
+      emailed,
+      emailError,
     };
   }
 

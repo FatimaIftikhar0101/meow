@@ -179,6 +179,8 @@ interface InviteResult {
   email: string;
   setupCode: string;
   expiresInMinutes: number;
+  emailed: boolean;
+  emailError: string | null;
 }
 
 function InviteForm({
@@ -191,6 +193,7 @@ function InviteForm({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<StaffRole>('support');
   const [reason, setReason] = useState('');
+  const [sendEmail, setSendEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InviteResult | null>(null);
 
@@ -201,6 +204,7 @@ function InviteForm({
           email: email.trim(),
           role,
           reason,
+          sendEmail,
         })
       ).data,
     onSuccess: (data) => {
@@ -258,6 +262,22 @@ function InviteForm({
           minLength={3}
           required
         />
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sendEmail}
+            onChange={(e) => setSendEmail(e.target.checked)}
+            className="mt-0.5 size-4 accent-accent"
+          />
+          <span className="text-sm text-ink">
+            Email the code to them as well
+            <span className="mt-0.5 block text-xs text-ink-muted">
+              For someone not in the room. You still get the code on screen, so
+              a message that lands in spam delays them rather than locking them
+              out.
+            </span>
+          </span>
+        </label>
         <Button type="submit" busy={invite.isPending}>
           Create account
         </Button>
@@ -311,6 +331,24 @@ function InviteCode({
           {copied ? 'Copied' : 'Copy'}
         </Button>
       </div>
+
+      {result.emailed && (
+        <div className="mb-4">
+          <Alert tone="success">
+            A copy was emailed to {result.email}. Pass the code on anyway — mail
+            without a verified domain is often filtered.
+          </Alert>
+        </div>
+      )}
+      {result.emailError && (
+        <div className="mb-4">
+          <Alert>
+            The account was created, but the email could not be sent — “
+            {result.emailError}”. The code above is still valid; give it to them
+            directly.
+          </Alert>
+        </div>
+      )}
 
       <p className="text-sm text-ink-muted">
         They enter it on the sign-in screen under{' '}
