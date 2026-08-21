@@ -51,7 +51,6 @@ type Status = 'loading' | 'signedOut' | 'signedIn';
 interface AuthValue {
   status: Status;
   profile: Profile | null;
-  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<'cancelled' | 'signedIn'>;
   register: (input: RegisterInput) => Promise<void>;
@@ -259,7 +258,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       status,
       profile,
-      isAdmin: profile?.role === 'admin',
       signIn,
       signInWithGoogle,
       register,

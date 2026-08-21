@@ -3,24 +3,22 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../components/BackBar';
-import { Body, Button, Field, Note, Row, Screen, Title } from '../../components/ui';
+import {
+  Body,
+  Button,
+  Field,
+  Note,
+  PasswordChecklist,
+  Screen,
+  Title,
+} from '../../components/ui';
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
-import { colors, radius } from '../../theme/tokens';
-
-/**
- * Password rules mirror RegisterDto exactly (10–128 chars, one lowercase, one
- * uppercase, one digit). Checked here so the requirement is visible while
- * typing rather than delivered as a list of server errors after submitting.
- */
-const RULES = [
-  { label: 'At least 10 characters', test: (p: string) => p.length >= 10 },
-  { label: 'A lowercase letter', test: (p: string) => /[a-z]/.test(p) },
-  { label: 'An uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'A number', test: (p: string) => /[0-9]/.test(p) },
-];
+import { unmetRules } from '../../lib/password';
+import { radius, useTheme } from '../../theme/tokens';
 
 export default function Register() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { register } = useAuth();
   const params = useLocalSearchParams<{ ref?: string }>();
@@ -55,7 +53,7 @@ export default function Register() {
     return () => clearTimeout(t);
   }, [referralCode]);
 
-  const unmet = RULES.filter((r) => !r.test(password));
+  const unmet = unmetRules(password);
 
   const submit = async () => {
     if (fullName.trim().length < 2) return setError('Enter your full name.');
@@ -141,23 +139,7 @@ export default function Register() {
               textContentType="newPassword"
             />
 
-            {password.length > 0 && unmet.length > 0 && (
-              <View style={{ gap: 4, marginTop: -6 }}>
-                {RULES.map((r) => {
-                  const ok = r.test(password);
-                  return (
-                    <Row key={r.label} gap={7}>
-                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
-                        {ok ? '✓' : '○'}
-                      </Body>
-                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
-                        {r.label}
-                      </Body>
-                    </Row>
-                  );
-                })}
-              </View>
-            )}
+            <PasswordChecklist password={password} />
 
             <Field
               label="Country"

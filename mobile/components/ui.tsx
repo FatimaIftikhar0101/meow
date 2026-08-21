@@ -12,7 +12,8 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { colors, radius, shadow, space } from '../theme/tokens';
+import { PASSWORD_RULES, unmetRules } from '../lib/password';
+import { radius, shadow, space, useTheme, type Scheme } from '../theme/tokens';
 
 /* ── Text ──────────────────────────────────────────────────────────────── */
 
@@ -35,17 +36,26 @@ type TextTone =
   | 'onSlab'
   | 'onSlabMuted';
 
-const TONE: Record<TextTone, string> = {
-  ink: colors.ink,
-  muted: colors.inkMuted,
-  faint: colors.inkFaint,
-  accent: colors.accent,
-  success: colors.success,
-  pending: colors.pending,
-  danger: colors.danger,
-  onSlab: colors.onSlab,
-  onSlabMuted: colors.onSlabMuted,
-};
+/**
+ * A tone resolved against the scheme in force.
+ *
+ * This was a module-level map, which worked exactly as long as there was one
+ * scheme. A colour captured at import time cannot follow a theme change, so
+ * every tone is now looked up per render.
+ */
+function toneColor(colors: Scheme, tone: TextTone): string {
+  return {
+    ink: colors.ink,
+    muted: colors.inkMuted,
+    faint: colors.inkFaint,
+    accent: colors.accent,
+    success: colors.success,
+    pending: colors.pending,
+    danger: colors.danger,
+    onSlab: colors.onSlab,
+    onSlabMuted: colors.onSlabMuted,
+  }[tone];
+}
 
 export function Title({
   children,
@@ -60,11 +70,17 @@ export function Title({
   style?: object;
   numberOfLines?: number;
 }) {
+  const { colors } = useTheme();
   return (
     <Text
       numberOfLines={numberOfLines}
       style={[
-        { fontSize: size, fontWeight: '700', letterSpacing: -size * 0.026, color: TONE[tone] },
+        {
+          fontSize: size,
+          fontWeight: '700',
+          letterSpacing: -size * 0.026,
+          color: toneColor(colors, tone),
+        },
         style,
       ]}
     >
@@ -91,11 +107,17 @@ export function Body({
   style?: object;
   numberOfLines?: number;
 }) {
+  const { colors } = useTheme();
   return (
     <Text
       numberOfLines={numberOfLines}
       style={[
-        { fontSize: size, fontWeight: weight, color: TONE[tone], lineHeight: size * 1.45 },
+        {
+          fontSize: size,
+          fontWeight: weight,
+          color: toneColor(colors, tone),
+          lineHeight: size * 1.45,
+        },
         numbers && { fontVariant: ['tabular-nums'] as const },
         style,
       ]}
@@ -112,6 +134,7 @@ export function Kicker({
   children: React.ReactNode;
   tone?: TextTone;
 }) {
+  const { colors } = useTheme();
   return (
     <Text
       style={{
@@ -119,7 +142,7 @@ export function Kicker({
         fontWeight: '700',
         letterSpacing: 1.7,
         textTransform: 'uppercase',
-        color: TONE[tone],
+        color: toneColor(colors, tone),
       }}
     >
       {children}
@@ -172,6 +195,7 @@ export function Card({
   variant?: 'card' | 'inset' | 'slab';
   padded?: boolean;
 }) {
+  const { colors } = useTheme();
   const v = {
     card: { backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1 },
     inset: { backgroundColor: colors.inset, borderColor: 'transparent', borderWidth: 0 },
@@ -192,6 +216,7 @@ export function Card({
 }
 
 export function Divider({ inset = 0 }: { inset?: number }) {
+  const { colors } = useTheme();
   return <View style={{ height: 1, backgroundColor: colors.line, marginLeft: inset }} />;
 }
 
@@ -210,13 +235,18 @@ type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
  * is part of the choice now rather than something the caller has to remember.
  */
 function variantStyle(
+  colors: Scheme,
   variant: Variant,
   onSlab: boolean,
 ): { bg: string; fg: string; border: string } {
   if (onSlab) {
     switch (variant) {
       case 'primary':
-        return { bg: colors.onSlab, fg: colors.accentDeep, border: colors.onSlab };
+        // slabDeep, not accentDeep. This button is white-on-slab, and the
+        // scheme's own deep accent inverts in dark mode — #CBD6DB on white is
+        // 1.48:1, a button with no visible label. The slab's own deep tone is
+        // dark in both schemes, which is the property this needs.
+        return { bg: colors.onSlab, fg: colors.slabDeep, border: colors.onSlab };
       case 'secondary':
         return { bg: 'rgba(255,255,255,0.14)', fg: colors.onSlab, border: 'transparent' };
       case 'outline':
@@ -224,7 +254,11 @@ function variantStyle(
       case 'ghost':
         return { bg: 'transparent', fg: colors.onSlab, border: 'transparent' };
       case 'danger':
-        return { bg: 'transparent', fg: colors.danger, border: colors.danger };
+        return {
+          bg: 'transparent',
+          fg: colors.onSlabDanger,
+          border: colors.onSlabDanger,
+        };
     }
   }
   switch (variant) {
@@ -233,7 +267,9 @@ function variantStyle(
     case 'secondary':
       return { bg: colors.inset, fg: colors.ink, border: colors.inset };
     case 'outline':
-      return { bg: colors.card, fg: colors.ink, border: colors.lineStrong };
+      // Same reasoning as the text field: an outline button on a ground its
+      // own colour is identified by its border and nothing else.
+      return { bg: colors.card, fg: colors.ink, border: colors.fieldBorder };
     case 'ghost':
       return { bg: 'transparent', fg: colors.accent, border: 'transparent' };
     case 'danger':
@@ -263,7 +299,8 @@ export function Button({
   /** Set when the button sits on a dark surface, so the label stays legible. */
   onSlab?: boolean;
 }) {
-  const v = variantStyle(variant, onSlab);
+  const { colors } = useTheme();
+  const v = variantStyle(colors, variant, onSlab);
   const off = disabled || loading;
   return (
     <Pressable
@@ -315,6 +352,7 @@ export function Field({
   style,
   ...input
 }: TextInputProps & { label: string; hint?: string; error?: string }) {
+  const { colors } = useTheme();
   const [focused, setFocused] = React.useState(false);
   return (
     <View style={{ gap: 6 }}>
@@ -334,7 +372,9 @@ export function Field({
           {
             backgroundColor: colors.card,
             borderWidth: 1,
-            borderColor: error ? colors.danger : focused ? colors.accent : colors.lineStrong,
+            // fieldBorder, not the hairline: this outline is the only thing
+            // marking where the field is, since its ground matches the page.
+            borderColor: error ? colors.danger : focused ? colors.accent : colors.fieldBorder,
             borderRadius: radius.md,
             paddingHorizontal: 14,
             paddingVertical: 13,
@@ -370,6 +410,7 @@ export function Note({
   children: React.ReactNode;
   tone?: 'danger' | 'pending' | 'success' | 'info';
 }) {
+  const { colors } = useTheme();
   const map = {
     danger: { bg: colors.dangerSoft, fg: colors.danger },
     pending: { bg: colors.pendingSoft, fg: colors.pending },
@@ -393,6 +434,7 @@ export function Note({
 }
 
 export function Loader({ label }: { label?: string }) {
+  const { colors } = useTheme();
   return (
     <View style={{ paddingVertical: 40, alignItems: 'center', gap: 10 }}>
       <ActivityIndicator color={colors.accent} />
@@ -433,21 +475,26 @@ export function Screen({
   children,
   scroll = true,
   refreshControl,
-  background = colors.canvas,
+  background,
   contentStyle,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   refreshControl?: React.ReactElement<RefreshControlProps>;
+  /** Overrides the canvas — for a screen that sits on a slab, say. */
   background?: string;
   contentStyle?: ViewStyle;
 }) {
+  const { colors } = useTheme();
+  // Resolved here rather than in the default parameter: a default that reads a
+  // module-level colour is evaluated against whichever scheme was loaded first.
+  const bg = background ?? colors.canvas;
   if (!scroll) {
-    return <View style={[{ flex: 1, backgroundColor: background }, contentStyle]}>{children}</View>;
+    return <View style={[{ flex: 1, backgroundColor: bg }, contentStyle]}>{children}</View>;
   }
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: background }}
+      style={{ flex: 1, backgroundColor: bg }}
       contentContainerStyle={[{ padding: space.lg, paddingBottom: 40 }, contentStyle]}
       keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}
@@ -474,3 +521,33 @@ export function Row({
 export const s = StyleSheet.create({
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });
+
+/* ── Password checklist ────────────────────────────────────────────────── */
+
+/**
+ * The unmet-rules list shown under a new-password field.
+ *
+ * Renders nothing until there is something to type against and something still
+ * unmet, so an empty field is not greeted by four red crosses — the rules are
+ * guidance while typing, not an accusation before starting.
+ */
+export function PasswordChecklist({ password }: { password: string }) {
+  if (!password.length || !unmetRules(password).length) return null;
+  return (
+    <View style={{ gap: 4, marginTop: -6 }}>
+      {PASSWORD_RULES.map((r) => {
+        const ok = r.test(password);
+        return (
+          <Row key={r.label} gap={7}>
+            <Body size={12} tone={ok ? 'accent' : 'faint'}>
+              {ok ? '✓' : '○'}
+            </Body>
+            <Body size={12} tone={ok ? 'accent' : 'faint'}>
+              {r.label}
+            </Body>
+          </Row>
+        );
+      })}
+    </View>
+  );
+}

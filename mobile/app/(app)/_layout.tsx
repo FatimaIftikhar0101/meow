@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GreetingIntro } from '../../components/GreetingIntro';
 import { useAuth } from '../../lib/AuthContext';
 import { useLive } from '../../lib/sockets';
-import { colors, radius, shadow } from '../../theme/tokens';
+import { radius, shadow, useTheme } from '../../theme/tokens';
 
 /* ── Icons. Drawn here rather than pulled from an icon font: five glyphs is
       not worth a dependency, and these match the design's 1.6px stroke. ── */
@@ -55,6 +55,7 @@ function Icon({
  * swipe out of a half-entered transfer.
  */
 function SendButton() {
+  const { colors } = useTheme();
   const router = useRouter();
   return (
     <Pressable
@@ -97,6 +98,7 @@ function SendButton() {
 }
 
 function Badge({ count }: { count: number }) {
+  const { colors } = useTheme();
   if (count <= 0) return null;
   return (
     <View
@@ -113,7 +115,7 @@ function Badge({ count }: { count: number }) {
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: '#fff', fontSize: 9.5, fontWeight: '700' }}>
+      <Text style={{ color: colors.onDanger, fontSize: 9.5, fontWeight: '700' }}>
         {count > 9 ? '9+' : count}
       </Text>
     </View>
@@ -121,6 +123,7 @@ function Badge({ count }: { count: number }) {
 }
 
 export default function AppLayout() {
+  const { colors } = useTheme();
   const { status, profile } = useAuth();
   const { unreadCount } = useLive();
   const insets = useSafeAreaInsets();
@@ -136,7 +139,10 @@ export default function AppLayout() {
     pathname.startsWith('/send') ||
     /^\/activity\/[^/]+$/.test(pathname) ||
     pathname.startsWith('/wallet/fund') ||
-    pathname.startsWith('/recipients/');
+    pathname.startsWith('/recipients/') ||
+    // A six-digit code is a single task with a back arrow; leaving the tabs up
+    // invites wandering off halfway through one that expires in 15 minutes.
+    pathname.startsWith('/verify-email');
 
   return (
     <View style={{ flex: 1 }}>
@@ -199,10 +205,13 @@ export default function AppLayout() {
         }}
       />
 
-      {/* Reachable by push, but never their own tab. */}
+      {/* Reachable by push, but never their own tab. A screen file sitting
+          directly under (app) becomes a tab unless it says otherwise — which
+          is how you end up shipping a tab labelled "verify-email". */}
       <Tabs.Screen name="wallet" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="referrals" options={{ href: null }} />
+      <Tabs.Screen name="verify-email" options={{ href: null }} />
     </Tabs>
 
       {/* Over the tab bar as well as the content, so the greeting reads as one

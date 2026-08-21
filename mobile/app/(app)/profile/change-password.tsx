@@ -3,26 +3,29 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../../components/BackBar';
-import { Body, Button, Field, Note, Row, Screen, Title } from '../../../components/ui';
+import {
+  Body,
+  Button,
+  Field,
+  Note,
+  PasswordChecklist,
+  Screen,
+  Title,
+} from '../../../components/ui';
 import api, { errorMessage } from '../../../lib/api';
 import { setToken } from '../../../lib/auth-store';
-import { colors } from '../../../theme/tokens';
-
-const RULES = [
-  { label: 'At least 10 characters', test: (p: string) => p.length >= 10 },
-  { label: 'A lowercase letter', test: (p: string) => /[a-z]/.test(p) },
-  { label: 'An uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'A number', test: (p: string) => /[0-9]/.test(p) },
-];
+import { unmetRules } from '../../../lib/password';
+import { useTheme } from '../../../theme/tokens';
 
 export default function ChangePassword() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [currentPassword, setCurrent] = useState('');
   const [newPassword, setNext] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const unmet = RULES.filter((r) => !r.test(newPassword));
+  const unmet = unmetRules(newPassword);
 
   const submit = async () => {
     if (unmet.length) return setError('The new password does not meet the requirements yet.');
@@ -78,23 +81,7 @@ export default function ChangePassword() {
               autoComplete="new-password"
             />
 
-            {newPassword.length > 0 && unmet.length > 0 && (
-              <View style={{ gap: 4, marginTop: -6 }}>
-                {RULES.map((r) => {
-                  const ok = r.test(newPassword);
-                  return (
-                    <Row key={r.label} gap={7}>
-                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
-                        {ok ? '✓' : '○'}
-                      </Body>
-                      <Body size={12} tone={ok ? 'accent' : 'faint'}>
-                        {r.label}
-                      </Body>
-                    </Row>
-                  );
-                })}
-              </View>
-            )}
+            <PasswordChecklist password={newPassword} />
 
             <Button label="Change password" onPress={submit} loading={busy} />
           </View>

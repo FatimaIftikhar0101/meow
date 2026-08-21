@@ -6,7 +6,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/AuthContext';
 import { LiveProvider } from '../lib/sockets';
-import { colors } from '../theme/tokens';
+import { ThemeProvider } from '../theme/ThemeProvider';
+import { useTheme } from '../theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -28,28 +29,46 @@ function SplashGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Everything below `<ThemeProvider>`, and therefore everything that can read the
+ * scheme. Splitting this out of `RootLayout` is not stylistic: a component
+ * cannot consume a context it renders itself, so a `useTheme()` call up in
+ * `RootLayout` would quietly return the light default forever and the one
+ * surface it paints — the ground behind every screen transition — would stay
+ * white in dark mode.
+ */
+function Themed() {
+  const { name, colors } = useTheme();
+  return (
+    <SplashGate>
+      {/* The bar's *content* colour, so it is inverted relative to the scheme:
+          light glyphs on a dark ground, and the other way round. */}
+      <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.canvas },
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
+      </Stack>
+    </SplashGate>
+  );
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <LiveProvider>
-            <SplashGate>
-              <StatusBar style="dark" />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: colors.canvas },
-                  animation: 'slide_from_right',
-                }}
-              >
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(app)" />
-                <Stack.Screen name="(admin)" />
-              </Stack>
-            </SplashGate>
-          </LiveProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <LiveProvider>
+              <Themed />
+            </LiveProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

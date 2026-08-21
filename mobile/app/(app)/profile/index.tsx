@@ -4,15 +4,19 @@ import { Alert, Pressable, RefreshControl, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../../components/StatusPill';
+import { ThemePicker } from '../../../components/ThemePicker';
+import { VersionRow } from '../../../components/UpdateNotice';
 import { Body, Button, Card, Divider, Note, Row, Screen, Title } from '../../../components/ui';
 import api, { errorMessage } from '../../../lib/api';
 import { useAuth } from '../../../lib/AuthContext';
 import { dateOf } from '../../../lib/format';
 import { useLive } from '../../../lib/sockets';
+import { useAppUpdate } from '../../../lib/updates';
 import type { Balance, ComplianceStatus } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 function Chevron() {
+  const { colors } = useTheme();
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24">
       <Path
@@ -38,6 +42,7 @@ function LinkRow({
   onPress: () => void;
   badge?: number;
 }) {
+  const { colors } = useTheme();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
       <Row style={{ justifyContent: 'space-between', paddingVertical: 13 }}>
@@ -76,8 +81,10 @@ function LinkRow({
 }
 
 export default function Profile() {
+  const { colors } = useTheme();
   const router = useRouter();
-  const { profile, isAdmin, signOut, refresh } = useAuth();
+  const { profile, signOut, refresh } = useAuth();
+  const update = useAppUpdate();
   const { unreadCount } = useLive();
 
   const [kyc, setKyc] = useState<ComplianceStatus | null>(null);
@@ -111,15 +118,6 @@ export default function Profile() {
       setError(errorMessage(err, 'Verification could not be completed.'));
     } finally {
       setVerifying(false);
-    }
-  };
-
-  const resendVerification = async () => {
-    try {
-      await api.post('/auth/resend-verification');
-      Alert.alert('Email sent', 'Check your inbox for the verification link.');
-    } catch (err) {
-      Alert.alert('Could not send', errorMessage(err));
     }
   };
 
@@ -199,9 +197,9 @@ export default function Profile() {
           </Card>
 
           {profile && !profile.emailVerified && (
-            <Pressable onPress={resendVerification}>
+            <Pressable onPress={() => router.push('/(app)/verify-email')}>
               <Note tone="pending">
-                Your email is not verified yet. Tap to resend the link.
+                Your email is not verified yet. Tap to enter the code we sent you.
               </Note>
             </Pressable>
           )}
@@ -227,6 +225,12 @@ export default function Profile() {
           </Card>
 
           <Card padded={false} style={{ paddingHorizontal: 16 }}>
+            <ThemePicker />
+            <Divider />
+            <VersionRow update={update} />
+          </Card>
+
+          <Card padded={false} style={{ paddingHorizontal: 16 }}>
             <LinkRow
               label="Devices & sessions"
               hint="See where you're signed in, and sign out remotely"
@@ -238,32 +242,6 @@ export default function Profile() {
               onPress={() => router.push('/(app)/profile/change-password')}
             />
           </Card>
-
-          {isAdmin && (
-            <Pressable onPress={() => router.push('/(admin)')}>
-              <View
-                style={{
-                  backgroundColor: colors.slab,
-                  borderRadius: radius.md,
-                  padding: 15,
-                }}
-              >
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <View style={{ flex: 1 }}>
-                    <Body size={14} tone="onSlab" weight="600">
-                      Admin portal
-                    </Body>
-                    <Body size={12} tone="onSlabMuted">
-                      Users, transfers, corridors and the audit log
-                    </Body>
-                  </View>
-                  <Body size={16} tone="accent">
-                    ›
-                  </Body>
-                </Row>
-              </View>
-            </Pressable>
-          )}
 
           <Button
             label="Sign out"
