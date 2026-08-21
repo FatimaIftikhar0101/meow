@@ -48,10 +48,30 @@ export const neutral = {
   1000: '#16191B',
 } as const;
 
-/** Cool greys for secondary text, so muted copy belongs to the slate family. */
+/**
+ * Cool greys for secondary text, so muted copy belongs to the slate family.
+ *
+ * The two text greys were re-derived when the schemes were measured: the old
+ * pair read 4.89:1 and 3.06:1 on white, so `faint` failed WCAG AA outright and
+ * `muted` cleared it by four hundredths. They now sit at 6.54:1 and 4.85:1,
+ * which keeps three distinct levels of emphasis — 11 / 6.5 / 4.9 — where before
+ * there were two that passed and one that did not.
+ *
+ * None of the client's five colours moved. These are derived cool greys, not
+ * supplied values.
+ */
 export const grey = {
-  muted: '#66737A',
-  faint: '#8A959B',
+  muted: '#555F65',
+  faint: '#6A7377',
+  /**
+   * The edge of a text input, and nothing else.
+   *
+   * A hairline is right for a divider and wrong for a control: the field's
+   * background is the same white as the page behind it, so the border is the
+   * only thing saying "type here". WCAG 1.4.11 asks for 3:1 on exactly that
+   * basis, and the hairline managed 1.48:1. This is 3.24:1.
+   */
+  field: '#899094',
 } as const;
 
 /** Success. Reserved for a delivered transfer — see tokens.ts. */

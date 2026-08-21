@@ -1,5 +1,9 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+// Deliberately the light scheme, not `useTheme()`. A receipt is ink on white
+// paper: it is printed, attached to an email, and read by an accountant who has
+// never heard of this app's appearance setting. Rendering it dark because the
+// sender's phone is dark would waste toner and look like a fault.
 import { colors } from '../theme/tokens';
 import { STATUS_LABEL, dateTimeOf } from './format';
 import { formatAmount } from './money';

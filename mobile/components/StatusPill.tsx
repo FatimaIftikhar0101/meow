@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { STATUS_LABEL } from '../lib/format';
 import type { TransferStatus } from '../lib/types';
-import { colors, radius } from '../theme/tokens';
+import { radius, useTheme, type Scheme } from '../theme/tokens';
 
 /**
  * Status colour is deliberately not the accent. The accent means "this is the
@@ -13,7 +13,7 @@ import { colors, radius } from '../theme/tokens';
  * Fills are solid rather than tinted. On the old off-white ground a pale chip
  * had something to sit against; on white it dissolves.
  */
-function toneFor(status: TransferStatus) {
+function toneFor(colors: Scheme, status: TransferStatus) {
   switch (status) {
     case 'delivered':
       return { bg: colors.success, fg: colors.onSuccess };
@@ -32,7 +32,8 @@ export function StatusPill({
   status: TransferStatus;
   compact?: boolean;
 }) {
-  const tone = toneFor(status);
+  const { colors } = useTheme();
+  const tone = toneFor(colors, status);
   return (
     <View
       style={{
@@ -60,6 +61,7 @@ export function Avatar({
   size?: number;
   tone?: 'inset' | 'slab' | 'accent';
 }) {
+  const { colors } = useTheme();
   const initials = name
     .trim()
     .split(/\s+/)

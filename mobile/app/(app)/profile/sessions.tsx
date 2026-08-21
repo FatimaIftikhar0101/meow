@@ -7,9 +7,10 @@ import { Body, Button, Card, Loader, Note, Row, Screen, Title } from '../../../c
 import api, { errorMessage } from '../../../lib/api';
 import { dateOf, describeUserAgent, deviceOf, relativeTime } from '../../../lib/format';
 import type { SessionRow } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 export default function Sessions() {
+  const { colors } = useTheme();
   const [list, setList] = useState<SessionRow[] | null>(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);

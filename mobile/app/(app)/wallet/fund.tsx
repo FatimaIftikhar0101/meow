@@ -9,11 +9,12 @@ import { Body, Button, Note, Row, Title } from '../../../components/ui';
 import api, { errorMessage, statusOf } from '../../../lib/api';
 import { formatMoney } from '../../../lib/money';
 import type { Balance } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 const PRESETS = ['50', '100', '250', '500'];
 
 export default function FundWallet() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [amount, setAmount] = useState('');

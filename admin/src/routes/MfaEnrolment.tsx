@@ -127,6 +127,11 @@ export default function MfaEnrolment() {
       {/* White plate regardless of theme: a QR reader needs light modules on a
           dark ground, and inverting it is the classic way to ship a code that
           no phone will read. */}
+      {/* Literally white, and it stays white in dark mode. A QR code is read by
+          a camera, not a person: scanners expect dark modules on a light
+          ground, and inverting one is the single most common reason a code
+          will not scan. The quiet zone around it is part of the spec too, which
+          is what the padding is for. */}
       <div className="my-5 flex justify-center rounded-lg bg-white p-4">
         <QRCode
           value={begin.data.uri}

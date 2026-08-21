@@ -5,7 +5,7 @@ import { Body, Row } from './ui';
 import { Kitten, type KittenState } from './Kitten';
 import { STATUS_LABEL, STATUS_STEPS, dateTimeOf } from '../lib/format';
 import type { TransferEvent, TransferStatus } from '../lib/types';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/tokens';
 
 /**
  * The transfer as a journey: one winding route across the card, six stations,
@@ -172,6 +172,7 @@ export function JourneyPath({
   status: TransferStatus;
   timeline: TransferEvent[];
 }) {
+  const { colors } = useTheme();
   const [width, setWidth] = React.useState(0);
   const [reduceMotion, setReduceMotion] = React.useState(false);
 

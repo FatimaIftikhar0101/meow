@@ -2,8 +2,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, G, Mask, Path, Rect } from 'react-native-svg';
-import { DayPart, GREETING, dayPartFor } from '../lib/format';
-import { colors, fonts, scenes } from '../theme/tokens';
+import { GREETING, dayPartFor } from '../lib/format';
+import { fonts, scenesFor, useTheme, type DayPart } from '../theme/tokens';
 import { CatMark } from './CatMark';
 import { Body, Title } from './ui';
 
@@ -56,7 +56,8 @@ const STARS: readonly (readonly [number, number, number])[] = [
 ];
 
 function Scene({ part }: { part: DayPart }) {
-  const s = scenes[part];
+  const { name: scheme, colors } = useTheme();
+  const s = scenesFor(scheme)[part];
   const c = CELESTIAL[part];
 
   return (
@@ -115,8 +116,9 @@ function Scene({ part }: { part: DayPart }) {
 }
 
 export function GreetingIntro({ name }: { name: string }) {
+  const { name: scheme } = useTheme();
   const part = dayPartFor();
-  const s = scenes[part];
+  const s = scenesFor(scheme)[part];
 
   const [visible, setVisible] = useState(!shownThisLaunch);
   const fade = useRef(new Animated.Value(1)).current;

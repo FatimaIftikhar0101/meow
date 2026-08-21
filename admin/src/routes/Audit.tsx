@@ -48,7 +48,7 @@ export default function Audit() {
             value={action}
             onChange={(e) => setAction(e.target.value)}
             placeholder="Filter by action, e.g. staff.role.assign"
-            className="w-72 rounded-lg border border-line-strong bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+            className="w-72 rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
           />
         }
       />

@@ -9,10 +9,11 @@ import api from '../../../lib/api';
 import { receiveCurrencyFor, useCorridors } from '../../../lib/corridors';
 import { countryFlag } from '../../../lib/money';
 import type { ComplianceStatus, Recipient } from '../../../lib/types';
-import { colors } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 /** Step 1 of 3. Who. */
 export default function SendPickRecipient() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { corridors } = useCorridors();
   const [list, setList] = useState<Recipient[] | null>(null);

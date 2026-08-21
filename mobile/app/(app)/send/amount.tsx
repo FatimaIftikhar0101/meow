@@ -9,10 +9,11 @@ import api from '../../../lib/api';
 import { receiveCurrencyFor, useCorridors } from '../../../lib/corridors';
 import { compareAmount, formatAmount, formatMoney } from '../../../lib/money';
 import type { Balance, Quote, Recipient } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 /** Step 2 of 3. How much. */
 export default function SendAmount() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { recipientId } = useLocalSearchParams<{ recipientId: string }>();
   const { corridors } = useCorridors();

@@ -1,3 +1,4 @@
+import type { DayPart } from '../theme/tokens';
 import type { TransferStatus } from './types';
 
 /** "2026-08-07T11:38:00Z" → "11:38" in the device's timezone. */
@@ -125,7 +126,8 @@ export function deviceOf(ua: string | null): string | null {
   return device || null;
 }
 
-export type DayPart = 'morning' | 'afternoon' | 'evening' | 'night';
+// Defined next to the scenes it selects, so the two cannot drift apart.
+export type { DayPart } from '../theme/tokens';
 
 /**
  * Boundaries match the four greeting scenes in the design artifact:

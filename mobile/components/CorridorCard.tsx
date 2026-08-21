@@ -3,7 +3,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { formatMoney, formatRate } from '../lib/money';
 import type { Corridor } from '../lib/types';
-import { colors, radius, shadow } from '../theme/tokens';
+import { radius, shadow, useTheme } from '../theme/tokens';
 import { CITIES, WorldMap } from './WorldMap';
 
 /**
@@ -32,6 +32,7 @@ function flag(code: string): string {
 /** A flag and city name tucked into a corner of the map, rather than a disc in
  *  the flow — the map's own pins already say where the money is going. */
 function EndLabel({ code, align }: { code: string; align: 'left' | 'right' }) {
+  const { colors } = useTheme();
   const city = CITIES[code?.toUpperCase()]?.name ?? code?.toUpperCase() ?? '';
   return (
     <View
@@ -62,6 +63,7 @@ export function CorridorCard({
   balanceCurrency: string;
   live?: boolean;
 }) {
+  const { colors } = useTheme();
   /**
    * The displayed rate is the *applied* rate, not the corridor's base rate:
    * base × (10000 − marginBps) / 10000, exactly as CorridorsService.computeQuote

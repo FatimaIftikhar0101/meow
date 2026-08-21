@@ -19,9 +19,10 @@ import {
 import api, { errorMessage } from '../../../lib/api';
 import { countryFlag } from '../../../lib/money';
 import type { Recipient } from '../../../lib/types';
-import { colors } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 export default function RecipientDetail() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 

@@ -8,7 +8,7 @@ import { BrandLockup, CatMark } from '../../components/CatMark';
 import { Body, Button, Title } from '../../components/ui';
 import { errorMessage } from '../../lib/api';
 import { googleEnabled, useAuth } from '../../lib/AuthContext';
-import { colors, fonts } from '../../theme/tokens';
+import { fonts, useTheme } from '../../theme/tokens';
 
 /**
  * The corridor arc, which is the product's whole idea: money leaving one
@@ -35,6 +35,7 @@ const APEX_Y = 66;
 const MARK = 62;
 
 function CorridorArc() {
+  const { colors } = useTheme();
   return (
     <View style={{ width: '100%', aspectRatio: VB_W / VB_H }}>
       <Svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`}>
@@ -83,6 +84,7 @@ function CorridorArc() {
 }
 
 export default function Welcome() {
+  const { name: scheme, colors } = useTheme();
   const router = useRouter();
   const { signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -100,7 +102,7 @@ export default function Welcome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <StatusBar style="dark" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20 }}>
           <BrandLockup size={30} />

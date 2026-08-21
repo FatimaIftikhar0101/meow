@@ -86,7 +86,7 @@ export default function Transfers() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as TransferStatus | '')}
-            className="rounded-lg border border-line-strong bg-card px-3 py-2 text-sm text-ink"
+            className="rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink"
           >
             <option value="">All statuses</option>
             {(Object.keys(STATUS_LABEL) as TransferStatus[]).map((s) => (

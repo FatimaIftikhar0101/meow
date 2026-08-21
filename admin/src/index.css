@@ -16,6 +16,11 @@
  * Tailwind v4 generates utilities from these directly: `--color-canvas` gives
  * `bg-canvas`, `--color-ink` gives `text-ink`. So a literal hex in a class name
  * is always a mistake — the role is missing, and the fix is to add one here.
+ *
+ * Note this is a plain `@theme`, not `@theme inline`. That matters: the
+ * utilities it generates emit `var(--color-canvas)` rather than a resolved hex,
+ * which is the whole reason the dark block below can re-point every one of them
+ * without a single utility class changing.
  */
 @theme {
   /* Surfaces. There is no "almost white": canvas and card are both #FFFFFF and
@@ -30,13 +35,26 @@
   /* Borders */
   --color-line: #e7ecef;
   --color-line-strong: #cbd6db;
+  /* The edge of a control, which is a different job from a divider and has a
+     different floor. A text input's background is the same white as the page,
+     so this outline is the only thing saying "type here" — WCAG 1.4.11 asks
+     3:1 of exactly that, and the hairline managed 1.48:1. This is 3.24:1. */
+  --color-field-border: #899094;
 
-  /* Content */
+  /* Content. The two greys were re-derived when both schemes were measured:
+     the old pair read 4.89:1 and 3.06:1 on white, so `ink-faint` failed AA
+     outright. They now sit at 6.54:1 and 4.85:1, which keeps three distinct
+     levels of emphasis where before there were two that passed and one that
+     did not. None of the client's five supplied colours moved. */
   --color-ink: #3c3c3c;
-  --color-ink-muted: #66737a;
-  --color-ink-faint: #8a959b;
+  --color-ink-muted: #555f65;
+  --color-ink-faint: #6a7377;
   --color-on-slab: #ffffff;
-  --color-on-slab-muted: #cbd6db;
+  --color-on-slab-muted: #e7ecef;
+  /* Danger on a slab. The slab is dark in BOTH schemes while `danger` is a
+     mid-tone in both, so the ordinary brick measures 1.02:1 there — an
+     invisible control, not a near miss. This is a light brick in both. */
+  --color-on-slab-danger: #f6e3de;
 
   /* Action */
   --color-accent: #3e4e57;
@@ -59,7 +77,7 @@
   --color-danger-soft: #f6e3de;
   --color-on-danger: #ffffff;
 
-  /* Brand. The mark, and only the mark. */
+  /* Brand. The mark, and only the mark — identical in both schemes. */
   --color-gold: #e0b259;
   --color-gold-light: #fff1c2;
   --color-gold-deep: #9a6d18;
@@ -68,14 +86,72 @@
 }
 
 /**
- * Dark mode is deliberately absent, matching the app.
+ * Dark. Every role re-pointed, nothing else touched.
  *
- * The mobile theme keeps a full dark scheme defined but unrendered, so turning
- * it on stays mechanical rather than becoming a redesign. Same intent here: add
- * a `@media (prefers-color-scheme: dark)` block that re-points these variables
- * and nothing else has to change. Do not add one half-finished — a panel that
- * is dark in places is worse than one that is light everywhere.
+ * The values are the same hexes as `schemes.dark` in mobile/theme/tokens.ts and
+ * must stay that way: a colleague moving between the phone and the panel should
+ * not find two different dark greys both called `card`.
+ *
+ * One selector, no `prefers-color-scheme` block. The person's preference has
+ * three states — light, dark, follow the system — but CSS only ever needs to
+ * know the two it resolves to, so `lib/theme.tsx` does the resolving and stamps
+ * the answer on <html>. Writing the media query as well would mean maintaining
+ * this list twice and would reintroduce the case where the OS overrides an
+ * explicit choice.
+ *
+ * `color-scheme` is not decoration: it is what makes the scrollbars, the text
+ * caret and the native form controls dark. Without it a dark panel keeps a
+ * bright white scrollbar down its right edge.
  */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-canvas: #16191b;
+  --color-card: #212729;
+  --color-inset: #1e2325;
+  --color-slab: #2e3b42;
+  --color-slab-deep: #212b30;
+  /* On a dark ground the mark no longer needs rescuing, but keeping a roundel
+     means the lockup is one shape in both schemes rather than two designs. */
+  --color-roundel: #2a3237;
+
+  --color-line: #2c3336;
+  --color-line-strong: #3c4549;
+  /* 3.00:1 on `card`, the tightest of the three dark surfaces. */
+  --color-field-border: #697073;
+
+  --color-ink: #e8edef;
+  --color-ink-muted: #9daab1;
+  /* 5.06:1 on `card`, and 4.50:1 on `accent-soft`, which is the lightest
+     ground it can land on — a hover tint sits above the card, not below it,
+     so the card is not the tightest case here the way it is in light. */
+  --color-ink-faint: #8c979b;
+  --color-on-slab: #ffffff;
+  --color-on-slab-muted: #afc0c7;
+  /* Same value as light: the ground is dark either way. */
+  --color-on-slab-danger: #f6e3de;
+
+  /* Slate inverts: the light tints become the readable ones on a dark ground. */
+  --color-accent: #afc0c7;
+  --color-accent-deep: #cbd6db;
+  --color-accent-soft: #263036;
+  --color-accent-muted: #93a6af;
+  --color-on-accent: #16191b;
+
+  --color-success: #6e9a72;
+  --color-success-soft: #1e2a20;
+  --color-on-success: #16191b;
+  --color-pending: #a98c6e;
+  --color-pending-soft: #2a231c;
+  --color-on-pending: #16191b;
+  --color-danger: #d07a63;
+  --color-danger-soft: #2e1d18;
+  --color-on-danger: #16191b;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
 
 html,
 body,

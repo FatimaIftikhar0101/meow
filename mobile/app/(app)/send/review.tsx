@@ -19,10 +19,11 @@ import {
 import api, { errorMessage, statusOf } from '../../../lib/api';
 import { countryFlag, formatAmount, formatMoney } from '../../../lib/money';
 import type { Quote, Recipient, TransferDetail } from '../../../lib/types';
-import { colors } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 /** Step 3 of 3. Confirm. */
 export default function SendReview() {
+  const { colors } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{
     recipientId: string;

@@ -25,7 +25,7 @@ export function Button({
   const variants = {
     primary: 'bg-accent text-on-accent hover:bg-accent-deep',
     secondary:
-      'bg-card text-ink border border-line-strong hover:bg-inset',
+      'bg-card text-ink border border-field-border hover:bg-inset',
     danger: 'bg-danger text-on-danger hover:opacity-90',
   } as const;
 
@@ -64,7 +64,7 @@ export function Field({
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
       <input
-        className="w-full rounded-lg border border-line-strong bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+        className="w-full rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
         {...rest}
       />
       {hint && !error && (

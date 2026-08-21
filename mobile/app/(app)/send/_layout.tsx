@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
 import React from 'react';
-import { colors } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 export default function SendLayout() {
+  const { colors } = useTheme();
   return (
     <Stack
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}

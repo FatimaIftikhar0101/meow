@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors, radius } from '../theme/tokens';
+import { radius, useTheme } from '../theme/tokens';
 
 /**
  * A custom numeric pad rather than the system keyboard.
@@ -24,6 +24,7 @@ export function Keypad({
   onChange: (next: string) => void;
   maxDecimals?: number;
 }) {
+  const { colors } = useTheme();
   const press = (key: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 

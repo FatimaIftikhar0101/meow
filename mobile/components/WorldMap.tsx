@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, G, Path } from 'react-native-svg';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/tokens';
 import { CatMark } from './CatMark';
 import { COUNTRY_PATH, LAND_PATH, MAP_H, MAP_W } from './worldLand.data';
 
@@ -140,6 +140,7 @@ export function WorldMap({
   /** Drawn on a dark slab (washes of white) rather than on the white canvas. */
   onSlab?: boolean;
 }) {
+  const { colors } = useTheme();
   const fromCode = fromCountry?.toUpperCase() ?? '';
   const toCode = toCountry?.toUpperCase() ?? '';
   const from = CITIES[fromCode];

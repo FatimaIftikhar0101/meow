@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/tokens';
 
 /**
  * A back affordance plus an optional title. Android's hardware back already
@@ -13,13 +13,18 @@ export function BackBar({
   title,
   right,
   onBack,
-  tint = colors.ink,
+  tint,
 }: {
   title?: string;
   right?: React.ReactNode;
   onBack?: () => void;
+  /** Overrides the ink colour — for a bar sitting on a dark slab. */
   tint?: string;
 }) {
+  const { colors } = useTheme();
+  // Not a default parameter: one evaluated at import time would freeze this
+  // bar in whichever scheme happened to load first.
+  const fg = tint ?? colors.ink;
   const router = useRouter();
   return (
     <View
@@ -47,7 +52,7 @@ export function BackBar({
         <Svg width={22} height={22} viewBox="0 0 24 24">
           <Path
             d="M15 5l-7 7 7 7"
-            stroke={tint}
+            stroke={fg}
             strokeWidth={1.9}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -56,7 +61,7 @@ export function BackBar({
         </Svg>
       </Pressable>
       {title ? (
-        <Text style={{ fontSize: 15, fontWeight: '600', color: tint, flex: 1 }}>{title}</Text>
+        <Text style={{ fontSize: 15, fontWeight: '600', color: fg, flex: 1 }}>{title}</Text>
       ) : (
         <View style={{ flex: 1 }} />
       )}

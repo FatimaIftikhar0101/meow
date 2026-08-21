@@ -1,9 +1,10 @@
 import { Redirect, Stack } from 'expo-router';
 import React from 'react';
 import { useAuth } from '../../lib/AuthContext';
-import { colors } from '../../theme/tokens';
+import { useTheme } from '../../theme/tokens';
 
 export default function AuthLayout() {
+  const { colors } = useTheme();
   const { status } = useAuth();
 
   // Someone with a live session has no business on the sign-in screens; this

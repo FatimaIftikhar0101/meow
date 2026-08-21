@@ -10,7 +10,7 @@ import api, { errorMessage } from '../../lib/api';
 import { dateOf } from '../../lib/format';
 import { formatMoney } from '../../lib/money';
 import type { ReferralDashboard } from '../../lib/types';
-import { colors, radius } from '../../theme/tokens';
+import { radius, useTheme } from '../../theme/tokens';
 
 const STATUS_COPY: Record<string, { label: string; tone: 'accent' | 'pending' | 'faint' }> = {
   rewarded: { label: 'Rewarded', tone: 'accent' },
@@ -19,6 +19,7 @@ const STATUS_COPY: Record<string, { label: string; tone: 'accent' | 'pending' | 
 };
 
 export default function Referrals() {
+  const { colors } = useTheme();
   const [data, setData] = useState<ReferralDashboard | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);

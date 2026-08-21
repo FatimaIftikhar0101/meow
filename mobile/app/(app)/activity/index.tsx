@@ -9,7 +9,7 @@ import { dateOf } from '../../../lib/format';
 import { formatMoney } from '../../../lib/money';
 import { useTransferStatus } from '../../../lib/sockets';
 import type { TransferSummary } from '../../../lib/types';
-import { colors } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 /** Groups transfers under Today / Yesterday / a date, the way a statement reads. */
 function groupLabel(iso: string): string {
@@ -24,6 +24,7 @@ function groupLabel(iso: string): string {
 }
 
 export default function Activity() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [list, setList] = useState<TransferSummary[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);

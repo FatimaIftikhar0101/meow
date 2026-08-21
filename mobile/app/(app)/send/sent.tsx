@@ -7,7 +7,7 @@ import { Body, Button, Card, Loader, Row, Title } from '../../../components/ui';
 import api from '../../../lib/api';
 import { formatMoney } from '../../../lib/money';
 import type { TransferDetail } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 /**
  * The moment after the money moves. No confetti: this screen's job is to say
@@ -15,6 +15,7 @@ import { colors, radius } from '../../../theme/tokens';
  * is always "when does it arrive".
  */
 export default function Sent() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [transfer, setTransfer] = useState<TransferDetail | null>(null);

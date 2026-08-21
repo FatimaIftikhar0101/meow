@@ -41,7 +41,7 @@ export default function Customers() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by email"
-            className="w-64 rounded-lg border border-line-strong bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+            className="w-64 rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
           />
         }
       />

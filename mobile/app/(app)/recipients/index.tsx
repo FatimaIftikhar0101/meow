@@ -7,9 +7,10 @@ import { Body, Button, Card, Empty, Loader, Row, Screen, Title } from '../../../
 import api from '../../../lib/api';
 import { countryFlag } from '../../../lib/money';
 import type { Recipient } from '../../../lib/types';
-import { colors } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/tokens';
 
 export default function Recipients() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [list, setList] = useState<Recipient[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);

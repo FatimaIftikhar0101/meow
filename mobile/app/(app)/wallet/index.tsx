@@ -8,7 +8,7 @@ import api from '../../../lib/api';
 import { dateTimeOf } from '../../../lib/format';
 import { formatAmount, formatMoney } from '../../../lib/money';
 import type { Balance, LedgerTransaction } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 /** Ledger entry types, spelled the way a person would describe them. */
 const ENTRY_LABEL: Record<string, string> = {
@@ -20,6 +20,7 @@ const ENTRY_LABEL: Record<string, string> = {
 };
 
 export default function Wallet() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [entries, setEntries] = useState<LedgerTransaction[] | null>(null);

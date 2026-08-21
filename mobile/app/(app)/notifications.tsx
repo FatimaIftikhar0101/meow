@@ -8,9 +8,10 @@ import api from '../../lib/api';
 import { relativeTime } from '../../lib/format';
 import { useLive } from '../../lib/sockets';
 import type { Notification } from '../../lib/types';
-import { colors } from '../../theme/tokens';
+import { useTheme } from '../../theme/tokens';
 
 export default function Notifications() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { onNotification, refreshUnread, markAllRead } = useLive();
   const [list, setList] = useState<Notification[] | null>(null);

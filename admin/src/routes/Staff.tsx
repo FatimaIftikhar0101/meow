@@ -129,7 +129,7 @@ export default function Staff() {
                           onChange={(e) =>
                             onChangeRole(m, e.target.value as StaffRole)
                           }
-                          className="rounded-lg border border-line-strong bg-card px-2 py-1 text-sm text-ink"
+                          className="rounded-lg border border-field-border bg-card px-2 py-1 text-sm text-ink"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -244,7 +244,7 @@ function InviteForm({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as StaffRole)}
-              className="w-full rounded-lg border border-line-strong bg-card px-3 py-2 text-sm text-ink"
+              className="w-full rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink"
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>

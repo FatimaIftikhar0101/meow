@@ -23,13 +23,14 @@ import { countryFlag, formatAmount, formatMoney } from '../../../lib/money';
 import { shareReceipt } from '../../../lib/receipt';
 import { useTransferStatus } from '../../../lib/sockets';
 import { CANCELLABLE_STATUSES, type TransferDetail } from '../../../lib/types';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 /** Width ÷ height of the map band. Taller than the home card's, because this
  *  screen is about the journey rather than about the rate. */
 const MAP_ASPECT = 2.4;
 
 function Journey({ transfer }: { transfer: TransferDetail }) {
+  const { colors } = useTheme();
   const failed = transfer.status === 'failed' || transfer.status === 'cancelled';
   const t = progressOf(transfer.status);
   const delivered = transfer.status === 'delivered';
@@ -97,6 +98,7 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
 }
 
 export default function TransferDetailScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [transfer, setTransfer] = useState<TransferDetail | null>(null);

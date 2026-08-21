@@ -7,7 +7,7 @@ import { Body, Button, Field, Note, Row, Screen, Title } from '../../../componen
 import api, { errorMessage } from '../../../lib/api';
 import { destinationCountries, useCorridors } from '../../../lib/corridors';
 import { countryFlag } from '../../../lib/money';
-import { colors, radius } from '../../../theme/tokens';
+import { radius, useTheme } from '../../../theme/tokens';
 
 const COUNTRY_NAME: Record<string, string> = {
   PK: 'Pakistan',
@@ -16,6 +16,7 @@ const COUNTRY_NAME: Record<string, string> = {
 };
 
 export default function NewRecipient() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { corridors } = useCorridors();
 

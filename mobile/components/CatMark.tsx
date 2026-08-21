@@ -1,7 +1,7 @@
 import React, { useId } from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/tokens';
 
 /**
  * The Meow mark, taken from app/_components/Brand.tsx unchanged — same 32×32
@@ -21,6 +21,7 @@ function Mark({
   eyesClosed: boolean;
   ring: boolean;
 }) {
+  const { colors } = useTheme();
   const gid = `meow-gold-${useId()}`;
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32">
@@ -79,6 +80,7 @@ export function CatMark({
   ring?: boolean;
   roundel?: boolean;
 }) {
+  const { colors } = useTheme();
   if (!roundel) return <Mark size={size} eyesClosed={eyesClosed} ring={ring} />;
   return (
     <View
@@ -99,13 +101,15 @@ export function CatMark({
 /** The mark plus the wordmark, for headers and the welcome screen. */
 export function BrandLockup({
   size = 30,
-  tone = colors.ink,
+  tone,
   roundel = true,
 }: {
   size?: number;
+  /** Overrides the ink colour — for the lockup on a dark ground. */
   tone?: string;
   roundel?: boolean;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
       <CatMark size={size} roundel={roundel} />
@@ -115,7 +119,7 @@ export function BrandLockup({
           fontWeight: '700',
           letterSpacing: size * 0.14,
           textTransform: 'uppercase',
-          color: tone,
+          color: tone ?? colors.ink,
         }}
       >
         Meow

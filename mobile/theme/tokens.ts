@@ -20,15 +20,17 @@
  *
  * Light and dark
  * ──────────────
- * Both schemes are defined and both are real. `colors` is the light scheme,
- * which is what the client approved, and it is a plain object so that every
- * existing `colors.x` call site keeps working without a hook.
+ * Both schemes are real and both are rendered. `schemes.light` is what the
+ * client approved and remains the default; `schemes.dark` is what the app wears
+ * when the phone asks for it, or when the person picks it in Profile.
  *
- * Dark mode is NOT wired up: nothing renders `schemes.dark` yet. Turning it on
- * is a mechanical change — wrap the tree in `ThemeProvider` and swap
- * `import { colors }` for `const { colors } = useTheme()` in the components that
- * should react. The dark scheme is kept in step with the light one so that work
- * stays mechanical rather than becoming a redesign. See [dark mode] in README.
+ * Components read the active scheme through `useTheme()`. The bare `colors`
+ * export below is still the light scheme and still valid, but only for things
+ * that are genuinely not part of the themed UI — the printed receipt, which is
+ * ink on white paper regardless of what the screen is doing. Anything a person
+ * looks at on the phone must use the hook, or it will stay light while the rest
+ * of the screen goes dark, which is the one failure mode worse than no dark
+ * mode at all.
  */
 
 import { createContext, useContext } from 'react';
@@ -71,6 +73,16 @@ export interface Scheme {
   /* Borders */
   line: string;
   lineStrong: string;
+  /**
+   * The edge of a text input.
+   *
+   * Separate from `lineStrong` because the two have different jobs and
+   * therefore different floors. A divider is decoration and may be a hairline;
+   * the outline of a control is the only thing telling a person where to type,
+   * and WCAG 1.4.11 asks 3:1 of it. Sharing one token forced a choice between a
+   * heavy-looking card and an invisible field.
+   */
+  fieldBorder: string;
 
   /* Content */
   /** Primary text and every monetary figure. */
@@ -83,6 +95,18 @@ export interface Scheme {
   onSlab: string;
   /** Secondary text on `slab`. */
   onSlabMuted: string;
+  /**
+   * Danger, on a slab.
+   *
+   * A separate role because the slab is dark in *both* schemes while `danger`
+   * is a mid-tone in both: the light scheme's brick on the light scheme's slab
+   * measures 1.02:1, which is not a near miss, it is an invisible control. The
+   * destructive button on the corridor slab has been unreadable since the slab
+   * was introduced. So this is a light brick in both schemes — 4.82:1 on the
+   * light slab, 9.32:1 on the dark one — and it is the only tone that may be
+   * used for danger on that surface.
+   */
+  onSlabDanger: string;
 
   /* Action — anything a finger lands on */
   accent: string;
@@ -127,12 +151,14 @@ const light: Scheme = {
 
   line: slate[100],
   lineStrong: slate[200],
+  fieldBorder: grey.field,
 
   ink: neutral[900],
   inkMuted: grey.muted,
   inkFaint: grey.faint,
   onSlab: neutral[0],
-  onSlabMuted: slate[200],
+  onSlabMuted: slate[100],
+  onSlabDanger: brick[100],
 
   accent: slate[700],
   accentDeep: slate[800],
@@ -156,7 +182,7 @@ const light: Scheme = {
   goldPupil: gold.pupil,
 };
 
-/* ── Dark: defined, not yet rendered ───────────────────────────────────── */
+/* ── Dark ──────────────────────────────────────────────────────────────── */
 
 const dark: Scheme = {
   canvas: neutral[1000],
@@ -170,12 +196,19 @@ const dark: Scheme = {
 
   line: '#2C3336',
   lineStrong: '#3C4549',
+  // 3.00:1 on `card`, the tightest of the three dark surfaces.
+  fieldBorder: '#697073',
 
   ink: '#E8EDEF',
   inkMuted: '#9DAAB1',
-  inkFaint: '#7A868C',
+  // Clears 4.5:1 on every dark surface including `accentSoft`, which is the
+  // lightest of them: a soft tint sits *above* the card on a dark ground,
+  // inverting which surface is the tightest case.
+  inkFaint: '#8C979B',
   onSlab: neutral[0],
   onSlabMuted: slate[300],
+  // Same value as light: the ground is dark either way.
+  onSlabDanger: brick[100],
 
   // Slate inverts: the light tints become the readable ones on a dark ground.
   accent: slate[300],
@@ -216,6 +249,9 @@ export type SchemeName = keyof typeof schemes;
  * `onDark` decides whether the greeting text is ink or white, so a scene and
  * its type can never disagree about which ground they are on.
  */
+/** The four moments the greeting knows about. Mirrors `dayPartFor()`. */
+export type DayPart = 'morning' | 'afternoon' | 'evening' | 'night';
+
 export interface SceneTokens {
   /** Top → bottom sky gradient. */
   sky: readonly [string, string];
@@ -231,7 +267,7 @@ export interface SceneTokens {
   onDark: boolean;
 }
 
-export const scenes: Record<'morning' | 'afternoon' | 'evening' | 'night', SceneTokens> = {
+const lightScenes: Record<DayPart, SceneTokens> = {
   morning: {
     sky: [slate[100], neutral[0]],
     hills: [slate[200], slate[300], slate[400]],
@@ -270,19 +306,95 @@ export const scenes: Record<'morning' | 'afternoon' | 'evening' | 'night', Scene
   },
 };
 
-/** The active scheme. Light, because that is what was approved. */
+/**
+ * The same four moments, for a phone in dark mode.
+ *
+ * Not an afterthought and not optional. The greeting is full-screen, and the
+ * light morning scene is a near-white sky: showing that to someone who has
+ * asked for dark mode means 1.8 seconds of blinding white every time they open
+ * the app. It also broke the type — the light scenes set `onDark: false`, which
+ * resolves to `colors.ink`, and `ink` in the dark scheme is #E8EDEF. The
+ * person's own name would have been painted white on a white sky.
+ *
+ * So both bright scenes get a night-time sky and `onDark: true`. The sun and
+ * moon keep their positions and their colours, which is what still tells
+ * morning from evening once every sky is dark.
+ */
+const darkScenes: Record<DayPart, SceneTokens> = {
+  morning: {
+    sky: [slate[800], slate[700]],
+    hills: [slate[900], '#1B2126', neutral[1000]],
+    celestial: earth[300],
+    halo: 'rgba(169,140,110,0.24)',
+    stars: false,
+    crescent: false,
+    onDark: true,
+  },
+  afternoon: {
+    sky: [slate[700], slate[600]],
+    hills: [slate[800], slate[900], neutral[1000]],
+    celestial: slate[300],
+    halo: 'rgba(147,166,175,0.24)',
+    stars: false,
+    crescent: false,
+    onDark: true,
+  },
+  // Already dark, and already correct in both schemes.
+  evening: lightScenes.evening,
+  night: lightScenes.night,
+};
+
+/**
+ * The greeting scenes for a scheme.
+ *
+ * A function rather than an object because the scene is chosen by two things at
+ * once — the hour and the scheme — and a lookup that only knows one of them is
+ * how the white-on-white bug above happened.
+ */
+export function scenesFor(scheme: SchemeName): Record<DayPart, SceneTokens> {
+  return scheme === 'dark' ? darkScenes : lightScenes;
+}
+
+/**
+ * The light scheme, importable without a hook.
+ *
+ * For output that is not on the screen — `lib/receipt.ts` renders HTML that
+ * ends up on paper or in a PDF, where the ground is white whatever the phone is
+ * wearing. Reaching for this from a component is almost always a mistake; use
+ * `useTheme()` there.
+ */
 export const colors = light;
 
-/* ── Hook, for when dark mode is turned on ─────────────────────────────── */
+/* ── Hook ──────────────────────────────────────────────────────────────── */
 
-export const ThemeContext = createContext<{ name: SchemeName; colors: Scheme }>({
+/**
+ * What the person asked for, which is not the same as what is rendered.
+ *
+ * `system` defers to the phone and is the default; the other two are an
+ * explicit override. Storing the preference rather than the resolved scheme is
+ * what lets someone on `system` follow their phone into night mode forever
+ * instead of being pinned to whichever scheme they first launched in.
+ */
+export type ThemePreference = SchemeName | 'system';
+
+export interface ThemeValue {
+  /** The scheme actually being rendered. */
+  name: SchemeName;
+  colors: Scheme;
+  preference: ThemePreference;
+  setPreference: (next: ThemePreference) => void;
+}
+
+export const ThemeContext = createContext<ThemeValue>({
   name: 'light',
   colors: light,
+  preference: 'system',
+  setPreference: () => {},
 });
 
 /**
- * Reads the active scheme. Identical to importing `colors` today; the
- * difference only matters once a provider above it can change the scheme.
+ * Reads the active scheme. Every component that draws a colour uses this — a
+ * component holding a colour captured at import time cannot follow a change.
  */
 export function useTheme() {
   return useContext(ThemeContext);
