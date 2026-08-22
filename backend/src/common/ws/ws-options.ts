@@ -11,20 +11,38 @@ import type { ServerOptions } from 'socket.io';
  */
 
 /**
- * Which origins a browser may open a socket from.
+ * Which origins may open a socket.
  *
- * Both gateways previously declared `origin: true`, which reflects whatever
- * origin asked — every origin allowed, on the two endpoints that stream a
- * customer's money movements. The HTTP API has had an allowlist all along;
- * this makes the socket layer agree with it instead of quietly undoing it.
+ * ── Read this before trusting it ─────────────────────────────────────────────
  *
- * A request with no `Origin` header is allowed, and that is not a loophole:
- * the mobile app is a native client and sends none. Origin is a browser
- * concept, so a check on it can only ever constrain browsers — the token in
- * the handshake is what actually authenticates, here as everywhere.
+ * socket.io's `cors` option only governs its **HTTP long-polling** transport,
+ * because that is an ordinary XHR and browsers apply CORS to it. It does not
+ * govern WebSocket, and cannot: the WebSocket protocol is exempt from the
+ * same-origin policy by design. A browser sends `Origin` on the handshake and
+ * then enforces nothing, so any page anywhere can open a socket to any server.
+ *
+ * Since transports here are pinned to WebSocket only, `cors` alone applies to
+ * nothing at all. That was true of the first version of this file, whose
+ * comment claimed it "makes the socket layer agree with the HTTP allowlist" —
+ * it did not, and a test asserting the allowlist function rejects a bad origin
+ * passed happily while the server accepted one. Hence `allowRequest` below,
+ * which engine.io calls for *every* handshake including WebSocket, and which is
+ * what actually enforces this.
+ *
+ * ── What actually protects these endpoints ───────────────────────────────────
+ *
+ * The token in the handshake, and only that. This API authenticates with a
+ * bearer token held in SecureStore or the OS keychain, not a cookie — so there
+ * is no ambient credential for a hostile page to ride on, and it could not
+ * forge an authenticated socket whatever origin it claimed. The origin check is
+ * defence in depth, not the defence.
+ *
+ * A request with **no** `Origin` is allowed, and that is not a loophole: the
+ * mobile app is a native client and sends none. Origin is a browser concept, so
+ * a check on it can only ever constrain browsers.
  */
-export function socketCorsOptions(): ServerOptions['cors'] {
-  const allowed = (
+function allowedOrigins(): string[] {
+  return (
     process.env.CORS_ORIGINS ||
     process.env.FRONTEND_ORIGIN ||
     'http://localhost:3001'
@@ -32,20 +50,33 @@ export function socketCorsOptions(): ServerOptions['cors'] {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
+}
 
+export function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+  return allowedOrigins().includes(origin);
+}
+
+export function socketCorsOptions(): ServerOptions['cors'] {
   return {
     origin(origin, callback) {
-      if (!origin || allowed.includes(origin)) {
-        callback(null, true);
-        return;
-      }
       // Refused rather than thrown: socket.io turns a thrown error here into a
       // 500, and a rejected origin is a normal outcome, not a server fault.
-      callback(null, false);
+      callback(null, isOriginAllowed(origin));
     },
     credentials: true,
   };
 }
+
+/**
+ * The check that actually runs, on every transport.
+ *
+ * engine.io calls this for the handshake regardless of transport, which is why
+ * it and not `cors` is what makes the allowlist real.
+ */
+export const allowRequest: ServerOptions['allowRequest'] = (req, callback) => {
+  callback(null, isOriginAllowed(req.headers.origin));
+};
 
 /**
  * WebSocket only — no HTTP long-polling fallback.

@@ -7,7 +7,6 @@ import { io, type Socket } from 'socket.io-client';
 import { NotificationsGateway } from '../../notifications/notifications.gateway';
 import { TransfersGateway } from '../../transfers/transfers.gateway';
 import { ScalableIoAdapter } from './redis-io.adapter';
-import { socketCorsOptions } from './ws-options';
 
 /**
  * The WebSocket layer, exercised through a real client on a real port.
@@ -69,12 +68,17 @@ describe('WebSocket adapter', () => {
     await app.close();
   });
 
-  function connect(namespace: string, token: string | null): Socket {
+  function connect(
+    namespace: string,
+    token: string | null,
+    origin?: string,
+  ): Socket {
     const client = io(`${url}${namespace}`, {
       transports: ['websocket'],
       auth: token ? { token } : {},
       reconnection: false,
       forceNew: true,
+      ...(origin ? { extraHeaders: { Origin: origin } } : {}),
     });
     clients.push(client);
     return client;
@@ -179,40 +183,87 @@ describe('WebSocket adapter', () => {
   });
 });
 
-describe('socketCorsOptions', () => {
-  const original = process.env.CORS_ORIGINS;
-  afterEach(() => {
-    if (original === undefined) delete process.env.CORS_ORIGINS;
-    else process.env.CORS_ORIGINS = original;
+/**
+ * The origin allowlist, tested against the running server rather than against
+ * the function that expresses it.
+ *
+ * The first version of this file tested `socketCorsOptions()` in isolation and
+ * passed, while the server it was supposed to describe accepted every origin.
+ * socket.io's `cors` option governs HTTP long-polling only — and polling is
+ * disabled here — so nothing was ever calling it. A unit test on a predicate
+ * says nothing about whether anything consults the predicate.
+ *
+ * These go through a real handshake, which is the only thing that can tell.
+ */
+describe('WebSocket origin allowlist', () => {
+  let app: INestApplication;
+  let url: string;
+  let jwt: JwtService;
+  const clients: Socket[] = [];
+  const previousOrigins = process.env.CORS_ORIGINS;
+
+  beforeAll(async () => {
+    process.env.CORS_ORIGINS = 'https://allowed.example.com';
+    const moduleRef = await Test.createTestingModule({
+      imports: [JwtModule.register({ secret: JWT_SECRET })],
+      providers: [
+        TransfersGateway,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === 'JWT_SECRET' ? JWT_SECRET : undefined,
+          },
+        },
+      ],
+    }).compile();
+
+    app = moduleRef.createNestApplication();
+    jwt = moduleRef.get(JwtService);
+    const adapter = new ScalableIoAdapter(app, undefined);
+    await adapter.connect();
+    app.useWebSocketAdapter(adapter);
+    await app.listen(0);
+    const server = app.getHttpServer() as { address(): AddressInfo };
+    url = `http://127.0.0.1:${server.address().port}`;
   });
 
-  function check(origin: string | undefined): boolean {
-    process.env.CORS_ORIGINS = 'https://tauri.localhost,tauri://localhost';
-    const cors = socketCorsOptions() as {
-      origin: (
-        o: string | undefined,
-        cb: (err: Error | null, allow?: boolean) => void,
-      ) => void;
-    };
-    let allowed = false;
-    cors.origin(origin, (_err, allow) => {
-      allowed = allow === true;
+  afterAll(async () => {
+    for (const c of clients) c.disconnect();
+    await app.close();
+    if (previousOrigins === undefined) delete process.env.CORS_ORIGINS;
+    else process.env.CORS_ORIGINS = previousOrigins;
+  });
+
+  function attempt(origin?: string): Promise<'connected' | 'refused'> {
+    const client = io(`${url}/transfers`, {
+      transports: ['websocket'],
+      reconnection: false,
+      forceNew: true,
+      auth: { token: jwt.sign({ sub: 'u-1', email: 'u@meow.test' }) },
+      ...(origin ? { extraHeaders: { Origin: origin } } : {}),
     });
-    return allowed;
+    clients.push(client);
+    return new Promise((resolve) => {
+      client.on('connect', () => resolve('connected'));
+      client.on('connect_error', () => resolve('refused'));
+    });
   }
 
-  it('allows an origin on the list', () => {
-    expect(check('https://tauri.localhost')).toBe(true);
+  it('accepts an origin on the list', async () => {
+    await expect(attempt('https://allowed.example.com')).resolves.toBe(
+      'connected',
+    );
   });
 
-  it('refuses one that is not', () => {
-    // The gateways used to declare `origin: true`, which allowed this.
-    expect(check('https://not-us.example.com')).toBe(false);
+  it('refuses one that is not', async () => {
+    // Before `allowRequest` was wired in, this connected.
+    await expect(attempt('https://evil.example.com')).resolves.toBe('refused');
   });
 
-  it('allows a request with no Origin header', () => {
+  it('accepts a client that sends no Origin at all', async () => {
     // The mobile app is native and sends none. Refusing here would take the
     // customer app offline while appearing to tighten security.
-    expect(check(undefined)).toBe(true);
+    await expect(attempt()).resolves.toBe('connected');
   });
 });

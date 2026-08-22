@@ -3,7 +3,11 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
 import type { Server, ServerOptions } from 'socket.io';
-import { SOCKET_TRANSPORTS, socketCorsOptions } from './ws-options';
+import {
+  SOCKET_TRANSPORTS,
+  allowRequest,
+  socketCorsOptions,
+} from './ws-options';
 
 /**
  * Makes the WebSocket layer survive being run more than once.
@@ -99,6 +103,9 @@ export class ScalableIoAdapter extends IoAdapter {
     const server = super.createIOServer(port, {
       ...options,
       cors: socketCorsOptions(),
+      // `cors` covers polling only, and polling is disabled — so without this
+      // the allowlist would apply to nothing. See ws-options.ts.
+      allowRequest,
       transports: SOCKET_TRANSPORTS,
     }) as Server;
 
