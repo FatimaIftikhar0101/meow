@@ -5,6 +5,7 @@ import Shell from './Shell';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import type { Permission } from './lib/permissions';
+import Approvals from './routes/Approvals';
 import Audit from './routes/Audit';
 import CustomerDetail from './routes/CustomerDetail';
 import Customers from './routes/Customers';
@@ -84,6 +85,11 @@ function Gate() {
       path: '/customers/:id',
       element: <CustomerDetail />,
       permission: 'customer.read',
+    },
+    {
+      path: '/approvals',
+      element: <Approvals />,
+      permission: 'approval.request',
     },
     { path: '/audit', element: <Audit />, permission: 'audit.read' },
     { path: '/staff', element: <Staff />, permission: 'staff.read' },

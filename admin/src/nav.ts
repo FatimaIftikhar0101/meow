@@ -21,6 +21,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { path: '/transfers', label: 'Transfers', permission: 'transfer.read' },
   { path: '/customers', label: 'Customers', permission: 'customer.read' },
+  { path: '/approvals', label: 'Approvals', permission: 'approval.request' },
   { path: '/audit', label: 'Audit log', permission: 'audit.read' },
   { path: '/staff', label: 'Staff & roles', permission: 'staff.read' },
 ];

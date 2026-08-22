@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 import { StaffModule } from './staff/staff.module';
 import { AuthModule } from './auth/auth.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -49,6 +50,7 @@ import { WalletModule } from './wallet/wallet.module';
     ReferralsModule,
     HealthModule,
     AdminModule,
+    ApprovalsModule,
     StaffModule,
   ],
   controllers: [AppController],

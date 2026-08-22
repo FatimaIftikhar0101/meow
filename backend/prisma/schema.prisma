@@ -64,16 +64,18 @@ model User {
 
   referralCode String? @unique
 
-  ledgerAccounts LedgerAccount[]
-  recipients     Recipient[]
-  transfers      Transfer[]
-  kycRecords     KycRecord[]
-  auditLogs      AuditLog[]
-  sessions       Session[]
-  referralsMade  Referral[]      @relation("ReferrerReferrals")
-  referredBy     Referral?       @relation("RefereeReferral")
-  notesAbout     CustomerNote[]  @relation("NotesAboutCustomer")
-  notesWritten   CustomerNote[]  @relation("NotesByAuthor")
+  ledgerAccounts     LedgerAccount[]
+  recipients         Recipient[]
+  transfers          Transfer[]
+  kycRecords         KycRecord[]
+  auditLogs          AuditLog[]
+  sessions           Session[]
+  referralsMade      Referral[]        @relation("ReferrerReferrals")
+  referredBy         Referral?         @relation("RefereeReferral")
+  notesAbout         CustomerNote[]    @relation("NotesAboutCustomer")
+  notesWritten       CustomerNote[]    @relation("NotesByAuthor")
+  approvalsRequested ApprovalRequest[] @relation("ApprovalsRequested")
+  approvalsDecided   ApprovalRequest[] @relation("ApprovalsDecided")
 }
 
 /// What support learned that no other table records.
@@ -86,6 +88,57 @@ model User {
 /// Restrict on both sides, like every other record that is evidence: a note is
 /// part of what staff knew and when, and deleting either party must not
 /// silently take it with them.
+/// A dangerous action, proposed by one person and decided by another.
+///
+/// Four-eyes. The person who processes a payment must not be the person who
+/// clears it, and the actions gated here are the ones where a single mistaken
+/// or dishonest operator does irreversible harm — force-failing a live transfer
+/// refunds the sender and ends the attempt.
+///
+/// The payload is frozen at request time and is what gets executed. The
+/// approver is agreeing to a specific set of arguments, not to a request the
+/// maker can still edit; without that, four-eyes checks nothing.
+model ApprovalRequest {
+  id         String         @id @default(uuid())
+  /// Which gated action this is, e.g. "transfer.force_fail". Matches a key in
+  /// the executor registry; an unknown action cannot be requested.
+  action     String
+  entityType String
+  entityId   String
+  /// The arguments the action will run with, as submitted. Immutable in
+  /// practice: nothing updates this column after creation.
+  payload    Json
+  /// Why the maker wants it. Required, and copied into the audit entry.
+  reason     String
+  status     ApprovalStatus @default(pending)
+
+  requestedById  String
+  decidedById    String?
+  decisionReason String?
+  decidedAt      DateTime?
+  /// A request nobody answered should go stale rather than sit indefinitely
+  /// as a live authorisation for an action whose context has moved on.
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+
+  requestedBy User  @relation("ApprovalsRequested", fields: [requestedById], references: [id], onDelete: Restrict)
+  decidedBy   User? @relation("ApprovalsDecided", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  /// The queue is "pending, oldest first"; the entity index answers "is there
+  /// already a request open against this transfer?", which is what stops two
+  /// operators queuing the same force-fail twice.
+  @@index([status, createdAt])
+  @@index([entityType, entityId, status])
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  expired
+}
+
 model CustomerNote {
   id         String   @id @default(uuid())
   customerId String

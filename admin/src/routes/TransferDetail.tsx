@@ -149,6 +149,30 @@ export default function TransferDetail() {
     onError: (e) => setError(errorMessage(e, 'Could not retry that transfer.')),
   });
 
+  /**
+   * Ask for a force-fail rather than perform one.
+   *
+   * Operations sees the stuck transfer and knows it needs killing, but killing
+   * it refunds the sender and ends the attempt — so they hold `approval.request`
+   * and not `transfer.force_fail`. Without this button the only thing they
+   * could do with that knowledge was tell somebody in a chat message.
+   */
+  const requestFail = useMutation({
+    mutationFn: async (reason: string) =>
+      api.post('/admin/approvals', {
+        action: 'transfer.force_fail',
+        entityId: id,
+        reason,
+        payload: { reason },
+      }),
+    onSuccess: () => {
+      setError(null);
+      void qc.invalidateQueries({ queryKey: ['approvals'] });
+    },
+    onError: (e) =>
+      setError(errorMessage(e, 'Could not raise that request.')),
+  });
+
   const forceFail = useMutation({
     mutationFn: async (reason: string) =>
       api.post(`/admin/transfers/${id}/force-fail`, { reason }),
@@ -175,6 +199,15 @@ export default function TransferDetail() {
     if (!reason) return;
     setError(null);
     retry.mutate(reason);
+  }
+
+  function onRequestFail() {
+    const reason = window.prompt(
+      'Why should this transfer be failed? A colleague with approval rights will read this and decide.',
+    );
+    if (!reason) return;
+    setError(null);
+    requestFail.mutate(reason);
   }
 
   function onForceFail() {
@@ -214,6 +247,17 @@ export default function TransferDetail() {
                 Force fail
               </Button>
             )}
+            {live &&
+              !can('transfer.force_fail') &&
+              can('approval.request') && (
+                <Button
+                  variant="secondary"
+                  onClick={onRequestFail}
+                  busy={requestFail.isPending}
+                >
+                  Request force-fail
+                </Button>
+              )}
           </div>
         }
       />
