@@ -14,10 +14,10 @@ interface AuthenticatedSocket extends Socket {
   data: { userId?: string };
 }
 
-@WebSocketGateway({
-  namespace: '/transfers',
-  cors: { origin: true, credentials: true },
-})
+// CORS and transports come from ScalableIoAdapter, which applies the same
+// allowlist the HTTP API uses. `cors: { origin: true }` used to sit here and
+// reflected every origin that asked. See common/ws/ws-options.ts.
+@WebSocketGateway({ namespace: '/transfers' })
 export class TransfersGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger = new Logger(TransfersGateway.name);
 

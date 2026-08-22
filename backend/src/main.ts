@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ScalableIoAdapter } from './common/ws/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
@@ -41,6 +42,13 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.enableShutdownHooks();
+
+  // Before listen(), so a misconfigured Redis stops the process from taking
+  // traffic rather than accepting it and dropping events. Without REDIS_URL
+  // this is a no-op and socket.io keeps its rooms in memory as it always has.
+  const wsAdapter = new ScalableIoAdapter(app, config.get<string>('REDIS_URL'));
+  await wsAdapter.connect();
+  app.useWebSocketAdapter(wsAdapter);
 
   const port = config.get<number>('PORT') ?? 3000;
   await app.listen(port);

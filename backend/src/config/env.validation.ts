@@ -32,6 +32,18 @@ export const envSchema = Joi.object({
   THROTTLE_LIMIT: Joi.number().integer().min(1).default(100),
   TRANSFER_DAILY_LIMIT: Joi.number().min(0).default(10000),
   TRANSFER_TICK_MS: Joi.number().integer().min(1000).default(5000),
+  /* How many transfers one tick may advance, and how many at once.
+     Concurrency is deliberately well under the Prisma pool (connection_limit
+     is 10 in DATABASE_URL) so background work cannot starve HTTP requests of
+     connections — a scheduler that makes the API time out is a worse problem
+     than a slow scheduler. */
+  TRANSFER_TICK_BATCH: Joi.number().integer().min(1).max(1000).default(200),
+  TRANSFER_TICK_CONCURRENCY: Joi.number().integer().min(1).max(20).default(4),
+  /* Shares WebSocket rooms between instances. Optional: unset means in-memory
+     rooms, which is correct on exactly one instance. Set it before scaling to
+     two, or customers connected to one replica stop receiving events raised on
+     another. See common/ws/redis-io.adapter.ts. */
+  REDIS_URL: Joi.string().allow('').default(''),
   ADMIN_EMAILS: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),

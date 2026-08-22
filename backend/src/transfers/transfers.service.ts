@@ -372,12 +372,24 @@ export class TransfersService {
     return this.get(transfer.userId, transferId);
   }
 
-  async findDueForTick(olderThanMs: number) {
+  /**
+   * Transfers whose next transition is due.
+   *
+   * Oldest first, so a backlog drains in the order it built up rather than
+   * starving whatever fell behind first. `take` is the scheduler's batch size
+   * — it was hardcoded at 50, which capped the whole product at roughly two
+   * transfers per second with nothing reporting the limit.
+   *
+   * Only the id is needed: `advance` re-reads the row anyway, and selecting
+   * whole transfers to throw them away is bytes off the wire for nothing.
+   */
+  async findDueForTick(olderThanMs: number, take = 200) {
     const cutoff = new Date(Date.now() - olderThanMs);
     return this.prisma.transfer.findMany({
       where: { status: { in: NON_TERMINAL }, updatedAt: { lt: cutoff } },
       orderBy: { updatedAt: 'asc' },
-      take: 50,
+      take,
+      select: { id: true },
     });
   }
 
