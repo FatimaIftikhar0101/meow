@@ -8,6 +8,7 @@ import type { Permission } from './lib/permissions';
 import Approvals from './routes/Approvals';
 import Audit from './routes/Audit';
 import Kyc from './routes/Kyc';
+import Ledger from './routes/Ledger';
 import CustomerDetail from './routes/CustomerDetail';
 import Customers from './routes/Customers';
 import MfaEnrolment from './routes/MfaEnrolment';
@@ -88,6 +89,7 @@ function Gate() {
       permission: 'customer.read',
     },
     { path: '/kyc', element: <Kyc />, permission: 'kyc.read' },
+    { path: '/ledger', element: <Ledger />, permission: 'ledger.read' },
     {
       path: '/approvals',
       element: <Approvals />,

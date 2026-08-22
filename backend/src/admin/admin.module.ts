@@ -5,12 +5,14 @@ import { TransfersModule } from '../transfers/transfers.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { AdminController } from './admin.controller';
 import { CustomersController } from './customers.controller';
+import { LedgerController } from './ledger.controller';
 import { AdminService } from './admin.service';
 import { CustomersService } from './customers.service';
+import { LedgerExplorerService } from './ledger-explorer.service';
 
 @Module({
   imports: [AuthModule, WalletModule, TransfersModule, ComplianceModule],
-  controllers: [AdminController, CustomersController],
-  providers: [AdminService, CustomersService],
+  controllers: [AdminController, CustomersController, LedgerController],
+  providers: [AdminService, CustomersService, LedgerExplorerService],
 })
 export class AdminModule {}
