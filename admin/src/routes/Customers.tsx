@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Empty, PageHeader, Pill } from '../components/ui';
 import api from '../lib/api';
 
@@ -65,7 +66,14 @@ export default function Customers() {
             <tbody>
               {data.items.map((c) => (
                 <tr key={c.id} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3 text-ink">{c.email}</td>
+                  <td className="px-4 py-3 text-ink">
+                    <Link
+                      to={`/customers/${c.id}`}
+                      className="underline decoration-line-strong underline-offset-2"
+                    >
+                      {c.email}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-ink-muted">{c.country ?? '—'}</td>
                   <td className="tabular px-4 py-3 text-right text-ink">
                     {c.transferCount}

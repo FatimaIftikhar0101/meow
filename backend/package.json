@@ -27,6 +27,7 @@
     "db:encrypt-backfill": "ts-node scripts/backfill-encryption.ts",
     "staff:bootstrap": "ts-node scripts/bootstrap-admin.ts",
     "db:check": "ts-node scripts/check-db.ts",
+    "verify:customer360": "ts-node scripts/verify-customer360.ts",
     "test:unit": "jest",
     "test:db": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config jest-db.config.js"
   },

@@ -72,6 +72,33 @@ model User {
   sessions       Session[]
   referralsMade  Referral[]      @relation("ReferrerReferrals")
   referredBy     Referral?       @relation("RefereeReferral")
+  notesAbout     CustomerNote[]  @relation("NotesAboutCustomer")
+  notesWritten   CustomerNote[]  @relation("NotesByAuthor")
+}
+
+/// What support learned that no other table records.
+///
+/// A transfer says what the money did; the timeline says when. Neither says
+/// "customer called, said the beneficiary bank rejects the account number, has
+/// asked their brother to confirm it" — and that is the context the next agent
+/// needs so the customer is not made to explain it twice.
+///
+/// Restrict on both sides, like every other record that is evidence: a note is
+/// part of what staff knew and when, and deleting either party must not
+/// silently take it with them.
+model CustomerNote {
+  id         String   @id @default(uuid())
+  customerId String
+  authorId   String
+  body       String
+  createdAt  DateTime @default(now())
+
+  customer User @relation("NotesAboutCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  author   User @relation("NotesByAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  /// The note list is always "this customer, newest first" — one index serves
+  /// the only query there is.
+  @@index([customerId, createdAt])
 }
 
 enum UserRole {

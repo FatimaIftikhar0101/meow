@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import type { Permission } from './lib/permissions';
 import Audit from './routes/Audit';
+import CustomerDetail from './routes/CustomerDetail';
 import Customers from './routes/Customers';
 import MfaEnrolment from './routes/MfaEnrolment';
 import SignIn from './routes/SignIn';
@@ -79,6 +80,11 @@ function Gate() {
       permission: 'transfer.read',
     },
     { path: '/customers', element: <Customers />, permission: 'customer.read' },
+    {
+      path: '/customers/:id',
+      element: <CustomerDetail />,
+      permission: 'customer.read',
+    },
     { path: '/audit', element: <Audit />, permission: 'audit.read' },
     { path: '/staff', element: <Staff />, permission: 'staff.read' },
   ];

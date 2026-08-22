@@ -254,7 +254,7 @@ export default function TransferDetail() {
             </Row>
             <Row label="Sender">
               <Link
-                to="/customers"
+                to={`/customers/${data.user.id}`}
                 className="text-ink underline decoration-line-strong underline-offset-2"
               >
                 {data.user.email}
