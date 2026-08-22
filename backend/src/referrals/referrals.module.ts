@@ -5,7 +5,10 @@ import { ReferralsController } from './referrals.controller';
 import { ReferralsService } from './referrals.service';
 
 @Module({
-  imports: [forwardRef(() => AuthModule), forwardRef(() => NotificationsModule)],
+  imports: [
+    forwardRef(() => AuthModule),
+    forwardRef(() => NotificationsModule),
+  ],
   controllers: [ReferralsController],
   providers: [ReferralsService],
   exports: [ReferralsService],

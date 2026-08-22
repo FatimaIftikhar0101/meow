@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -15,6 +16,8 @@ const FUND_LIMIT_PER_DAY = new Prisma.Decimal(20000);
 
 @Injectable()
 export class WalletService {
+  private readonly logger = new Logger(WalletService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
@@ -164,14 +167,33 @@ export class WalletService {
     }));
   }
 
+  /**
+   * The customer's main wallet, created on first use if it is missing.
+   *
+   * This used to throw `Wallet not found`, which is what a real customer was
+   * shown when they tried to add money: a true statement about our data and no
+   * help at all. An account can reach here without a wallet — signing in with
+   * Google against an address that already has an account links the two and
+   * creates nothing — and there is no case where the right answer is to refuse.
+   * A wallet is an empty ledger account; making one is free and idempotent.
+   */
   private async primaryWallet(userId: string) {
-    const wallet = await this.prisma.ledgerAccount.findFirst({
+    const existing = await this.prisma.ledgerAccount.findFirst({
       where: { kind: 'customer_wallet', ownerId: userId },
       orderBy: { createdAt: 'asc' },
     });
-    if (!wallet) {
-      throw new NotFoundException('Wallet not found');
-    }
-    return wallet;
+    if (existing) return existing;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, country: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const currency = LedgerService.homeCurrencyFor(user.country);
+    this.logger.log(
+      `Creating missing ${currency} wallet for user ${userId} on first use`,
+    );
+    return this.ledger.ensureCustomerAccount(userId, currency);
   }
 }

@@ -269,7 +269,10 @@ export class ReferralsService {
   private maskEmail(email: string): string {
     const [local, domain] = email.split('@');
     if (!domain) return '***';
-    const masked = local.length <= 2 ? '*'.repeat(local.length) : local[0] + '*'.repeat(local.length - 2) + local[local.length - 1];
+    const masked =
+      local.length <= 2
+        ? '*'.repeat(local.length)
+        : local[0] + '*'.repeat(local.length - 2) + local[local.length - 1];
     return `${masked}@${domain}`;
   }
 }

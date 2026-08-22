@@ -229,7 +229,11 @@ export class MailService {
    * admin's screen either way, so a message that lands in spam delays somebody
    * rather than stranding them.
    */
-  async sendStaffSetupEmail(to: string, code: string, expiresInMinutes: number) {
+  async sendStaffSetupEmail(
+    to: string,
+    code: string,
+    expiresInMinutes: number,
+  ) {
     const hours = expiresInMinutes / 60;
     const window =
       hours >= 1

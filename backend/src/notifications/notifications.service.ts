@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationsGateway, type NotificationPayload } from './notifications.gateway';
+import {
+  NotificationsGateway,
+  type NotificationPayload,
+} from './notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
@@ -19,7 +22,10 @@ export class NotificationsService {
   ) {
     const notification = await this.prisma.notification.create({
       data: {
-        userId, type, title, body,
+        userId,
+        type,
+        title,
+        body,
         metadata: metadata ? (metadata as Prisma.InputJsonValue) : undefined,
       },
     });

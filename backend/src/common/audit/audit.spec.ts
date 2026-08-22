@@ -79,7 +79,12 @@ describe('writeAudit', () => {
     const db = {
       auditLog: {
         create: () =>
-          new Promise((res) => setImmediate(() => { settled = true; res({}); })),
+          new Promise((res) =>
+            setImmediate(() => {
+              settled = true;
+              res({});
+            }),
+          ),
       },
     };
 

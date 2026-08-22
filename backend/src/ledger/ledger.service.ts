@@ -136,6 +136,48 @@ export class LedgerService implements OnModuleInit {
     return account.id;
   }
 
+  /**
+   * The home currency for a country. One copy, because three code paths
+   * decide it and two of them getting it right is not enough.
+   */
+  static homeCurrencyFor(country?: string | null): string {
+    if (!country) return 'CAD';
+    const c = country.trim().toLowerCase();
+    if (c === 'ca' || c === 'canada') return 'CAD';
+    if (c === 'us' || c === 'usa' || c === 'united states') return 'USD';
+    if (c === 'gb' || c === 'uk' || c === 'united kingdom') return 'GBP';
+    if (c === 'pk' || c === 'pakistan') return 'PKR';
+    return 'CAD';
+  }
+
+  /**
+   * A customer's wallet, created if it is not there.
+   *
+   * Registration and Google sign-up both create one, so most accounts have it.
+   * The gap was the third path: signing in with Google against an address that
+   * already had an account *links* the two and creates nothing — correct for a
+   * customer who already has a wallet, and wrong for any account created some
+   * other way. A staff member signing into the customer app with Google hit
+   * exactly that and was told "Wallet not found", which is true and useless.
+   *
+   * An upsert on the composite key rather than a find-then-create: two requests
+   * arriving together would otherwise both find nothing and both insert.
+   */
+  async ensureCustomerAccount(userId: string, currency: string) {
+    const code = `wallet.${userId}.${currency}`;
+    return this.prisma.ledgerAccount.upsert({
+      where: {
+        kind_ownerId_currency: {
+          kind: 'customer_wallet',
+          ownerId: userId,
+          currency,
+        },
+      },
+      update: {},
+      create: { kind: 'customer_wallet', ownerId: userId, currency, code },
+    });
+  }
+
   /** A customer's wallet for one currency, or null. */
   customerAccount(userId: string, currency: string) {
     return this.prisma.ledgerAccount.findUnique({

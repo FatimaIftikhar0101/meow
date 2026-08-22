@@ -69,7 +69,7 @@ export interface AuditEntry {
  *  so a reader can tell the two apart. */
 function json(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   if (value === undefined || value === null) return Prisma.JsonNull;
-  return value as Prisma.InputJsonValue;
+  return value;
 }
 
 export async function writeAudit(

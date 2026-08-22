@@ -1,4 +1,7 @@
+import { Logger } from '@nestjs/common';
 import type { ServerOptions } from 'socket.io';
+
+const logger = new Logger('WebSocketOptions');
 
 /**
  * The socket.io settings both gateways share.
@@ -22,12 +25,9 @@ import type { ServerOptions } from 'socket.io';
  * then enforces nothing, so any page anywhere can open a socket to any server.
  *
  * Since transports here are pinned to WebSocket only, `cors` alone applies to
- * nothing at all. That was true of the first version of this file, whose
- * comment claimed it "makes the socket layer agree with the HTTP allowlist" —
- * it did not, and a test asserting the allowlist function rejects a bad origin
- * passed happily while the server accepted one. Hence `allowRequest` below,
- * which engine.io calls for *every* handshake including WebSocket, and which is
- * what actually enforces this.
+ * nothing at all. Two commits then tried to fix that by refusing unknown
+ * origins in `allowRequest`, which refused every phone — see the note there.
+ * What remains is an allowlist used for logging, not for admission.
  *
  * ── What actually protects these endpoints ───────────────────────────────────
  *
@@ -69,13 +69,45 @@ export function socketCorsOptions(): ServerOptions['cors'] {
 }
 
 /**
- * The check that actually runs, on every transport.
+ * The origin check — which logs and does not refuse.
  *
- * engine.io calls this for the handshake regardless of transport, which is why
- * it and not `cors` is what makes the allowlist real.
+ * ── Why this does not block ──────────────────────────────────────────────────
+ *
+ * It did block, for one commit, and that commit broke the customer app.
+ *
+ * React Native's `WebSocketModule` sets an `Origin` header derived from the URL
+ * when the caller supplies none, so every phone presented
+ * `https://backend-production-4cbe.up.railway.app` — the API's own origin,
+ * which is not in anybody's allowlist. Every socket was refused. The transfer
+ * tracking screen has no polling fallback, so it sat on "initiated" while the
+ * money went all the way to delivered, and nothing anywhere logged a reason.
+ *
+ * The test that was supposed to prove the check worked used a Node client,
+ * which sends no `Origin` at all — the one client that could not reveal the
+ * problem.
+ *
+ * ── Why refusing was never worth much ────────────────────────────────────────
+ *
+ * The token in the handshake is what protects these endpoints. This API
+ * authenticates with a bearer token held in SecureStore or the OS keychain,
+ * never a cookie, so a hostile page has no ambient credential to ride on and
+ * cannot forge an authenticated socket whatever origin it claims. An origin
+ * allowlist here was defence in depth over a door that is already locked.
+ *
+ * Weighed against silently disconnecting every customer, it is not close. So
+ * the mismatch is recorded and the connection proceeds; authentication in
+ * `handleConnection` is what decides whether the socket lives.
  */
 export const allowRequest: ServerOptions['allowRequest'] = (req, callback) => {
-  callback(null, isOriginAllowed(req.headers.origin));
+  const origin = req.headers.origin;
+  if (origin && !isOriginAllowed(origin)) {
+    logger.warn(
+      `Socket handshake from an origin not on the allowlist: ${origin}. ` +
+        'Allowed through — the handshake token is what authorises the ' +
+        'connection. See ws-options.ts.',
+    );
+  }
+  callback(null, true);
 };
 
 /**

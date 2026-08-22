@@ -22,10 +22,12 @@ function createMockPrisma() {
     ledgerAccount: { findFirst: jest.fn() },
     ledgerEntry: { create: jest.fn() },
     auditLog: { create: jest.fn() },
-    $transaction: jest.fn() as jest.Mock,
+    $transaction: jest.fn(),
     $queryRaw: jest.fn(),
   };
-  tx.$transaction.mockImplementation((fn: (t: typeof tx) => Promise<unknown>) => fn(tx));
+  tx.$transaction.mockImplementation((fn: (t: typeof tx) => Promise<unknown>) =>
+    fn(tx),
+  );
   return tx;
 }
 
@@ -60,7 +62,13 @@ describe('ReferralsService', () => {
         ReferralsService,
         { provide: PrismaService, useValue: prisma },
         { provide: LedgerService, useValue: ledger },
-        { provide: ConfigService, useValue: { get: (key: string) => key === 'REFERRAL_REWARD_AMOUNT' ? 15 : undefined } },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === 'REFERRAL_REWARD_AMOUNT' ? 15 : undefined,
+          },
+        },
         { provide: NotificationsService, useValue: notifications },
       ],
     }).compile();
@@ -89,10 +97,13 @@ describe('ReferralsService', () => {
 
     it('retries on unique constraint collision', async () => {
       prisma.user.findUnique.mockResolvedValue({ referralCode: null });
-      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-        code: 'P2002',
-        clientVersion: '6.0.0',
-      });
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint',
+        {
+          code: 'P2002',
+          clientVersion: '6.0.0',
+        },
+      );
       prisma.user.update
         .mockRejectedValueOnce(p2002)
         .mockResolvedValueOnce({ referralCode: 'RETRY123' });

@@ -27,7 +27,9 @@ export interface NotificationPayload {
 // allowlist the HTTP API uses. `cors: { origin: true }` used to sit here and
 // reflected every origin that asked. See common/ws/ws-options.ts.
 @WebSocketGateway({ namespace: '/notifications' })
-export class NotificationsGateway implements OnGatewayInit, OnGatewayConnection {
+export class NotificationsGateway
+  implements OnGatewayInit, OnGatewayConnection
+{
   private readonly logger = new Logger(NotificationsGateway.name);
 
   @WebSocketServer()
@@ -54,7 +56,16 @@ export class NotificationsGateway implements OnGatewayInit, OnGatewayConnection 
       });
       client.data.userId = payload.sub;
       void client.join(`user:${payload.sub}`);
+      this.logger.log(`socket connected: user ${payload.sub}`);
     } catch {
+      // Logged, not silent. A refused handshake used to disconnect without a
+      // word anywhere, which is how every phone in production lost its live
+      // updates for a day without a single line to point at.
+      this.logger.warn(
+        `socket rejected: bad or missing token (origin: ${
+          client.handshake.headers.origin ?? 'none'
+        })`,
+      );
       client.disconnect(true);
     }
   }

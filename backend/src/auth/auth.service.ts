@@ -25,6 +25,7 @@ import {
 import { isStaff, permissionsFor } from './permissions';
 import { writeAudit } from '../common/audit/audit';
 import { MailService } from '../mail/mail.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -70,14 +71,10 @@ export function splitName(fullName: string): {
   };
 }
 
+/** Delegates to LedgerService so registration, Google sign-up and on-demand
+ *  wallet creation cannot disagree about a customer's home currency. */
 function homeCurrencyFor(country?: string): string {
-  if (!country) return 'CAD';
-  const c = country.trim().toLowerCase();
-  if (c === 'ca' || c === 'canada') return 'CAD';
-  if (c === 'us' || c === 'usa' || c === 'united states') return 'USD';
-  if (c === 'gb' || c === 'uk' || c === 'united kingdom') return 'GBP';
-  if (c === 'pk' || c === 'pakistan') return 'PKR';
-  return 'CAD';
+  return LedgerService.homeCurrencyFor(country);
 }
 
 @Injectable()

@@ -184,18 +184,25 @@ describe('WebSocket adapter', () => {
 });
 
 /**
- * The origin allowlist, tested against the running server rather than against
- * the function that expresses it.
+ * Origins, tested with the clients that actually connect.
  *
- * The first version of this file tested `socketCorsOptions()` in isolation and
- * passed, while the server it was supposed to describe accepted every origin.
- * socket.io's `cors` option governs HTTP long-polling only — and polling is
- * disabled here — so nothing was ever calling it. A unit test on a predicate
- * says nothing about whether anything consults the predicate.
+ * The previous version of this block asserted that a disallowed origin was
+ * refused, and it passed. It was also the bug: React Native's WebSocketModule
+ * sets an `Origin` header derived from the URL when the caller supplies none,
+ * so every phone presented the API's own origin, was refused, and lost live
+ * transfer updates entirely — while the tracking screen, which has no polling
+ * fallback, sat on "initiated" through a completed payment.
  *
- * These go through a real handshake, which is the only thing that can tell.
+ * What made that invisible is worth naming: the only client in the test suite
+ * was Node, which sends no `Origin` at all. It was the one client incapable of
+ * revealing the problem, and it was the one used to prove the check was right.
+ *
+ * So these assert the opposite property now — that a socket carrying an origin
+ * nobody listed still connects, because the handshake token is what authorises
+ * it. See ws-options.ts for why refusing bought nothing over a door already
+ * locked by the token.
  */
-describe('WebSocket origin allowlist', () => {
+describe('WebSocket origins', () => {
   let app: INestApplication;
   let url: string;
   let jwt: JwtService;
@@ -250,20 +257,31 @@ describe('WebSocket origin allowlist', () => {
     });
   }
 
-  it('accepts an origin on the list', async () => {
-    await expect(attempt('https://allowed.example.com')).resolves.toBe(
-      'connected',
-    );
+  it.each([
+    ['an origin on the list', 'https://allowed.example.com'],
+    // The exact header a React Native phone sends. This is the case that broke.
+    ['the API own origin, as React Native sends', 'https://api.example.com'],
+    ['an origin nobody listed', 'https://evil.example.com'],
+    ['no Origin at all, as a Node client sends', undefined],
+  ])('connects with %s', async (_label, origin) => {
+    await expect(attempt(origin)).resolves.toBe('connected');
   });
 
-  it('refuses one that is not', async () => {
-    // Before `allowRequest` was wired in, this connected.
-    await expect(attempt('https://evil.example.com')).resolves.toBe('refused');
-  });
-
-  it('accepts a client that sends no Origin at all', async () => {
-    // The mobile app is native and sends none. Refusing here would take the
-    // customer app offline while appearing to tighten security.
-    await expect(attempt()).resolves.toBe('connected');
+  it('still refuses a socket with no token, whatever origin it claims', async () => {
+    // The check that actually protects the namespace. If this ever passes the
+    // other way, dropping the origin refusal was the wrong trade.
+    const client = io(`${url}/transfers`, {
+      transports: ['websocket'],
+      reconnection: false,
+      forceNew: true,
+      extraHeaders: { Origin: 'https://allowed.example.com' },
+    });
+    clients.push(client);
+    const outcome = await new Promise<string>((resolve) => {
+      client.on('disconnect', () => resolve('disconnected'));
+      client.on('connect_error', () => resolve('refused'));
+    });
+    expect(['disconnected', 'refused']).toContain(outcome);
+    expect(client.connected).toBe(false);
   });
 });
