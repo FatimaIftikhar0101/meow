@@ -1,13 +1,14 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { writeStaffAudit } from '../common/audit/audit';
 import { isStaff } from '../auth/permissions';
-import {
-  decryptField,
-  maskAccount,
-} from '../common/crypto/field-crypto';
+import { decryptField, maskAccount } from '../common/crypto/field-crypto';
 import { WalletService } from '../wallet/wallet.service';
 import { UpdateCorridorDto } from './dto/update-corridor.dto';
 import { ListTransfersDto } from './dto/list-transfers.dto';
@@ -332,7 +333,9 @@ export class AdminService {
       const net = posting.entries.reduce((acc, e) => {
         if (e.account.kind !== 'customer_wallet') return acc;
         if (e.account.ownerId !== transfer.userId) return acc;
-        return e.direction === 'credit' ? acc.plus(e.amount) : acc.minus(e.amount);
+        return e.direction === 'credit'
+          ? acc.plus(e.amount)
+          : acc.minus(e.amount);
       }, new Prisma.Decimal(0));
       walletNet = walletNet.plus(net);
 
@@ -374,7 +377,9 @@ export class AdminService {
         // an explicit, audited action in the back-office panel — a support
         // agent opening a ticket has no reason to read a whole account number,
         // and "it was on the screen" is how these end up in a chat message.
-        bankAccountMasked: maskAccount(decryptField(transfer.recipientBankAccount)),
+        bankAccountMasked: maskAccount(
+          decryptField(transfer.recipientBankAccount),
+        ),
         bankName: transfer.recipientBankName,
         bankCode: transfer.recipientBankCode,
       },
@@ -465,12 +470,16 @@ export class AdminService {
     const corridor = await this.prisma.corridor.findUnique({ where: { id } });
     if (!corridor) throw new NotFoundException('Corridor not found');
     const data: Prisma.CorridorUpdateInput = {};
-    if (dto.baseRate !== undefined) data.baseRate = new Prisma.Decimal(dto.baseRate);
+    if (dto.baseRate !== undefined)
+      data.baseRate = new Prisma.Decimal(dto.baseRate);
     if (dto.marginBps !== undefined) data.marginBps = dto.marginBps;
-    if (dto.feeFlat !== undefined) data.feeFlat = new Prisma.Decimal(dto.feeFlat);
+    if (dto.feeFlat !== undefined)
+      data.feeFlat = new Prisma.Decimal(dto.feeFlat);
     if (dto.feePercentBps !== undefined) data.feePercentBps = dto.feePercentBps;
-    if (dto.minSendAmount !== undefined) data.minSendAmount = new Prisma.Decimal(dto.minSendAmount);
-    if (dto.maxSendAmount !== undefined) data.maxSendAmount = new Prisma.Decimal(dto.maxSendAmount);
+    if (dto.minSendAmount !== undefined)
+      data.minSendAmount = new Prisma.Decimal(dto.minSendAmount);
+    if (dto.maxSendAmount !== undefined)
+      data.maxSendAmount = new Prisma.Decimal(dto.maxSendAmount);
     if (dto.active !== undefined) data.active = dto.active;
 
     const updated = await this.prisma.$transaction(async (tx) => {

@@ -7,6 +7,7 @@ import { ThemeProvider } from './lib/theme';
 import type { Permission } from './lib/permissions';
 import Approvals from './routes/Approvals';
 import Audit from './routes/Audit';
+import Kyc from './routes/Kyc';
 import CustomerDetail from './routes/CustomerDetail';
 import Customers from './routes/Customers';
 import MfaEnrolment from './routes/MfaEnrolment';
@@ -86,6 +87,7 @@ function Gate() {
       element: <CustomerDetail />,
       permission: 'customer.read',
     },
+    { path: '/kyc', element: <Kyc />, permission: 'kyc.read' },
     {
       path: '/approvals',
       element: <Approvals />,

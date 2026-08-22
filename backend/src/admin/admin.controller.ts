@@ -27,6 +27,7 @@ import { ListTransfersDto } from './dto/list-transfers.dto';
 import { RetryTransferDto } from './dto/retry-transfer.dto';
 import { SuspendDto } from './dto/suspend.dto';
 import { KycOverrideDto } from './dto/kyc-override.dto';
+import { ListKycDto } from './dto/list-kyc.dto';
 import { UpdateCorridorDto } from './dto/update-corridor.dto';
 
 @Controller('admin')
@@ -81,6 +82,35 @@ export class AdminController {
     @Body() dto: SuspendDto,
   ) {
     return this.admin.suspend(admin, id, false, dto.reason);
+  }
+
+  /**
+   * The identity queue: pending first, oldest first.
+   *
+   * Same shape as the transfer queue, because it is the same job — a customer
+   * who cannot send money until somebody looks at their case.
+   */
+  @Get('kyc')
+  @RequirePermission('kyc.read')
+  listKyc(@Query() query: ListKycDto) {
+    return this.compliance.listForReview(query);
+  }
+
+  /**
+   * Settle an open case.
+   *
+   * `kyc.decide` and not `kyc.override`. Deciding a pending case is the job;
+   * overturning one already decided is a different and more serious act, and
+   * the audit log should be able to tell them apart.
+   */
+  @Post('users/:id/kyc/decide')
+  @RequirePermission('kyc.decide')
+  decideKyc(
+    @CurrentUser() staff: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: KycOverrideDto,
+  ) {
+    return this.compliance.decide(staff, id, dto.status, dto.reason);
   }
 
   @Post('users/:id/kyc/override')
