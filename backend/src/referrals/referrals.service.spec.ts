@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ReferralsService } from './referrals.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 function createMockPrisma() {
@@ -18,7 +19,7 @@ function createMockPrisma() {
       create: jest.fn(),
       updateMany: jest.fn(),
     },
-    wallet: { findFirst: jest.fn() },
+    ledgerAccount: { findFirst: jest.fn() },
     ledgerEntry: { create: jest.fn() },
     auditLog: { create: jest.fn() },
     $transaction: jest.fn() as jest.Mock,
@@ -35,20 +36,30 @@ const mockNotifications = () => ({
   create: jest.fn().mockResolvedValue(undefined),
 });
 
+const mockLedger = () => ({
+  post: jest.fn().mockResolvedValue('posting-1'),
+  systemAccountId: jest.fn().mockResolvedValue('expense.marketing.CAD'),
+  customerAccount: jest.fn(),
+  balance: jest.fn(),
+});
+
 describe('ReferralsService', () => {
   let service: ReferralsService;
   let prisma: MockPrisma;
   let notifications: ReturnType<typeof mockNotifications>;
+  let ledger: ReturnType<typeof mockLedger>;
 
   beforeEach(async () => {
     prisma = createMockPrisma();
     mockTx = prisma;
     notifications = mockNotifications();
+    ledger = mockLedger();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReferralsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: LedgerService, useValue: ledger },
         { provide: ConfigService, useValue: { get: (key: string) => key === 'REFERRAL_REWARD_AMOUNT' ? 15 : undefined } },
         { provide: NotificationsService, useValue: notifications },
       ],
@@ -130,27 +141,30 @@ describe('ReferralsService', () => {
   });
 
   describe('onTransferDelivered', () => {
+    /** The read that establishes which currency the bonus is paid in. */
+    function givenReferrerWalletCurrency(currency: string | null) {
+      mockTx.referral.findUnique.mockResolvedValueOnce(
+        currency
+          ? { referrer: { ledgerAccounts: [{ currency }] } }
+          : { referrer: { ledgerAccounts: [] } },
+      );
+    }
+
     it('credits the referrer exactly once when transfer is delivered', async () => {
+      givenReferrerWalletCurrency('CAD');
       mockTx.referral.updateMany.mockResolvedValue({ count: 1 });
-      mockTx.referral.findUnique
-        .mockResolvedValueOnce({
-          id: 'ref-1',
-          referrerId: 'referrer-1',
-          refereeId: 'referee-1',
-          status: 'rewarded',
-          referrer: { id: 'referrer-1', suspended: false },
-        })
-        .mockResolvedValueOnce({
-          referrerId: 'referrer-1',
-          status: 'rewarded',
-          id: 'ref-1',
-        });
-      mockTx.wallet.findFirst.mockResolvedValue({
+      mockTx.referral.findUnique.mockResolvedValueOnce({
+        id: 'ref-1',
+        referrerId: 'referrer-1',
+        refereeId: 'referee-1',
+        status: 'rewarded',
+        referrer: { id: 'referrer-1', suspended: false },
+      });
+      mockTx.ledgerAccount.findFirst.mockResolvedValue({
         id: 'wallet-1',
         currency: 'CAD',
       });
       mockTx.$queryRaw.mockResolvedValue([]);
-      mockTx.ledgerEntry.create.mockResolvedValue({});
       mockTx.auditLog.create.mockResolvedValue({});
 
       await service.onTransferDelivered('referee-1', 'transfer-1');
@@ -162,35 +176,58 @@ describe('ReferralsService', () => {
           qualifyingTransferId: 'transfer-1',
         }),
       });
-      expect(mockTx.ledgerEntry.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          direction: 'credit',
-          type: 'referral_bonus',
-          amount: new Prisma.Decimal(15),
-          currency: 'CAD',
-        }),
-      });
+
+      // Both sides. The credit alone was the whole posting before, which made
+      // the bonus appear from nowhere and left the cost of the referral
+      // programme recorded in no account at all.
+      expect(ledger.post).toHaveBeenCalledTimes(1);
+      const posting = ledger.post.mock.calls[0][1] as {
+        key: string;
+        currency: string;
+        legs: Array<{ direction: string; amount: Prisma.Decimal }>;
+      };
+      expect(posting.key).toBe('referral:ref-1:bonus');
+      expect(posting.currency).toBe('CAD');
+      expect(posting.legs).toHaveLength(2);
+      const credit = posting.legs.find((l) => l.direction === 'credit');
+      const debit = posting.legs.find((l) => l.direction === 'debit');
+      expect(credit?.amount).toEqual(new Prisma.Decimal(15));
+      expect(debit?.amount).toEqual(new Prisma.Decimal(15));
+    });
+
+    it('pays nothing when the referrer has no wallet to pay into', async () => {
+      givenReferrerWalletCurrency(null);
+
+      await service.onTransferDelivered('referee-1', 'transfer-1');
+
+      // And does not mark the referral rewarded on the way past, which would
+      // burn the reward without ever paying it.
+      expect(mockTx.referral.updateMany).not.toHaveBeenCalled();
+      expect(ledger.post).not.toHaveBeenCalled();
     });
 
     it('is a no-op on second call (idempotency)', async () => {
+      givenReferrerWalletCurrency('CAD');
       mockTx.referral.updateMany.mockResolvedValue({ count: 0 });
 
       await service.onTransferDelivered('referee-1', 'transfer-1');
 
-      expect(mockTx.ledgerEntry.create).not.toHaveBeenCalled();
+      expect(ledger.post).not.toHaveBeenCalled();
     });
 
     it('is a no-op when referee was not referred', async () => {
+      givenReferrerWalletCurrency('CAD');
       mockTx.referral.updateMany.mockResolvedValue({ count: 0 });
 
       await service.onTransferDelivered('no-referral-user', 'transfer-1');
 
-      expect(mockTx.ledgerEntry.create).not.toHaveBeenCalled();
+      expect(ledger.post).not.toHaveBeenCalled();
     });
 
     it('skips credit if referrer is suspended', async () => {
+      givenReferrerWalletCurrency('CAD');
       mockTx.referral.updateMany.mockResolvedValue({ count: 1 });
-      mockTx.referral.findUnique.mockResolvedValue({
+      mockTx.referral.findUnique.mockResolvedValueOnce({
         id: 'ref-1',
         referrerId: 'referrer-1',
         refereeId: 'referee-1',
@@ -199,7 +236,7 @@ describe('ReferralsService', () => {
 
       await service.onTransferDelivered('referee-1', 'transfer-1');
 
-      expect(mockTx.ledgerEntry.create).not.toHaveBeenCalled();
+      expect(ledger.post).not.toHaveBeenCalled();
     });
   });
 

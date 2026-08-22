@@ -6,6 +6,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { WalletService } from '../wallet/wallet.service';
 import { TransfersGateway } from './transfers.gateway';
@@ -32,14 +33,23 @@ const STAFF: AuthUser = {
 } as AuthUser;
 
 function createMockPrisma() {
-  return {
+  const client = {
     transfer: {
       findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
     transferEvent: { create: jest.fn() },
     auditLog: { create: jest.fn() },
+    $transaction: jest.fn() as jest.Mock,
   };
+  // The status change, its timeline entry and any ledger posting commit
+  // together, so `advance` now runs them inside one transaction. Handing the
+  // callback the same mock keeps the assertions below reading against one
+  // object rather than two.
+  client.$transaction.mockImplementation(
+    (fn: (t: typeof client) => Promise<unknown>) => fn(client),
+  );
+  return client;
 }
 
 type MockPrisma = ReturnType<typeof createMockPrisma>;
@@ -97,6 +107,15 @@ describe('TransfersService.adminRetry', () => {
           provide: ReferralsService,
           useValue: {
             onTransferDelivered: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: LedgerService,
+          useValue: {
+            post: jest.fn().mockResolvedValue('posting-1'),
+            systemAccountId: jest.fn().mockResolvedValue('sys-account'),
+            customerAccount: jest.fn(),
+            balance: jest.fn(),
           },
         },
         { provide: ConfigService, useValue: { get: () => undefined } },

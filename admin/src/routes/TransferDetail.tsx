@@ -28,13 +28,24 @@ interface LedgerLeg {
   currency: string;
   description: string | null;
   createdAt: string;
-  walletId: string;
-  walletOwnerId: string;
+  accountId: string;
+  accountKind: AccountKind;
+  accountCode: string;
   isSenderWallet: boolean;
 }
 
+type AccountKind =
+  | 'customer_wallet'
+  | 'float'
+  | 'transfer_suspense'
+  | 'fee_revenue'
+  | 'marketing_expense'
+  | 'payout_settlement'
+  | 'opening_balance';
+
 interface LedgerPosting {
-  txGroupId: string;
+  postingId: string;
+  key: string;
   createdAt: string;
   net: string;
   currency: string;
@@ -81,6 +92,24 @@ const LEDGER_TYPE_LABEL: Record<string, string> = {
   fee: 'Fee',
   fx_conversion: 'FX conversion',
   referral_bonus: 'Referral bonus',
+};
+
+/**
+ * Where each leg landed, in words.
+ *
+ * The account codes are precise and unreadable at a glance — `suspense.transfer.CAD`
+ * tells an accountant everything and a support agent nothing. These are for
+ * the person on the phone to a customer; the code is still on screen for
+ * anyone who needs it.
+ */
+const ACCOUNT_LABEL: Record<AccountKind, string> = {
+  customer_wallet: 'Customer wallet',
+  float: 'Our cash',
+  transfer_suspense: 'In flight',
+  fee_revenue: 'Fees earned',
+  marketing_expense: 'Referral costs',
+  payout_settlement: 'Paid to payout partner',
+  opening_balance: 'Opening balance',
 };
 
 /**
@@ -336,8 +365,8 @@ export default function TransferDetail() {
         <Card className="p-5">
           <h2 className="font-display text-lg text-ink">The money</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Ledger postings against the sender&rsquo;s wallet, grouped as they
-            were written.
+            Every movement, both sides. Each posting balances: what left one
+            account arrived in another.
           </p>
 
           <div className="mt-4 rounded-lg bg-inset px-4 py-3">
@@ -366,7 +395,7 @@ export default function TransferDetail() {
             <ul className="mt-4 space-y-3">
               {data.ledger.map((posting) => (
                 <li
-                  key={posting.txGroupId}
+                  key={posting.postingId}
                   className="rounded-lg border border-line p-3"
                 >
                   <div className="flex items-baseline justify-between gap-3">
@@ -386,11 +415,14 @@ export default function TransferDetail() {
                       >
                         <span className="text-ink-muted">
                           {LEDGER_TYPE_LABEL[leg.type] ?? leg.type}
-                          {!leg.isSenderWallet && (
-                            <span className="ml-1.5 text-xs text-ink-faint">
-                              another wallet
-                            </span>
-                          )}
+                          <span
+                            className="ml-1.5 text-xs text-ink-faint"
+                            title={leg.accountCode}
+                          >
+                            {leg.isSenderWallet
+                              ? 'sender'
+                              : ACCOUNT_LABEL[leg.accountKind]}
+                          </span>
                         </span>
                         <span className="tabular text-ink">
                           {leg.direction === 'debit' ? '−' : '+'}
@@ -405,17 +437,19 @@ export default function TransferDetail() {
           )}
 
           {/*
-            Stated on the screen rather than only in a comment, because a person
-            reading this page to decide something about somebody's money should
-            know what it does and does not show. Each posting here moves one
-            wallet; the counterparty — the float the money sits in between
-            leaving the sender and reaching the payout partner — is not recorded
-            anywhere, because no such account exists yet. Backlog #39.
+            The boundary is still worth stating on screen. Send-currency
+            movements are fully double-entry; the receive-currency side of a
+            transfer is recorded on the transfer itself and not in the ledger,
+            because what that posting should look like depends on the payout
+            partner's settlement model — whether we prefund a local float or
+            they net against us. Guessing at it now would be worse than saying
+            so. Backlog #45.
           */}
           <p className="mt-4 border-t border-line pt-3 text-xs text-ink-faint">
-            These postings record one side of each movement — the sender&rsquo;s
-            wallet. There is no settlement account on the other side yet, so
-            this shows what left the customer, not where it currently sits.
+            Both sides of every movement are shown, in{' '}
+            {data.walletCurrency}. The {data.receiveCurrency} payout is recorded
+            on the transfer above but not yet in the ledger — that arrives with
+            the payout partner.
           </p>
         </Card>
       </div>

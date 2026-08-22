@@ -44,14 +44,19 @@ async function main() {
     where: { role: { not: 'customer' } },
   });
   const admins = await prisma.user.count({ where: { role: 'admin' } });
-  const wallets = await prisma.wallet.count();
+  const wallets = await prisma.ledgerAccount.count({
+    where: { kind: 'customer_wallet' },
+  });
+  const systemAccounts = await prisma.ledgerAccount.count({
+    where: { kind: { not: 'customer_wallet' } },
+  });
   const recipients = await prisma.recipient.count();
   const transfers = await prisma.transfer.count();
   const audits = await prisma.auditLog.count();
 
   console.log('\nrows');
   console.log(`  users ${users} (staff ${staff}, admin ${admins})`);
-  console.log(`  wallets ${wallets}  recipients ${recipients}`);
+  console.log(`  wallets ${wallets} (+${systemAccounts} system accounts)  recipients ${recipients}`);
   console.log(`  transfers ${transfers}  audit entries ${audits}`);
 
   // The columns the recent migrations added. Selecting them at all proves they

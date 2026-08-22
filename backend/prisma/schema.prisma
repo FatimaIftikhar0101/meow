@@ -64,14 +64,14 @@ model User {
 
   referralCode String? @unique
 
-  wallets       Wallet[]
-  recipients    Recipient[]
-  transfers     Transfer[]
-  kycRecords    KycRecord[]
-  auditLogs     AuditLog[]
-  sessions      Session[]
-  referralsMade Referral[]  @relation("ReferrerReferrals")
-  referredBy    Referral?   @relation("RefereeReferral")
+  ledgerAccounts LedgerAccount[]
+  recipients     Recipient[]
+  transfers      Transfer[]
+  kycRecords     KycRecord[]
+  auditLogs      AuditLog[]
+  sessions       Session[]
+  referralsMade  Referral[]      @relation("ReferrerReferrals")
+  referredBy     Referral?       @relation("RefereeReferral")
 }
 
 enum UserRole {
@@ -89,22 +89,79 @@ enum UserRole {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Wallets — one per (user, currency). Balance is derived from LedgerEntry.
-// ─────────────────────────────────────────────────────────────────────────────
+// Ledger accounts. A customer wallet is one kind of account among several.
+//
+// This used to be a `Wallet` table and nothing else, which is why the ledger
+// was single-entry: with only customer wallets in existence there was nowhere
+// for the other side of a movement to go. Money left a wallet and stopped
+// being represented anywhere. Balances still came out right — every wallet
+// summed its own rows correctly — but "where is the money when it is not in
+// somebody's wallet" had no answer, which is the question a reconciliation
+// asks and the first one an auditor asks.
+//
+// Customer wallets kept their ids through the migration, so every existing
+// LedgerEntry still points at the same account it always did.
 
-model Wallet {
-  id        String   @id @default(uuid())
-  userId    String
-  currency  String // ISO 4217: CAD, USD, ...
-  createdAt DateTime @default(now())
+enum AccountKind {
+  /**
+   * One per (customer, currency). A liability: we owe them this.
+   */
+  customer_wallet
+  /**
+   * Our own cash, per currency. An asset.
+   */
+  float
+  /**
+   * Committed to a transfer that has not finished. Neither the customer's
+   * any more, nor paid out yet — the balance here is money in flight, and it
+   * should trend to zero as transfers settle.
+   */
+  transfer_suspense
+  /**
+   * Fees earned. Income. Previously debited from wallets and recorded
+   * nowhere, so the business could not say what it had earned.
+   */
+  fee_revenue
+  /**
+   * Referral bonuses paid. An expense, for the same reason.
+   */
+  marketing_expense
+  /**
+   * Where a transfer's funds land once delivered. Stands in for the payout
+   * partner's settlement account until there is a real one.
+   */
+  payout_settlement
+  /**
+   * The counterparty invented for entries that predate double-entry. Its
+   * balance is exactly the amount of history whose other side was never
+   * recorded, which is the honest way to carry that forward.
+   */
+  opening_balance
+}
 
-  // Restrict, not Cascade: a wallet is the anchor for its ledger entries, and
-  // removing it would destroy the balance history those entries constitute.
-  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  ledgerEntries LedgerEntry[]
+model LedgerAccount {
+  id        String      @id @default(uuid())
+  kind      AccountKind
+  /**
+   * Set only for customer_wallet. Null for every system account.
+   */
+  ownerId   String?
+  currency  String
+  /**
+   * Stable, readable, and the real uniqueness guarantee: Postgres treats
+   * NULLs as distinct, so the composite unique below does not constrain
+   * system accounts at all.
+   */
+  code      String      @unique
+  createdAt DateTime    @default(now())
 
-  @@unique([userId, currency])
-  @@index([userId])
+  // Restrict, not Cascade: an account is the anchor for its ledger entries,
+  // and removing it would destroy the history those entries constitute.
+  owner   User?         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  entries LedgerEntry[]
+
+  @@unique([kind, ownerId, currency])
+  @@index([kind, currency])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -207,10 +264,11 @@ model Transfer {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  user          User            @relation(fields: [userId], references: [id])
-  recipient     Recipient       @relation(fields: [recipientId], references: [id])
-  timeline      TransferEvent[]
-  ledgerEntries LedgerEntry[]
+  user           User            @relation(fields: [userId], references: [id])
+  recipient      Recipient       @relation(fields: [recipientId], references: [id])
+  timeline       TransferEvent[]
+  ledgerEntries  LedgerEntry[]
+  ledgerPostings LedgerPosting[]
 
   @@index([userId])
   @@index([recipientId])
@@ -236,9 +294,16 @@ model TransferEvent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Double-entry ledger. Every transaction inserts BOTH a debit and a credit
-// row sharing the same txGroupId. Sum per wallet = balance.
-// ─────────────────────────────────────────────────────────────────────────────
+// Double-entry ledger.
+//
+// Every movement of money is a POSTING made of two or more ENTRIES that sum to
+// zero within one currency. Nothing writes an entry directly: `LedgerService`
+// is the only writer, and a Postgres constraint trigger rejects an unbalanced
+// posting at COMMIT regardless of what wrote it — because a rule enforced only
+// in application code is a rule until somebody opens psql.
+//
+// Entries are append-only. A correction is a reversing posting, never an edit;
+// a second trigger refuses UPDATE and DELETE outright.
 
 enum LedgerDirection {
   debit
@@ -255,11 +320,31 @@ enum LedgerEntryType {
   referral_bonus
 }
 
+/// One balanced movement of money. The unit a person reads.
+model LedgerPosting {
+  id         String   @id @default(uuid())
+  /// Deterministic and derived from the event, e.g. "transfer:<id>:hold".
+  /// Unique, so replaying an operation cannot post it twice — which the old
+  /// `randomUUID()` group id could not prevent, because a retry simply
+  /// generated a new one.
+  key        String   @unique
+  currency   String
+  transferId String?
+  createdAt  DateTime @default(now())
+
+  transfer Transfer?     @relation(fields: [transferId], references: [id])
+  entries  LedgerEntry[]
+
+  @@index([transferId])
+  @@index([createdAt])
+}
+
+/// One leg of a posting. Balance of an account = sum(credits) - sum(debits).
 model LedgerEntry {
   id          String          @id @default(uuid())
-  walletId    String
+  accountId   String
+  postingId   String
   transferId  String?
-  txGroupId   String // both legs of a double-entry pair share this
   direction   LedgerDirection
   type        LedgerEntryType
   amount      Decimal         @db.Decimal(20, 4)
@@ -267,12 +352,15 @@ model LedgerEntry {
   description String?
   createdAt   DateTime        @default(now())
 
-  wallet   Wallet    @relation(fields: [walletId], references: [id])
-  transfer Transfer? @relation(fields: [transferId], references: [id])
+  account  LedgerAccount @relation(fields: [accountId], references: [id])
+  // Cascade: an entry cannot outlive its posting, and a posting is never
+  // deleted anyway — the immutability trigger sees to that.
+  posting  LedgerPosting @relation(fields: [postingId], references: [id], onDelete: Cascade)
+  transfer Transfer?     @relation(fields: [transferId], references: [id])
 
-  @@index([walletId])
+  @@index([accountId])
   @@index([transferId])
-  @@index([txGroupId])
+  @@index([postingId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

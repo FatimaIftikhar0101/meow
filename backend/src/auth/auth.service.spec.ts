@@ -36,7 +36,7 @@ const mockPrisma = () => ({
     update: jest.fn(),
     create: jest.fn(),
   },
-  wallet: { create: jest.fn() },
+  ledgerAccount: { create: jest.fn() },
   session: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -107,7 +107,7 @@ describe('AuthService', () => {
         async (fn: (tx: unknown) => unknown) =>
           fn({
             user: { create: jest.fn().mockResolvedValue(createdUser) },
-            wallet: { create: jest.fn().mockResolvedValue({}) },
+            ledgerAccount: { create: jest.fn().mockResolvedValue({}) },
             auditLog: { create: jest.fn().mockResolvedValue({}) },
           }),
       );
@@ -197,7 +197,7 @@ describe('AuthService', () => {
         async (fn: (tx: unknown) => unknown) =>
           fn({
             user: { create },
-            wallet: { create: jest.fn().mockResolvedValue({}) },
+            ledgerAccount: { create: jest.fn().mockResolvedValue({}) },
             auditLog: { create: jest.fn().mockResolvedValue({}) },
           }),
       );
@@ -462,7 +462,7 @@ describe('AuthService', () => {
                 suspended: false,
               }),
             },
-            wallet: { create: jest.fn() },
+            ledgerAccount: { create: jest.fn() },
             auditLog: { create: jest.fn() },
           }),
       );

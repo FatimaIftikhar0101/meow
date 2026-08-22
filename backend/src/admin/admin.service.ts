@@ -110,7 +110,13 @@ export class AdminService {
         role: true,
         suspended: true,
         createdAt: true,
-        wallets: { select: { id: true, currency: true } },
+        // Only the customer's own wallets. `ledgerAccounts` is the relation
+        // from the account table, and a user has no system accounts — but
+        // filtering states the intent rather than relying on that.
+        ledgerAccounts: {
+          where: { kind: 'customer_wallet' },
+          select: { id: true, currency: true },
+        },
         kycRecords: {
           orderBy: { createdAt: 'desc' },
           take: 5,
@@ -127,13 +133,16 @@ export class AdminService {
     });
     if (!user) throw new NotFoundException('User not found');
     const balances = await Promise.all(
-      user.wallets.map(async (w) => ({
+      user.ledgerAccounts.map(async (w) => ({
         currency: w.currency,
         balance: (await this.wallets.computeBalance(w.id)).toFixed(2),
       })),
     );
-    const transferCount = await this.prisma.transfer.count({ where: { userId: id } });
-    return { ...user, balances, transferCount };
+    const transferCount = await this.prisma.transfer.count({
+      where: { userId: id },
+    });
+    const { ledgerAccounts, ...rest } = user;
+    return { ...rest, wallets: ledgerAccounts, balances, transferCount };
   }
 
   async suspend(
@@ -276,12 +285,22 @@ export class AdminService {
         user: { select: { id: true, email: true, country: true } },
         recipient: true,
         timeline: { orderBy: { createdAt: 'asc' } },
-        ledgerEntries: {
+        // Postings, not loose entries. A posting is the unit a person reads:
+        // the hold and the fee taken with it are one movement, not two
+        // unrelated debits three milliseconds apart.
+        ledgerPostings: {
           orderBy: { createdAt: 'asc' },
-          // Which wallet a leg landed in is the whole question. Without it the
-          // ledger reads as a list of amounts with no direction of travel.
           include: {
-            wallet: { select: { id: true, currency: true, userId: true } },
+            entries: {
+              orderBy: { createdAt: 'asc' },
+              // Which account a leg landed in is the whole question. Without
+              // it the ledger is a list of amounts with no direction of travel.
+              include: {
+                account: {
+                  select: { id: true, kind: true, code: true, ownerId: true },
+                },
+              },
+            },
           },
         },
       },
@@ -292,46 +311,41 @@ export class AdminService {
     const thresholdMinutes = thresholdFor(transfer.status);
 
     /**
-     * The ledger, grouped the way it was written.
+     * The ledger for this transfer, one posting at a time.
      *
-     * Every entry carries a `txGroupId` identifying the posting it belongs to,
-     * so a hold and the fee taken with it read as one movement rather than two
-     * unrelated debits three milliseconds apart.
+     * Every posting balances: debits equal credits within a single currency,
+     * checked in `LedgerService` and enforced by a constraint trigger that
+     * holds regardless of what did the writing. So each row below shows both
+     * sides of a movement — where the money left and where it arrived — which
+     * is what makes "has it actually gone?" answerable from this screen.
      *
-     * A caveat this shape makes visible rather than hides: the schema describes
-     * these groups as double-entry pairs, and they are not. Every posting in
-     * the codebase writes a single leg against the customer's wallet — there is
-     * no float or settlement account for the other side, because no such wallet
-     * exists (`Wallet.userId` is required). So each group here sums to a net
-     * movement on one wallet, and the money's counterparty is implied rather
-     * than recorded. That is a real gap for a money business and it is backlog
-     * item #39; presenting the groups honestly is what makes it visible to
-     * whoever reads this screen.
+     * It did not always. Until the double-entry migration every posting here
+     * had exactly one leg: money left a customer's wallet and was represented
+     * in no account at all. Postings from before that carry a counterparty
+     * against `equity.opening`, which is the honest way to show history whose
+     * other side was never recorded.
      */
-    const groups = new Map<string, typeof transfer.ledgerEntries>();
-    for (const e of transfer.ledgerEntries) {
-      const bucket = groups.get(e.txGroupId);
-      if (bucket) bucket.push(e);
-      else groups.set(e.txGroupId, [e]);
-    }
-
     let walletNet = new Prisma.Decimal(0);
-    const ledger = [...groups.entries()].map(([txGroupId, entries]) => {
-      const net = entries.reduce(
-        (acc, e) =>
-          e.direction === 'credit' ? acc.plus(e.amount) : acc.minus(e.amount),
-        new Prisma.Decimal(0),
-      );
+    const ledger = transfer.ledgerPostings.map((posting) => {
+      // Signed from the sender's point of view: what this movement did to the
+      // money they are owed. The other legs are ours, not theirs.
+      const net = posting.entries.reduce((acc, e) => {
+        if (e.account.kind !== 'customer_wallet') return acc;
+        if (e.account.ownerId !== transfer.userId) return acc;
+        return e.direction === 'credit' ? acc.plus(e.amount) : acc.minus(e.amount);
+      }, new Prisma.Decimal(0));
       walletNet = walletNet.plus(net);
+
       return {
-        txGroupId,
-        // Entries in a group are written inside one transaction, so the first
-        // one's timestamp is the posting's timestamp.
-        createdAt: entries[0].createdAt,
-        /** Signed against the wallet: negative is money leaving the customer. */
+        postingId: posting.id,
+        // Deterministic and readable — "transfer:<id>:hold" — so a posting can
+        // be recognised for what it is without decoding its legs.
+        key: posting.key,
+        createdAt: posting.createdAt,
+        currency: posting.currency,
+        /** Effect on the sender's wallet. Negative is money leaving them. */
         net: net.toString(),
-        currency: entries[0].currency,
-        entries: entries.map((e) => ({
+        entries: posting.entries.map((e) => ({
           id: e.id,
           direction: e.direction,
           type: e.type,
@@ -339,12 +353,12 @@ export class AdminService {
           currency: e.currency,
           description: e.description,
           createdAt: e.createdAt,
-          walletId: e.walletId,
-          // Whether this leg touched the sender's own wallet or somebody
-          // else's. Always the sender's today; stated rather than assumed, so
-          // the day it is not, the screen says so.
-          walletOwnerId: e.wallet.userId,
-          isSenderWallet: e.wallet.userId === transfer.userId,
+          accountId: e.accountId,
+          accountKind: e.account.kind,
+          accountCode: e.account.code,
+          isSenderWallet:
+            e.account.kind === 'customer_wallet' &&
+            e.account.ownerId === transfer.userId,
         })),
       };
     });

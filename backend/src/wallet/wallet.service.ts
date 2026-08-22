@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { writeAudit } from '../common/audit/audit';
 import { FundWalletDto } from './dto/fund-wallet.dto';
 
@@ -14,7 +15,10 @@ const FUND_LIMIT_PER_DAY = new Prisma.Decimal(20000);
 
 @Injectable()
 export class WalletService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledger: LedgerService,
+  ) {}
 
   async getBalance(userId: string) {
     const wallet = await this.primaryWallet(userId);
@@ -24,26 +28,13 @@ export class WalletService {
     };
   }
 
-  async computeBalance(walletId: string): Promise<Prisma.Decimal> {
-    const [credits, debits] = await Promise.all([
-      this.prisma.ledgerEntry.aggregate({
-        where: { walletId, direction: 'credit' },
-        _sum: { amount: true },
-      }),
-      this.prisma.ledgerEntry.aggregate({
-        where: { walletId, direction: 'debit' },
-        _sum: { amount: true },
-      }),
-    ]);
-    const c = credits._sum.amount ?? new Prisma.Decimal(0);
-    const d = debits._sum.amount ?? new Prisma.Decimal(0);
-    return c.minus(d);
+  /** Credits minus debits, from the covering index. See LedgerService. */
+  computeBalance(walletId: string): Promise<Prisma.Decimal> {
+    return this.ledger.balance(walletId);
   }
 
   findUserWallet(userId: string, currency: string) {
-    return this.prisma.wallet.findUnique({
-      where: { userId_currency: { userId, currency } },
-    });
+    return this.ledger.customerAccount(userId, currency);
   }
 
   async fund(userId: string, dto: FundWalletDto) {
@@ -56,16 +47,20 @@ export class WalletService {
 
     const idempotencyKey = dto.idempotencyKey ?? randomUUID();
     const amount = new Prisma.Decimal(dto.amount);
-    const txGroupId = randomUUID();
+
+    // Resolved before the transaction opens. `systemAccountId` can write, and
+    // a write to a shared row from inside a transaction already holding a
+    // wallet lock is a deadlock waiting for two customers to fund at once.
+    const floatAccount = await this.ledger.systemAccountId('float', currency);
 
     await this.prisma.$transaction(async (tx) => {
       // Lock the wallet so two concurrent funds can't both pass the daily
       // limit check and over-fund the account.
-      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${wallet.id} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "LedgerAccount" WHERE id = ${wallet.id} FOR UPDATE`;
 
       const existing = await tx.ledgerEntry.findFirst({
         where: {
-          walletId: wallet.id,
+          accountId: wallet.id,
           type: 'wallet_fund',
           description: `idempotency:${idempotencyKey}`,
         },
@@ -76,7 +71,11 @@ export class WalletService {
 
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const sum = await tx.ledgerEntry.aggregate({
-        where: { walletId: wallet.id, type: 'wallet_fund', createdAt: { gte: since } },
+        where: {
+          accountId: wallet.id,
+          type: 'wallet_fund',
+          createdAt: { gte: since },
+        },
         _sum: { amount: true },
       });
       const used = sum._sum.amount ?? new Prisma.Decimal(0);
@@ -86,16 +85,29 @@ export class WalletService {
         );
       }
 
-      await tx.ledgerEntry.create({
-        data: {
-          walletId: wallet.id,
-          txGroupId,
-          direction: 'credit',
-          type: 'wallet_fund',
-          amount,
-          currency,
-          description: `idempotency:${idempotencyKey}`,
-        },
+      // Money arriving from outside: our cash goes up (debit an asset) and
+      // what we owe the customer goes up with it (credit a liability). The
+      // credit alone used to be the whole posting, which is why the business
+      // had no record of holding the money it had just been given.
+      await this.ledger.post(tx, {
+        key: `wallet-fund:${idempotencyKey}`,
+        currency,
+        legs: [
+          {
+            accountId: wallet.id,
+            direction: 'credit',
+            type: 'wallet_fund',
+            amount,
+            description: `idempotency:${idempotencyKey}`,
+          },
+          {
+            accountId: floatAccount,
+            direction: 'debit',
+            type: 'wallet_fund',
+            amount,
+            description: `Funding received for ${wallet.id}`,
+          },
+        ],
       });
       await writeAudit(tx, {
         actor: { id: userId },
@@ -116,7 +128,7 @@ export class WalletService {
   async transactions(userId: string, limit = 50) {
     const wallet = await this.primaryWallet(userId);
     const entries = await this.prisma.ledgerEntry.findMany({
-      where: { walletId: wallet.id },
+      where: { accountId: wallet.id },
       orderBy: { createdAt: 'desc' },
       take: Math.min(Math.max(limit, 1), 200),
       include: {
@@ -153,8 +165,8 @@ export class WalletService {
   }
 
   private async primaryWallet(userId: string) {
-    const wallet = await this.prisma.wallet.findFirst({
-      where: { userId },
+    const wallet = await this.prisma.ledgerAccount.findFirst({
+      where: { kind: 'customer_wallet', ownerId: userId },
       orderBy: { createdAt: 'asc' },
     });
     if (!wallet) {

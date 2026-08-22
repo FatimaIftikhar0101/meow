@@ -14,6 +14,7 @@ import { envSchema } from './config/env.validation';
 import { CorridorsModule } from './corridors/corridors.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { LedgerModule } from './ledger/ledger.module';
 import { RecipientsModule } from './recipients/recipients.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReferralsModule } from './referrals/referrals.module';
@@ -37,6 +38,7 @@ import { WalletModule } from './wallet/wallet.module';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    LedgerModule,
     AuthModule,
     WalletModule,
     RecipientsModule,

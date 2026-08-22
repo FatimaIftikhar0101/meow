@@ -125,8 +125,16 @@ export class AuthService {
           emailVerifyExpires: codeExpiry(),
         },
       });
-      await tx.wallet.create({
-        data: { userId: created.id, currency },
+      // A customer wallet is a ledger account like any other; the `code` is
+      // what makes it findable and unique, since Postgres treats the NULL
+      // ownerId of a system account as distinct on the composite key.
+      await tx.ledgerAccount.create({
+        data: {
+          kind: 'customer_wallet',
+          ownerId: created.id,
+          currency,
+          code: `wallet.${created.id}.${currency}`,
+        },
       });
       await writeAudit(tx, {
         actor: { id: created.id, email: created.email },
@@ -241,8 +249,13 @@ export class AuthService {
               avatarUrl: profile.avatarUrl || null,
             },
           });
-          await tx.wallet.create({
-            data: { userId: created.id, currency: 'CAD' },
+          await tx.ledgerAccount.create({
+            data: {
+              kind: 'customer_wallet',
+              ownerId: created.id,
+              currency: 'CAD',
+              code: `wallet.${created.id}.CAD`,
+            },
           });
           await writeAudit(tx, {
             actor: { id: created.id, email: created.email },

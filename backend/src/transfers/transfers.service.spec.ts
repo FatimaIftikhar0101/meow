@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
 import { TransfersService } from './transfers.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { WalletService } from '../wallet/wallet.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { ComplianceService } from '../compliance/compliance.service';
@@ -81,6 +82,15 @@ describe('TransfersService — beneficiary snapshot', () => {
         { provide: TransfersGateway, useValue: stub },
         { provide: NotificationsService, useValue: stub },
         { provide: ReferralsService, useValue: stub },
+        {
+          provide: LedgerService,
+          useValue: {
+            post: jest.fn().mockResolvedValue('posting-1'),
+            systemAccountId: jest.fn().mockResolvedValue('sys-account'),
+            customerAccount: jest.fn(),
+            balance: jest.fn(),
+          },
+        },
         { provide: ConfigService, useValue: { get: () => undefined } },
       ],
     }).compile();

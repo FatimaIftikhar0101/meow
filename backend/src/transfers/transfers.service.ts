@@ -13,6 +13,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
@@ -54,6 +55,7 @@ export class TransfersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallets: WalletService,
+    private readonly ledger: LedgerService,
     private readonly corridors: CorridorsService,
     private readonly compliance: ComplianceService,
     private readonly gateway: TransfersGateway,
@@ -135,13 +137,20 @@ export class TransfersService {
     }
 
     const totalDebit = sendAmount.plus(quote.fee);
-    const txGroupId = randomUUID();
+
+    // Resolved before the transaction opens: creating an account inside a
+    // transaction that already holds a wallet lock is a deadlock waiting for
+    // two customers to send at the same moment.
+    const [suspenseAccount, feeAccount] = await Promise.all([
+      this.ledger.systemAccountId('transfer_suspense', sendCurrency),
+      this.ledger.systemAccountId('fee_revenue', sendCurrency),
+    ]);
 
     const transfer = await this.prisma.$transaction(async (tx) => {
       // Hold a row lock on the wallet for the duration of this transaction.
       // Concurrent transfer creates against the same wallet serialise here,
       // closing the read-then-debit overdraft window.
-      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${wallet.id} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "LedgerAccount" WHERE id = ${wallet.id} FOR UPDATE`;
 
       const balance = await this.computeBalanceLocked(tx, wallet.id);
       if (balance.lt(totalDebit)) {
@@ -182,30 +191,54 @@ export class TransfersService {
           message: 'Transfer initiated',
         },
       });
-      await tx.ledgerEntry.create({
-        data: {
-          walletId: wallet.id,
-          transferId: created.id,
-          txGroupId,
-          direction: 'debit',
-          type: 'transfer_hold',
-          amount: sendAmount,
-          currency: sendCurrency,
-          description: `Hold for transfer ${created.id}`,
-        },
-      });
-      if (quote.fee.gt(0)) {
-        await tx.ledgerEntry.create({
-          data: {
-            walletId: wallet.id,
-            transferId: created.id,
-            txGroupId,
+      // The hold: the customer's money stops being theirs and becomes money in
+      // flight. Previously the debit was written alone, so the amount left the
+      // wallet and was represented in no account at all.
+      await this.ledger.post(tx, {
+        key: `transfer:${created.id}:hold`,
+        currency: sendCurrency,
+        transferId: created.id,
+        legs: [
+          {
+            accountId: wallet.id,
             direction: 'debit',
-            type: 'fee',
-            amount: quote.fee,
-            currency: sendCurrency,
-            description: `Fee for transfer ${created.id}`,
+            type: 'transfer_hold',
+            amount: sendAmount,
+            description: `Hold for transfer ${created.id}`,
           },
+          {
+            accountId: suspenseAccount,
+            direction: 'credit',
+            type: 'transfer_hold',
+            amount: sendAmount,
+            description: `In flight: transfer ${created.id}`,
+          },
+        ],
+      });
+
+      // The fee is revenue, and until now it was revenue the business kept no
+      // record of earning — taken from the wallet and credited nowhere.
+      if (quote.fee.gt(0)) {
+        await this.ledger.post(tx, {
+          key: `transfer:${created.id}:fee`,
+          currency: sendCurrency,
+          transferId: created.id,
+          legs: [
+            {
+              accountId: wallet.id,
+              direction: 'debit',
+              type: 'fee',
+              amount: quote.fee,
+              description: `Fee for transfer ${created.id}`,
+            },
+            {
+              accountId: feeAccount,
+              direction: 'credit',
+              type: 'fee',
+              amount: quote.fee,
+              description: `Fee earned on transfer ${created.id}`,
+            },
+          ],
         });
       }
       // A creation has no prior state, so no `before`. The beneficiary is
@@ -415,25 +448,79 @@ export class TransfersService {
       }
     }
 
-    const updated = await this.prisma.transfer.updateMany({
-      where: { id: transfer.id, status: transfer.status },
-      data: {
-        status: next,
-        providerRef:
-          next === 'fx_converted'
-            ? `mock-${randomUUID()}`
-            : transfer.providerRef,
-      },
-    });
-    if (updated.count === 0) return;
+    // Delivery is where money in flight stops being in flight. Resolved before
+    // the transaction for the usual reason: no account creation inside one.
+    const settlement =
+      next === 'delivered'
+        ? await Promise.all([
+            this.ledger.systemAccountId(
+              'transfer_suspense',
+              transfer.sendCurrency,
+            ),
+            this.ledger.systemAccountId(
+              'payout_settlement',
+              transfer.sendCurrency,
+            ),
+          ])
+        : null;
 
-    await this.prisma.transferEvent.create({
-      data: {
-        transferId: transfer.id,
-        status: next,
-        message: messageFor(next),
-      },
+    // The status change, its timeline entry and any posting now commit
+    // together. They used to be three separate writes, so a crash between them
+    // left a transfer whose status no event explained.
+    const applied = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.transfer.updateMany({
+        where: { id: transfer.id, status: transfer.status },
+        data: {
+          status: next,
+          providerRef:
+            next === 'fx_converted'
+              ? `mock-${randomUUID()}`
+              : transfer.providerRef,
+        },
+      });
+      // The compare-and-set that makes concurrent advances safe: whoever
+      // arrives second finds the status already moved and does nothing.
+      if (updated.count === 0) return false;
+
+      await tx.transferEvent.create({
+        data: {
+          transferId: transfer.id,
+          status: next,
+          message: messageFor(next),
+        },
+      });
+
+      if (settlement) {
+        const [suspenseAccount, settlementAccount] = settlement;
+        // Without this posting, suspense only ever grows: every transfer ever
+        // sent would still be sitting in it, and "money in flight" would be a
+        // running total of the product's whole history.
+        await this.ledger.post(tx, {
+          key: `transfer:${transfer.id}:settle`,
+          currency: transfer.sendCurrency,
+          transferId: transfer.id,
+          legs: [
+            {
+              accountId: suspenseAccount,
+              direction: 'debit',
+              type: 'transfer_release',
+              amount: transfer.sendAmount,
+              description: `Delivered: transfer ${transfer.id}`,
+            },
+            {
+              accountId: settlementAccount,
+              direction: 'credit',
+              type: 'transfer_release',
+              amount: transfer.sendAmount,
+              description: `Paid out for transfer ${transfer.id}`,
+            },
+          ],
+        });
+      }
+      return true;
     });
+    if (!applied) return;
+
     this.gateway.emitStatus(transfer.userId, transfer.id, next);
     this.notifications.create(
       transfer.userId, 'transfer_status',
@@ -469,7 +556,11 @@ export class TransfersService {
       this.logger.error(`No wallet found for refund of transfer ${transferId}`);
       return;
     }
-    const txGroupId = randomUUID();
+
+    const [suspenseAccount, feeAccount] = await Promise.all([
+      this.ledger.systemAccountId('transfer_suspense', transfer.sendCurrency),
+      this.ledger.systemAccountId('fee_revenue', transfer.sendCurrency),
+    ]);
 
     await this.prisma.$transaction(async (tx) => {
       const updated = await tx.transfer.updateMany({
@@ -481,30 +572,53 @@ export class TransfersService {
       await tx.transferEvent.create({
         data: { transferId, status: toStatus, message },
       });
-      await tx.ledgerEntry.create({
-        data: {
-          walletId: wallet.id,
-          transferId,
-          txGroupId,
-          direction: 'credit',
-          type: 'transfer_refund',
-          amount: transfer.sendAmount,
-          currency: transfer.sendCurrency,
-          description: `Refund ${toStatus} transfer ${transferId}`,
-        },
-      });
-      if (new Prisma.Decimal(transfer.feeAmount).gt(0)) {
-        await tx.ledgerEntry.create({
-          data: {
-            walletId: wallet.id,
-            transferId,
-            txGroupId,
+      // Money in flight comes back out of flight. The mirror of the hold, and
+      // the reason suspense trends to zero rather than accumulating forever.
+      await this.ledger.post(tx, {
+        key: `transfer:${transferId}:refund`,
+        currency: transfer.sendCurrency,
+        transferId,
+        legs: [
+          {
+            accountId: suspenseAccount,
+            direction: 'debit',
+            type: 'transfer_refund',
+            amount: transfer.sendAmount,
+            description: `Released: ${toStatus} transfer ${transferId}`,
+          },
+          {
+            accountId: wallet.id,
             direction: 'credit',
             type: 'transfer_refund',
-            amount: transfer.feeAmount,
-            currency: transfer.sendCurrency,
-            description: `Refund fee for ${toStatus} transfer ${transferId}`,
+            amount: transfer.sendAmount,
+            description: `Refund ${toStatus} transfer ${transferId}`,
           },
+        ],
+      });
+
+      // A fee on a transfer that never happened is not revenue. Giving it back
+      // has to reduce the revenue account, not appear from nowhere.
+      if (new Prisma.Decimal(transfer.feeAmount).gt(0)) {
+        await this.ledger.post(tx, {
+          key: `transfer:${transferId}:fee-refund`,
+          currency: transfer.sendCurrency,
+          transferId,
+          legs: [
+            {
+              accountId: feeAccount,
+              direction: 'debit',
+              type: 'transfer_refund',
+              amount: transfer.feeAmount,
+              description: `Fee reversed: ${toStatus} transfer ${transferId}`,
+            },
+            {
+              accountId: wallet.id,
+              direction: 'credit',
+              type: 'transfer_refund',
+              amount: transfer.feeAmount,
+              description: `Refund fee for ${toStatus} transfer ${transferId}`,
+            },
+          ],
         });
       }
       // A refunding transition moves real money back into a wallet, so the
@@ -537,11 +651,11 @@ export class TransfersService {
   ): Promise<Prisma.Decimal> {
     const [credits, debits] = await Promise.all([
       tx.ledgerEntry.aggregate({
-        where: { walletId, direction: 'credit' },
+        where: { accountId: walletId, direction: 'credit' },
         _sum: { amount: true },
       }),
       tx.ledgerEntry.aggregate({
-        where: { walletId, direction: 'debit' },
+        where: { accountId: walletId, direction: 'debit' },
         _sum: { amount: true },
       }),
     ]);

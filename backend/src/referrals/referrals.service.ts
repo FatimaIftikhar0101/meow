@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { writeAudit } from '../common/audit/audit';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -19,6 +19,7 @@ export class ReferralsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
+    private readonly ledger: LedgerService,
   ) {
     this.rewardAmount = this.config.get<number>('REFERRAL_REWARD_AMOUNT') ?? 15;
   }
@@ -135,6 +136,36 @@ export class ReferralsService {
   async onTransferDelivered(refereeId: string, transferId: string) {
     const rewardAmount = new Prisma.Decimal(this.rewardAmount);
 
+    // The bonus is paid into the referrer's own wallet, so the expense leg has
+    // to be in that wallet's currency: a posting that mixes currencies cannot
+    // balance and the database rejects it. Read here rather than inside the
+    // transaction because resolving an account can create one, and creating a
+    // shared row while holding a wallet lock is how deadlocks are made.
+    //
+    // Re-read inside the transaction for the actual posting; this is only to
+    // learn which currency account to prepare.
+    const referrerWallet = await this.prisma.referral.findUnique({
+      where: { refereeId },
+      select: {
+        referrer: {
+          select: {
+            ledgerAccounts: {
+              where: { kind: 'customer_wallet' },
+              orderBy: { createdAt: 'asc' },
+              take: 1,
+              select: { currency: true },
+            },
+          },
+        },
+      },
+    });
+    const rewardCurrency = referrerWallet?.referrer.ledgerAccounts[0]?.currency;
+    if (!rewardCurrency) return;
+    const marketingAccount = await this.ledger.systemAccountId(
+      'marketing_expense',
+      rewardCurrency,
+    );
+
     await this.prisma.$transaction(async (tx) => {
       const updated = await tx.referral.updateMany({
         where: { refereeId, status: 'pending' },
@@ -143,7 +174,7 @@ export class ReferralsService {
           rewardedAt: new Date(),
           qualifyingTransferId: transferId,
           rewardAmount,
-          rewardCurrency: 'CAD',
+          rewardCurrency,
         },
       });
       if (updated.count !== 1) return;
@@ -155,24 +186,46 @@ export class ReferralsService {
       if (!referral) return;
       if (referral.referrer.suspended) return;
 
-      const wallet = await tx.wallet.findFirst({
-        where: { userId: referral.referrerId },
+      const wallet = await tx.ledgerAccount.findFirst({
+        where: {
+          kind: 'customer_wallet',
+          ownerId: referral.referrerId,
+          // Pinned to the currency whose expense account was prepared above.
+          // Without this, a referrer who gained a second wallet between the
+          // two reads could be paid into one currency and expensed in another.
+          currency: rewardCurrency,
+        },
         orderBy: { createdAt: 'asc' },
       });
       if (!wallet) return;
 
-      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${wallet.id} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "LedgerAccount" WHERE id = ${wallet.id} FOR UPDATE`;
 
-      await tx.ledgerEntry.create({
-        data: {
-          walletId: wallet.id,
-          txGroupId: randomUUID(),
-          direction: 'credit',
-          type: 'referral_bonus',
-          amount: rewardAmount,
-          currency: wallet.currency,
-          description: `referral:${referral.id}`,
-        },
+      // A bonus is money the business spends to acquire a customer. Crediting
+      // the wallet alone made it appear from nowhere; the debit is what makes
+      // the cost of the referral programme a number somebody can look up.
+      //
+      // Keyed on the referral, not on a random id, so the unique constraint on
+      // the posting key is a second guard against paying the same bonus twice.
+      await this.ledger.post(tx, {
+        key: `referral:${referral.id}:bonus`,
+        currency: wallet.currency,
+        legs: [
+          {
+            accountId: wallet.id,
+            direction: 'credit',
+            type: 'referral_bonus',
+            amount: rewardAmount,
+            description: `referral:${referral.id}`,
+          },
+          {
+            accountId: marketingAccount,
+            direction: 'debit',
+            type: 'referral_bonus',
+            amount: rewardAmount,
+            description: `Referral bonus for ${referral.id}`,
+          },
+        ],
       });
       // A bonus credit hits the ledger, so this entry is the justification for
       // real money appearing in someone's wallet.

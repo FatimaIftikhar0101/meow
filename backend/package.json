@@ -13,7 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "prisma migrate deploy && node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
+    "test": "jest && npm run test:db",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -26,7 +26,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:encrypt-backfill": "ts-node scripts/backfill-encryption.ts",
     "staff:bootstrap": "ts-node scripts/bootstrap-admin.ts",
-    "db:check": "ts-node scripts/check-db.ts"
+    "db:check": "ts-node scripts/check-db.ts",
+    "test:unit": "jest",
+    "test:db": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config jest-db.config.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -64,6 +66,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.6",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -77,6 +80,7 @@
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.0.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -118,6 +122,10 @@
     "testEnvironment": "node",
     "transformIgnorePatterns": [
       "/node_modules/(?!(otplib|@otplib|@scure|@noble)/)"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "ledger-migration\\.spec\\.ts$"
     ]
   }
 }
