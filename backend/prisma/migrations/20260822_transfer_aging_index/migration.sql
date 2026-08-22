@@ -1,0 +1,15 @@
+-- The operations queue asks "which transfers are still in a non-terminal
+-- status and have not changed since <cutoff>", ordered oldest first. So does
+-- the scheduler, every five seconds, for every transfer that has ever existed.
+--
+-- The existing index is on "status" alone, which narrows to the right rows but
+-- leaves the timestamp comparison and the sort to a scan of that whole status.
+-- Statuses are low-cardinality — there are eight — so on any real volume that
+-- is most of the table.
+--
+-- CONCURRENTLY is deliberately not used: `prisma migrate deploy` runs each
+-- migration inside a transaction and CREATE INDEX CONCURRENTLY cannot run in
+-- one. On the current table size the lock is measured in milliseconds. If this
+-- table is ever large enough for that to matter, this index wants building by
+-- hand outside the migration first.
+CREATE INDEX "Transfer_status_updatedAt_idx" ON "Transfer" ("status", "updatedAt");

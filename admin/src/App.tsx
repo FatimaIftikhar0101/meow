@@ -10,6 +10,7 @@ import Customers from './routes/Customers';
 import MfaEnrolment from './routes/MfaEnrolment';
 import SignIn from './routes/SignIn';
 import Staff from './routes/Staff';
+import TransferDetail from './routes/TransferDetail';
 import Transfers from './routes/Transfers';
 
 const queryClient = new QueryClient({
@@ -69,12 +70,23 @@ function Gate() {
     permission: Permission;
   }> = [
     { path: '/transfers', element: <Transfers />, permission: 'transfer.read' },
+    // Same permission as the list it is reached from. Registered separately
+    // rather than nested, because the detail page is a full screen and not a
+    // panel inside the queue.
+    {
+      path: '/transfers/:id',
+      element: <TransferDetail />,
+      permission: 'transfer.read',
+    },
     { path: '/customers', element: <Customers />, permission: 'customer.read' },
     { path: '/audit', element: <Audit />, permission: 'audit.read' },
     { path: '/staff', element: <Staff />, permission: 'staff.read' },
   ];
   const allowed = routes.filter((r) => can(r.permission));
-  const home = allowed[0]?.path ?? '/transfers';
+  // The fallback has to be a path that can actually be navigated to. `allowed`
+  // now contains a parameterised route, and redirecting to "/transfers/:id"
+  // literally is a 404 that looks like a bug in the router.
+  const home = allowed.find((r) => !r.path.includes(':'))?.path ?? '/transfers';
 
   return (
     <Routes>

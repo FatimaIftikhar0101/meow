@@ -11,7 +11,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { TransferStatus } from '@prisma/client';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
@@ -24,6 +23,8 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { TransfersService } from '../transfers/transfers.service';
 import { AdminService } from './admin.service';
 import { ForceFailDto } from './dto/force-fail.dto';
+import { ListTransfersDto } from './dto/list-transfers.dto';
+import { RetryTransferDto } from './dto/retry-transfer.dto';
 import { SuspendDto } from './dto/suspend.dto';
 import { KycOverrideDto } from './dto/kyc-override.dto';
 import { UpdateCorridorDto } from './dto/update-corridor.dto';
@@ -92,20 +93,38 @@ export class AdminController {
     return this.compliance.adminOverride(admin, id, dto.status, dto.reason);
   }
 
+  /**
+   * The operations queue. `?aging=true` narrows it to what is overdue for the
+   * status it is in, oldest first — see `aging.ts`.
+   */
   @Get('transfers')
   @RequirePermission('transfer.read')
-  listTransfers(
-    @Query('status') status: TransferStatus | undefined,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
-  ) {
-    return this.admin.listTransfers(status, page, Math.min(pageSize, 100));
+  listTransfers(@Query() query: ListTransfersDto) {
+    return this.admin.listTransfers(query);
   }
 
   @Get('transfers/:id')
   @RequirePermission('transfer.read')
   getTransfer(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.getTransfer(id);
+  }
+
+  /**
+   * Push a stuck transfer along.
+   *
+   * `transfer.retry` sits with operations; `transfer.force_fail` does not, and
+   * that split is the point. Retrying is a recovery — the customer's money
+   * continues on its way. Force-failing returns it and ends the attempt, which
+   * is a worse outcome for them and should not be the first tool to hand.
+   */
+  @Post('transfers/:id/retry')
+  @RequirePermission('transfer.retry')
+  retry(
+    @CurrentUser() staff: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RetryTransferDto,
+  ) {
+    return this.transfers.adminRetry(staff, id, dto.reason);
   }
 
   @Post('transfers/:id/force-fail')

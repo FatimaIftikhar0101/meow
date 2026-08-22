@@ -215,6 +215,11 @@ model Transfer {
   @@index([userId])
   @@index([recipientId])
   @@index([status])
+  // Both the scheduler's "what is due for a tick" query and the operations
+  // queue's aging view filter on status and then order by updatedAt. Without
+  // this the aging screen is a sequential scan of every transfer ever made,
+  // run every time an operator refreshes it.
+  @@index([status, updatedAt])
 }
 
 model TransferEvent {

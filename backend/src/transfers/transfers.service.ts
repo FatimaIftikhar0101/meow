@@ -18,7 +18,7 @@ import { ReferralsService } from '../referrals/referrals.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { TransfersGateway } from './transfers.gateway';
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
-import { writeAudit } from '../common/audit/audit';
+import { writeAudit, writeStaffAudit } from '../common/audit/audit';
 import { decryptField } from '../common/crypto/field-crypto';
 
 const CANCELLABLE: TransferStatus[] = [
@@ -288,6 +288,87 @@ export class TransfersService {
       reason,
       metadata: { targetUserId: transfer.userId },
     });
+    return this.get(transfer.userId, transferId);
+  }
+
+  /**
+   * Push a stuck transfer along by hand.
+   *
+   * Until now the only write operations staff had on a transfer were force-fail
+   * and nothing. That made "the payout is stuck" and "the payout is dead" the
+   * same event from the customer's point of view: their money comes back and
+   * they start again, having achieved nothing but a delay. Retry is the
+   * remedy that was missing between the two.
+   *
+   * What it does is re-run the transition the scheduler would have run, now,
+   * without waiting for the tick. Against the mock provider that is nearly
+   * free; against a real payout partner it is a re-issued instruction, which is
+   * why it is audited and why it takes a reason.
+   *
+   * **Non-terminal only, deliberately.** A `failed` transfer has already been
+   * refunded — its money is back in the sender's wallet. Driving it forward
+   * again would pay out funds that were credited back, so a second attempt at a
+   * failed transfer is a *new* transfer, not a retry of this one. Allowing it
+   * here would be a double-spend wearing a helpful label.
+   *
+   * The race with the scheduler is already handled: `advance` transitions with
+   * a compare-and-set on the current status, so whichever of the two arrives
+   * second finds the status changed and does nothing.
+   */
+  async adminRetry(actor: AuthUser, transferId: string, reason: string) {
+    const transfer = await this.prisma.transfer.findUnique({
+      where: { id: transferId },
+    });
+    if (!transfer) {
+      throw new NotFoundException('Transfer not found');
+    }
+    if (!NON_TERMINAL.includes(transfer.status)) {
+      throw new ForbiddenException(
+        `Cannot retry a transfer in status ${transfer.status}. ` +
+          'A refunded transfer has to be sent again, not retried.',
+      );
+    }
+
+    // Recorded before the attempt, not after, and against the status it was
+    // stuck in. If the retry then fails, the timeline still shows that somebody
+    // intervened here — the useful half of the record is the attempt, not the
+    // outcome.
+    await this.prisma.transferEvent.create({
+      data: {
+        transferId,
+        status: transfer.status,
+        message: `Retried by ${actor.email}: ${reason}`,
+        metadata: { retriedBy: actor.id, reason },
+      },
+    });
+    // The audit entry is written in a `finally` so it survives the attempt
+    // failing. A compliance review asks what staff did, not what worked; an
+    // audit log that only records successful interventions is the one shape a
+    // reviewer would find least useful.
+    let resulting: TransferStatus = transfer.status;
+    try {
+      await this.advance(transferId);
+      const after = await this.prisma.transfer.findUnique({
+        where: { id: transferId },
+        select: { status: true },
+      });
+      resulting = after?.status ?? transfer.status;
+    } finally {
+      await writeStaffAudit(this.prisma, {
+        actor: { id: actor.id, email: actor.email },
+        action: 'admin.transfer.retry',
+        entityType: 'transfer',
+        entityId: transferId,
+        before: { status: transfer.status },
+        after: { status: resulting },
+        reason,
+        metadata: { targetUserId: transfer.userId },
+      });
+    }
+
+    this.logger.log(
+      `transfer ${transferId}: retried by ${actor.email} (${transfer.status} -> ${resulting})`,
+    );
     return this.get(transfer.userId, transferId);
   }
 
