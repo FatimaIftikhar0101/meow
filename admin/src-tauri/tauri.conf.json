@@ -47,7 +47,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZGNzcwRTUyRkNERjFFM0EKUldRNkh0LzhVZzUzYjNUV3ZKK3YrSS82N0VQZDd6T05IV3pwR0FQb2YyTk9ESytqamhGUkFEc2gK",
       "endpoints": [
         "https://github.com/FatimaIftikhar0101/meow/releases/latest/download/latest.json"
       ],

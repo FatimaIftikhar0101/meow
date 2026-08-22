@@ -1,0 +1,108 @@
+# Builds, signs and publishes the back-office desktop app.
+#
+# Triggered by pushing a version tag:
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# The tag is only the trigger. The version the updater actually compares comes
+# from `version` in src-tauri/tauri.conf.json, so the two must be bumped
+# together — a tag of v0.2.0 against a config still saying 0.1.0 publishes an
+# update that installs and then offers itself again forever.
+#
+# ── Where the release lands ──────────────────────────────────────────────────
+#
+# By default, this repository. Set the RELEASE_OWNER and RELEASE_REPO repository
+# *variables* to publish somewhere else instead.
+#
+# That indirection exists for one reason: the Tauri updater fetches its manifest
+# over plain HTTPS with no credentials, so release assets have to be publicly
+# readable. If this repository is private, the release must go to a separate
+# public one — a repo holding binaries and nothing else. Baking a token into the
+# app instead is not an alternative; it ships a credential to every installed
+# copy, and the whole point of the signature check is that the client trusts
+# nothing it downloads.
+#
+# Publishing across repositories needs a token that can reach the other one:
+# GITHUB_TOKEN is scoped to this repository alone. Set RELEASE_TOKEN to a
+# fine-grained PAT with Contents: read and write on the releases repo only.
+#
+# ── Secrets this needs ───────────────────────────────────────────────────────
+#
+#   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/meow.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  the password set when generating it
+#   RELEASE_TOKEN                       only when publishing to another repo
+#
+# The private key is what every installed copy checks against. Anyone holding it
+# can ship signed code straight into the back office, so it lives here and in a
+# password manager, and nowhere else. Losing it is worse than leaking it: the
+# public half is baked into every installed binary, so a replacement key means
+# reinstalling every machine by hand.
+
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Lets a release be re-cut without moving a tag, e.g. after a failed upload.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Windows only, deliberately: bundle.targets in tauri.conf.json is msi and
+    # nsis, and the people who use this panel are on Windows. Adding macOS means
+    # adding its targets there, a macos-latest entry in a matrix here, and an
+    # Apple Developer certificate for notarisation — none of which is free work,
+    # so it waits until somebody actually needs it.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The Rust build is the slow half — several minutes cold, well under one
+      # warm. Keyed on the lockfile so a dependency change invalidates it.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: admin/src-tauri -> target
+
+      - name: Install frontend dependencies
+        working-directory: admin
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: admin
+          owner: ${{ vars.RELEASE_OWNER || github.repository_owner }}
+          repo: ${{ vars.RELEASE_REPO || github.event.repository.name }}
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: 'Meow Back Office ${{ github.event.inputs.tag || github.ref_name }}'
+          releaseBody: 'Installs over the existing version. The panel offers it in the sidebar and restarts when accepted.'
+          # Published as a draft on purpose. A desktop release cannot be recalled
+          # — only superseded — so the last gate is a person opening the draft,
+          # installing it on one machine, and then pressing publish. The updater
+          # ignores drafts, so nothing reaches a workstation until that happens.
+          releaseDraft: true
+          prerelease: false
+          # bundle.targets is msi and nsis, and installMode: passive is an NSIS
+          # behaviour. Without this the manifest can point at the MSI, which
+          # ignores that setting and shows a different installer than intended.
+          updaterJsonPreferNsis: true

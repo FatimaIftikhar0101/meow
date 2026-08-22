@@ -14,6 +14,12 @@ node_modules/
 /web/out/
 /admin/dist/
 /mobile/dist/
+
+# Rust build output. Already ignored by admin/src-tauri/.gitignore, but that
+# one is NESTED, and not every tool that reads ignore files reads nested ones.
+# EAS Build does not: it swept 1.4 GB of this into a 417 MB upload on every
+# single build until it was listed here as well.
+/admin/src-tauri/target/
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
@@ -52,3 +58,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Signing keys, wherever they land. `tauri signer generate -w "$HOME/..."`
+# run from cmd.exe or PowerShell does not expand $HOME, so the key materialises
+# in a literal `$HOME` directory inside the repo. It happened once.
+$HOME/
+*.key
+!*.key.pub
