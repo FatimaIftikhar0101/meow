@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { ApprovalsModule } from './approvals/approvals.module';
+import { ScreeningModule } from './screening/screening.module';
 import { StaffModule } from './staff/staff.module';
 import { AuthModule } from './auth/auth.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -51,6 +52,7 @@ import { WalletModule } from './wallet/wallet.module';
     HealthModule,
     AdminModule,
     ApprovalsModule,
+    ScreeningModule,
     StaffModule,
   ],
   controllers: [AppController],

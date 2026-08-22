@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma, TransferStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ComplianceService } from '../compliance/compliance.service';
+import { ScreeningService } from '../screening/screening.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
@@ -58,6 +59,7 @@ export class TransfersService {
     private readonly ledger: LedgerService,
     private readonly corridors: CorridorsService,
     private readonly compliance: ComplianceService,
+    private readonly screening: ScreeningService,
     private readonly gateway: TransfersGateway,
     private readonly notifications: NotificationsService,
     private readonly referrals: ReferralsService,
@@ -105,6 +107,22 @@ export class TransfersService {
         'Complete identity verification before sending money',
       );
     }
+
+    // The blocklist refuses, and it refuses here — before the transfer row
+    // exists, before the wallet lock, before any ledger posting. Throwing at
+    // this point means nothing was written and there is no partial state to
+    // unwind.
+    //
+    // The account number is passed still encrypted and matched against the
+    // stored form, so screening never needs the plaintext. See
+    // ScreeningService.assertNotBlocked for why the refusal does not say which
+    // field matched.
+    await this.screening.assertNotBlocked({
+      recipientName: recipient.name,
+      recipientCountry: recipient.country,
+      bankAccount: recipient.bankAccount,
+      email: recipient.email,
+    });
 
     const corridor = await this.corridors.findActive(
       sendCurrency,
@@ -277,6 +295,19 @@ export class TransfersService {
         { transferId: transfer.id, status: 'initiated' },
       )
       .catch(() => {});
+    // Rules alert; they do not block. Deliberately after the transaction has
+    // committed and deliberately not awaited into the response: the money has
+    // already moved, and a heuristic that times out must not turn a completed
+    // payment into an error the customer sees. `screenTransfer` swallows its
+    // own failures for the same reason.
+    void this.screening.screenTransfer({
+      id: transfer.id,
+      userId,
+      sendAmount,
+      sendCurrency,
+      recipientCountry: recipient.country,
+    });
+
     return this.get(userId, transfer.id);
   }
 

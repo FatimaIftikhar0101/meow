@@ -76,6 +76,13 @@ model User {
   notesWritten       CustomerNote[]    @relation("NotesByAuthor")
   approvalsRequested ApprovalRequest[] @relation("ApprovalsRequested")
   approvalsDecided   ApprovalRequest[] @relation("ApprovalsDecided")
+  blocklistAdded     BlocklistEntry[]  @relation("BlocklistAdded")
+  blocklistRemoved   BlocklistEntry[]  @relation("BlocklistRemoved")
+  alertsAbout        ComplianceAlert[] @relation("AlertsAbout")
+  alertsAdjudicated  ComplianceAlert[] @relation("AlertsAdjudicated")
+  casesAbout         ComplianceCase[]  @relation("CasesAbout")
+  casesOpened        ComplianceCase[]  @relation("CasesOpened")
+  casesClosed        ComplianceCase[]  @relation("CasesClosed")
 }
 
 /// What support learned that no other table records.
@@ -137,6 +144,120 @@ enum ApprovalStatus {
   rejected
   cancelled
   expired
+}
+
+/// Names, accounts and countries the business will not send to.
+///
+/// Matching is on `value`, which is normalised (lower-cased, trimmed, spaces
+/// collapsed) at write time rather than at read time. Normalising on read means
+/// every check is a full scan; normalising on write means the check is an index
+/// lookup, and a blocklist that is expensive to consult is one somebody will
+/// eventually be tempted to consult less often.
+///
+/// Entries are deactivated, never deleted. Whether a name was on the list on
+/// the day a payment was screened is a question that gets asked years later.
+model BlocklistEntry {
+  id      String        @id @default(uuid())
+  kind    BlocklistKind
+  /// Normalised for matching. Never shown to anyone.
+  value   String
+  /// As typed, for display. The normalised form is unreadable by design.
+  display String
+  reason  String
+
+  addedById       String
+  active          Boolean   @default(true)
+  deactivatedById String?
+  deactivatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+
+  addedBy       User  @relation("BlocklistAdded", fields: [addedById], references: [id], onDelete: Restrict)
+  deactivatedBy User? @relation("BlocklistRemoved", fields: [deactivatedById], references: [id], onDelete: Restrict)
+
+  @@unique([kind, value])
+  @@index([kind, active])
+}
+
+enum BlocklistKind {
+  name
+  account
+  country
+  email
+}
+
+/// Something a rule noticed, waiting for a human to say whether it matters.
+///
+/// An alert is not a finding. Most are cleared, and the record of a cleared
+/// alert — who looked, when, and why they were satisfied — is as much of the
+/// evidence as the ones that turn into cases.
+model ComplianceAlert {
+  id         String        @id @default(uuid())
+  /// Which rule fired. Stable strings; the adjudication UI filters on them.
+  rule       String
+  severity   AlertSeverity
+  userId     String
+  transferId String?
+  /// What the rule saw, so a reviewer does not have to re-derive it from data
+  /// that may since have changed.
+  detail     Json
+  status     AlertStatus   @default(open)
+  caseId     String?
+
+  adjudicatedById    String?
+  adjudicationReason String?
+  adjudicatedAt      DateTime?
+  createdAt          DateTime  @default(now())
+
+  user          User            @relation("AlertsAbout", fields: [userId], references: [id], onDelete: Restrict)
+  adjudicatedBy User?           @relation("AlertsAdjudicated", fields: [adjudicatedById], references: [id], onDelete: Restrict)
+  case          ComplianceCase? @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  /// The queue: open, most severe first, oldest first.
+  @@index([status, severity, createdAt])
+  @@index([userId, createdAt])
+  @@index([transferId])
+}
+
+enum AlertSeverity {
+  low
+  medium
+  high
+}
+
+enum AlertStatus {
+  open
+  cleared
+  escalated
+}
+
+/// An investigation. Alerts are the noise; a case is the part somebody decided
+/// was worth a file.
+model ComplianceCase {
+  id        String     @id @default(uuid())
+  /// Human-readable, because cases get referred to in email and on the phone.
+  reference String     @unique
+  userId    String
+  status    CaseStatus @default(open)
+  summary   String
+
+  openedById   String
+  closedById   String?
+  closedReason String?
+  closedAt     DateTime?
+  createdAt    DateTime  @default(now())
+
+  user     User              @relation("CasesAbout", fields: [userId], references: [id], onDelete: Restrict)
+  openedBy User              @relation("CasesOpened", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy User?             @relation("CasesClosed", fields: [closedById], references: [id], onDelete: Restrict)
+  alerts   ComplianceAlert[]
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+enum CaseStatus {
+  open
+  closed
 }
 
 model CustomerNote {

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, TransferStatus } from '@prisma/client';
 import { ComplianceService } from '../compliance/compliance.service';
+import { ScreeningService } from '../screening/screening.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -97,6 +98,13 @@ describe('TransfersService.adminRetry', () => {
         {
           provide: ComplianceService,
           useValue: { requirePassed: jest.fn().mockResolvedValue(true) },
+        },
+        {
+          provide: ScreeningService,
+          useValue: {
+            assertNotBlocked: jest.fn().mockResolvedValue(undefined),
+            screenTransfer: jest.fn().mockResolvedValue(undefined),
+          },
         },
         { provide: TransfersGateway, useValue: { emitStatus: jest.fn() } },
         {

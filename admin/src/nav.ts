@@ -23,6 +23,7 @@ export const NAV: NavItem[] = [
   { path: '/customers', label: 'Customers', permission: 'customer.read' },
   { path: '/kyc', label: 'Identity', permission: 'kyc.read' },
   { path: '/ledger', label: 'Ledger', permission: 'ledger.read' },
+  { path: '/compliance', label: 'Compliance', permission: 'alert.read' },
   { path: '/approvals', label: 'Approvals', permission: 'approval.request' },
   { path: '/audit', label: 'Audit log', permission: 'audit.read' },
   { path: '/staff', label: 'Staff & roles', permission: 'staff.read' },

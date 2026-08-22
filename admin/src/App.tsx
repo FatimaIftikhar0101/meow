@@ -10,6 +10,7 @@ import Audit from './routes/Audit';
 import Kyc from './routes/Kyc';
 import Ledger from './routes/Ledger';
 import CustomerDetail from './routes/CustomerDetail';
+import Compliance from './routes/Compliance';
 import Customers from './routes/Customers';
 import MfaEnrolment from './routes/MfaEnrolment';
 import SignIn from './routes/SignIn';
@@ -90,6 +91,11 @@ function Gate() {
     },
     { path: '/kyc', element: <Kyc />, permission: 'kyc.read' },
     { path: '/ledger', element: <Ledger />, permission: 'ledger.read' },
+    {
+      path: '/compliance',
+      element: <Compliance />,
+      permission: 'alert.read',
+    },
     {
       path: '/approvals',
       element: <Approvals />,

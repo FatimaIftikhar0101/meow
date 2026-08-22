@@ -8,6 +8,7 @@ import { LedgerService } from '../ledger/ledger.service';
 import { WalletService } from '../wallet/wallet.service';
 import { CorridorsService } from '../corridors/corridors.service';
 import { ComplianceService } from '../compliance/compliance.service';
+import { ScreeningService } from '../screening/screening.service';
 import { TransfersGateway } from './transfers.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ReferralsService } from '../referrals/referrals.service';
@@ -79,6 +80,13 @@ describe('TransfersService — beneficiary snapshot', () => {
         { provide: WalletService, useValue: stub },
         { provide: CorridorsService, useValue: stub },
         { provide: ComplianceService, useValue: stub },
+        {
+          provide: ScreeningService,
+          useValue: {
+            assertNotBlocked: jest.fn().mockResolvedValue(undefined),
+            screenTransfer: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         { provide: TransfersGateway, useValue: stub },
         { provide: NotificationsService, useValue: stub },
         { provide: ReferralsService, useValue: stub },
