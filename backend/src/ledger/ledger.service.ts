@@ -145,17 +145,26 @@ export class LedgerService implements OnModuleInit {
   }
 
   /**
-   * Balance of one account: credits minus debits.
+   * Balance of one account: credits minus debits, never a stored number.
    *
-   * Covered by `LedgerEntry_balance_idx`, so Postgres answers it from the
-   * index without touching the table. That keeps it cheap for a customer
-   * wallet, which has a handful of entries.
+   * For a **customer wallet** this is cheap and stays cheap.
+   * `LedgerEntry_balance_idx` covers it, so Postgres answers from the index —
+   * measured at 0.4 ms for a wallet inside a million-row table. A customer's
+   * entry count grows with their own activity rather than the platform's, so
+   * this does not degrade as the business grows. Deliberately not cached or
+   * materialised: a stored balance can drift from the entries that justify it,
+   * and that is a worse problem than any it would solve here.
    *
-   * It is **not** cheap for a system account, and must not be called in a
-   * money path for one: every transfer in the product touches float and
-   * suspense, so their entry counts grow without bound. Their balances are
-   * reconciliation figures — read them from a report, off the hot path. See
-   * backlog #44 for the snapshot scheme that makes them cheap.
+   * For a **system account** it is slow and gets slower. Float and suspense
+   * carry a leg for every movement in the product, so they become a large
+   * fraction of the table — at which point an index on `accountId` narrows
+   * nothing and Postgres correctly switches to a sequential scan. Measured at
+   * 720 ms for 500,000 entries.
+   *
+   * So: do not call this for a system account on a request path. Their
+   * balances are reconciliation figures and belong behind a cache or a
+   * snapshot. Backlog #44 has the numbers and the reasoning, including why
+   * materialising float would be worse than the problem.
    */
   async balance(
     accountId: string,
