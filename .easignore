@@ -1,0 +1,51 @@
+# What EAS Build is allowed to upload.
+#
+# Without this file, EAS copies the archive "starting from the root of the git
+# repository" — so an Android build was shipping backend/, web/, admin/ and
+# docs/ to Expo's servers along with the app. None of it is used: mobile/ has no
+# root package.json above it, no workspace, and no parent-relative dependency.
+# It was 417 MB per build, most of it admin/src-tauri/target.
+#
+# ── Read this before editing ────────────────────────────────────────────────
+#
+# The moment this file exists, EAS stops honouring EVERY .gitignore in the repo.
+# Not just the root one — all of them. So anything that must not be uploaded has
+# to be re-listed here even though git already ignores it, and the consequences
+# of forgetting are not academic: mobile/ contains an Android keystore and a
+# .env, both of which git excludes and neither of which belongs in a build
+# archive.
+#
+# `.git` and `node_modules` are excluded by EAS itself and need no rule.
+#
+# It must live at the git repository root — EAS does not look anywhere else,
+# which is why this sits beside backend/ rather than inside mobile/.
+
+# ── Everything outside the app ──────────────────────────────────────────────
+/*
+!/mobile/
+
+# ── Credentials. Re-listed because this file disabled mobile/.gitignore ─────
+# The keystore is already held by EAS as a build credential; a second copy
+# riding along inside the archive is exposure with nothing bought for it.
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/.env
+mobile/.env.*
+!mobile/.env.example
+
+# ── Build output and local state ────────────────────────────────────────────
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.kotlin/
+mobile/*.orig.*
+
+# ── Not part of the app ─────────────────────────────────────────────────────
+# Prompts and notes for producing the kitten clips. The clips themselves live
+# in assets/ and are shipped; this is the paperwork behind them.
+mobile/design/
+mobile/.claude/

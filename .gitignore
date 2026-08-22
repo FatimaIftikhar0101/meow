@@ -15,10 +15,11 @@ node_modules/
 /admin/dist/
 /mobile/dist/
 
-# Rust build output. Already ignored by admin/src-tauri/.gitignore, but that
-# one is NESTED, and not every tool that reads ignore files reads nested ones.
-# EAS Build does not: it swept 1.4 GB of this into a 417 MB upload on every
-# single build until it was listed here as well.
+# Rust build output, 1.4 GB of it. Already ignored by admin/src-tauri/.gitignore
+# — this is the belt to that file's braces, for any tool that reads only the
+# root ignore file. EAS Build was one such tool; it is now driven by .easignore
+# instead, so this rule is no longer what keeps the archive small. It stays
+# because the next tool to walk this repo probably has the same blind spot.
 /admin/src-tauri/target/
 .yarn/*
 !.yarn/patches
