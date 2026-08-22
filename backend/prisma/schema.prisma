@@ -410,6 +410,15 @@ model LedgerPosting {
   key        String   @unique
   currency   String
   transferId String?
+  /// The rate applied, when this posting is one half of a currency exchange.
+  ///
+  /// A posting cannot span currencies — debits and credits must sum to zero,
+  /// and adding 250 CAD to 49,500 PKR is not arithmetic. So an exchange is two
+  /// postings, each balanced in its own currency, linked by `transferId` and
+  /// carrying the rate that relates them. Without the rate stored here the
+  /// ledger would describe two unrelated movements and the reader would have
+  /// to go to the transfer row to learn they were one event.
+  fxRate     Decimal? @db.Decimal(20, 8)
   createdAt  DateTime @default(now())
 
   transfer Transfer?     @relation(fields: [transferId], references: [id])

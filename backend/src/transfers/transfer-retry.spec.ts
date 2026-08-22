@@ -40,7 +40,7 @@ function createMockPrisma() {
     },
     transferEvent: { create: jest.fn() },
     auditLog: { create: jest.fn() },
-    $transaction: jest.fn() as jest.Mock,
+    $transaction: jest.fn(),
   };
   // The status change, its timeline entry and any ledger posting commit
   // together, so `advance` now runs them inside one transaction. Handing the

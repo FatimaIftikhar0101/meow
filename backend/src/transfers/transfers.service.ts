@@ -156,7 +156,12 @@ export class TransfersService {
       if (balance.lt(totalDebit)) {
         throw new BadRequestException('Insufficient balance');
       }
-      await this.assertDailyVelocityLocked(tx, userId, sendCurrency, sendAmount);
+      await this.assertDailyVelocityLocked(
+        tx,
+        userId,
+        sendCurrency,
+        sendAmount,
+      );
 
       const created = await tx.transfer.create({
         data: {
@@ -263,12 +268,15 @@ export class TransfersService {
     });
 
     this.gateway.emitStatus(userId, transfer.id, 'initiated');
-    this.notifications.create(
-      userId, 'transfer_status',
-      'Transfer initiated',
-      `Your ${sendCurrency} ${sendAmount} transfer to ${recipient.name} has been initiated.`,
-      { transferId: transfer.id, status: 'initiated' },
-    ).catch(() => {});
+    this.notifications
+      .create(
+        userId,
+        'transfer_status',
+        'Transfer initiated',
+        `Your ${sendCurrency} ${sendAmount} transfer to ${recipient.name} has been initiated.`,
+        { transferId: transfer.id, status: 'initiated' },
+      )
+      .catch(() => {});
     return this.get(userId, transfer.id);
   }
 
@@ -299,7 +307,11 @@ export class TransfersService {
     if (!transfer) {
       throw new NotFoundException('Transfer not found');
     }
-    if (transfer.status === 'delivered' || transfer.status === 'failed' || transfer.status === 'cancelled') {
+    if (
+      transfer.status === 'delivered' ||
+      transfer.status === 'failed' ||
+      transfer.status === 'cancelled'
+    ) {
       throw new ForbiddenException(
         `Cannot force-fail transfer in status ${transfer.status}`,
       );
@@ -434,7 +446,10 @@ export class TransfersService {
     const next = NEXT_STATUS[transfer.status];
     if (!next) return;
 
-    if (transfer.status === 'payment_received' || transfer.status === 'fx_converted') {
+    if (
+      transfer.status === 'payment_received' ||
+      transfer.status === 'fx_converted'
+    ) {
       const passed = await this.compliance.requirePassed(transfer.userId);
       if (!passed) {
         await this.transitionWithRefund(
@@ -450,6 +465,18 @@ export class TransfersService {
 
     // Delivery is where money in flight stops being in flight. Resolved before
     // the transaction for the usual reason: no account creation inside one.
+    //
+    // Two postings, not one. A posting must balance within a single currency —
+    // adding 250 CAD to 49,500 PKR is not arithmetic — so an exchange is two
+    // balanced postings linked by `transferId` and by the rate that relates
+    // them. Until this existed the receive side was recorded only as two
+    // columns on the transfer row, so the ledger knew the business had given
+    // up CAD and had no idea it had delivered any PKR at all.
+    const deliversReceiveLeg =
+      next === 'delivered' &&
+      transfer.receiveAmount !== null &&
+      transfer.receiveCurrency !== transfer.sendCurrency;
+
     const settlement =
       next === 'delivered'
         ? await Promise.all([
@@ -463,6 +490,16 @@ export class TransfersService {
             ),
           ])
         : null;
+
+    const receiveSide = deliversReceiveLeg
+      ? await Promise.all([
+          this.ledger.systemAccountId(
+            'payout_settlement',
+            transfer.receiveCurrency,
+          ),
+          this.ledger.systemAccountId('float', transfer.receiveCurrency),
+        ])
+      : null;
 
     // The status change, its timeline entry and any posting now commit
     // together. They used to be three separate writes, so a crash between them
@@ -517,21 +554,64 @@ export class TransfersService {
           ],
         });
       }
+
+      if (receiveSide && transfer.receiveAmount) {
+        const [receiveSettlement, receiveFloat] = receiveSide;
+        // The other half of the exchange, balanced in the receive currency.
+        //
+        // Our float in that currency is what actually reaches the recipient's
+        // bank, so paying out reduces it — a credit, because an asset falls on
+        // the credit side under the same convention wallet funding uses.
+        //
+        // The counterparty is payout settlement in the *receive* currency.
+        // Read across both postings, that account now holds a credit in the
+        // send currency and a debit in the receive one: the two sides of one
+        // exchange. Any drift between the rate applied and the true rate shows
+        // up there as a residual once converted, which is precisely where an
+        // FX gain or loss belongs and where somebody will go looking for it.
+        await this.ledger.post(tx, {
+          key: `transfer:${transfer.id}:payout`,
+          currency: transfer.receiveCurrency,
+          transferId: transfer.id,
+          fxRate: transfer.fxRateApplied,
+          legs: [
+            {
+              accountId: receiveSettlement,
+              direction: 'debit',
+              type: 'fx_conversion',
+              amount: transfer.receiveAmount,
+              description: `Payout leg for transfer ${transfer.id}`,
+            },
+            {
+              accountId: receiveFloat,
+              direction: 'credit',
+              type: 'fx_conversion',
+              amount: transfer.receiveAmount,
+              description: `Delivered ${transfer.receiveCurrency} for transfer ${transfer.id}`,
+            },
+          ],
+        });
+      }
       return true;
     });
     if (!applied) return;
 
     this.gateway.emitStatus(transfer.userId, transfer.id, next);
-    this.notifications.create(
-      transfer.userId, 'transfer_status',
-      notificationTitle(next),
-      `${messageFor(next)} — transfer ${transfer.id.slice(0, 8)}`,
-      { transferId: transfer.id, status: next },
-    ).catch(() => {});
+    this.notifications
+      .create(
+        transfer.userId,
+        'transfer_status',
+        notificationTitle(next),
+        `${messageFor(next)} — transfer ${transfer.id.slice(0, 8)}`,
+        { transferId: transfer.id, status: next },
+      )
+      .catch(() => {});
     if (next === 'delivered') {
       this.referrals
         .onTransferDelivered(transfer.userId, transfer.id)
-        .catch((err) => this.logger.error(`Referral reward failed: ${err.message}`));
+        .catch((err) =>
+          this.logger.error(`Referral reward failed: ${err.message}`),
+        );
     }
     this.logger.log(`transfer ${transfer.id}: ${transfer.status} -> ${next}`);
   }
@@ -634,12 +714,15 @@ export class TransfersService {
       });
     });
     this.gateway.emitStatus(transfer.userId, transferId, toStatus);
-    this.notifications.create(
-      transfer.userId, 'transfer_status',
-      notificationTitle(toStatus),
-      `${message} — transfer ${transferId.slice(0, 8)}`,
-      { transferId, status: toStatus },
-    ).catch(() => {});
+    this.notifications
+      .create(
+        transfer.userId,
+        'transfer_status',
+        notificationTitle(toStatus),
+        `${message} — transfer ${transferId.slice(0, 8)}`,
+        { transferId, status: toStatus },
+      )
+      .catch(() => {});
     this.logger.log(
       `transfer ${transferId}: ${fromStatus} -> ${toStatus} (${reason})`,
     );
@@ -749,10 +832,14 @@ function serialiseSummary(t: TransferSummary) {
 
 function notificationTitle(status: TransferStatus): string {
   switch (status) {
-    case 'delivered': return 'Transfer delivered';
-    case 'failed': return 'Transfer failed';
-    case 'cancelled': return 'Transfer cancelled';
-    default: return 'Transfer update';
+    case 'delivered':
+      return 'Transfer delivered';
+    case 'failed':
+      return 'Transfer failed';
+    case 'cancelled':
+      return 'Transfer cancelled';
+    default:
+      return 'Transfer update';
   }
 }
 

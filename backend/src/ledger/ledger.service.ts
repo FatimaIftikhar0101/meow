@@ -58,6 +58,11 @@ export interface Posting {
   key: string;
   currency: string;
   transferId?: string;
+  /**
+   * The rate relating this posting to its counterpart, for one half of a
+   * currency exchange. See `LedgerPosting.fxRate`.
+   */
+  fxRate?: Prisma.Decimal | null;
   legs: PostingLeg[];
 }
 
@@ -203,6 +208,7 @@ export class LedgerService implements OnModuleInit {
           key: posting.key,
           currency: posting.currency,
           transferId: posting.transferId,
+          fxRate: posting.fxRate ?? null,
         },
         select: { id: true },
       });

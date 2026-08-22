@@ -11,7 +11,14 @@ import { TransfersScheduler } from './transfers.scheduler';
 import { TransfersService } from './transfers.service';
 
 @Module({
-  imports: [AuthModule, WalletModule, CorridorsModule, ComplianceModule, NotificationsModule, ReferralsModule],
+  imports: [
+    AuthModule,
+    WalletModule,
+    CorridorsModule,
+    ComplianceModule,
+    NotificationsModule,
+    ReferralsModule,
+  ],
   controllers: [TransfersController],
   providers: [TransfersService, TransfersGateway, TransfersScheduler],
   exports: [TransfersService],
