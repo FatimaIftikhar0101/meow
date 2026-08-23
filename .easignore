@@ -22,7 +22,14 @@
 
 # ── Everything outside the app ──────────────────────────────────────────────
 /*
-!/mobile/
+# No trailing slash, and that is load-bearing. EAS prunes directories as it
+# walks: it asks the ignore matcher about the bare path `mobile`, and a rule
+# written `!/mobile/` does not match it, because a trailing slash means
+# directory-only and the matcher is not told this path is a directory. So
+# `/*` won, the walk never descended, and the archive arrived with no mobile/
+# in it at all. Build failed with "package.json does not exist". Git gets it
+# right either way, which is why the mistake survived review.
+!/mobile
 
 # ── Credentials. Re-listed because this file disabled mobile/.gitignore ─────
 # The keystore is already held by EAS as a build credential; a second copy
