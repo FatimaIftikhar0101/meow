@@ -72,6 +72,12 @@ export function UpdateBanner({ update }: { update: UpdateState }) {
  * The manual check exists for the case where someone has been told a fix is
  * out. It reports "You're up to date" on purpose: a button that does nothing
  * visible when there is nothing to do reads as broken.
+ *
+ * It is hidden entirely on a build with no update channel. Releases are parked,
+ * so every press was rejected by the native module and printed the rejection on
+ * screen — a button that cannot succeed is worse than no button. The version
+ * itself still shows, because that is what support asks for. See
+ * UPDATES_AVAILABLE in lib/updates.
  */
 export function VersionRow({ update }: { update: UpdateState }) {
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
@@ -89,7 +95,7 @@ export function VersionRow({ update }: { update: UpdateState }) {
         </View>
         {update.ready ? (
           <Button label="Restart" compact onPress={() => void update.restart()} />
-        ) : (
+        ) : update.supported ? (
           <Button
             label="Check"
             variant="secondary"
@@ -97,7 +103,7 @@ export function VersionRow({ update }: { update: UpdateState }) {
             loading={update.checking}
             onPress={() => void update.check()}
           />
-        )}
+        ) : null}
       </Row>
 
       {update.error ? (

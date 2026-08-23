@@ -41,6 +41,27 @@ import { AppState, type AppStateStatus } from 'react-native';
  *  between apps, short enough that a hotfix lands the same working day. */
 const RECHECK_MS = 10 * 60 * 1000;
 
+/**
+ * Whether this build can check for updates at all.
+ *
+ * `Updates.isEnabled` is not enough, and the gap between the two is what put a
+ * raw native error on the Profile screen: `enabled: true` in app.json makes the
+ * module live, but a build only has somewhere to check if it was given an EAS
+ * Update **channel**. `eas.json` defines no channel for any profile — releases
+ * are parked — so `checkForUpdateAsync()` had no manifest to ask for and
+ * rejected every time, and the Check button reported
+ * "Call to function 'ExpoUpdates.checkForUpdateAsync' has been rejected".
+ *
+ * `Updates.channel` is null in exactly the cases where checking cannot work:
+ * Expo Go, a dev client, and a release build with no channel configured. So it
+ * is the honest test for "is there anything behind this button", and the button
+ * is hidden rather than left to fail.
+ *
+ * The day updates are un-parked this needs no change here: adding `channel` to
+ * the build profile and publishing once makes it true on its own.
+ */
+export const UPDATES_AVAILABLE = Updates.isEnabled && Updates.channel != null;
+
 export interface UpdateState {
   /** A new bundle is downloaded and will run after a restart. */
   ready: boolean;
@@ -49,6 +70,8 @@ export interface UpdateState {
   error: string | null;
   /** Null when nothing was found on the last manual check. */
   upToDate: boolean | null;
+  /** False when this build has no update channel — the UI offers no check. */
+  supported: boolean;
   check: () => Promise<void>;
   restart: () => Promise<void>;
 }
@@ -61,9 +84,10 @@ export function useAppUpdate(): UpdateState {
   const lastCheck = useRef(0);
 
   const check = useCallback(async (manual = true) => {
-    // False in Expo Go and in a dev client running from Metro, where there is
-    // no update channel to check and every call would throw.
-    if (!Updates.isEnabled) return;
+    // False in Expo Go, in a dev client running from Metro, and in any release
+    // build with no channel configured — every call would throw. See
+    // UPDATES_AVAILABLE.
+    if (!UPDATES_AVAILABLE) return;
     setChecking(true);
     if (manual) setError(null);
     try {
@@ -82,7 +106,13 @@ export function useAppUpdate(): UpdateState {
       // banking app "could not update" while they are trying to send money is
       // alarming out of all proportion to what went wrong.
       if (manual) {
-        setError(err instanceof Error ? err.message : 'Could not check for updates.');
+        // Deliberately not `err.message`. What expo-updates throws is a native
+        // rejection string — "Call to function 'ExpoUpdates.checkForUpdateAsync'
+        // has been rejected" — which tells the person nothing they can act on
+        // and, on a screen inside a banking app, reads like something broke
+        // with their money. The console keeps the real one.
+        console.warn('Update check failed', err);
+        setError("Couldn't check right now. Please try again later.");
       }
     } finally {
       setChecking(false);
@@ -110,6 +140,7 @@ export function useAppUpdate(): UpdateState {
     checking,
     error,
     upToDate,
+    supported: UPDATES_AVAILABLE,
     check: () => check(true),
     restart,
   };
