@@ -61,6 +61,34 @@ const CLIPS: Record<KittenState, number> = {
   sorry: SORRY,
 };
 
+/**
+ * How big to draw each clip, relative to the width the layout asks for.
+ *
+ * `key-clip.js` crops every clip to its own subject bounds, which is right for
+ * the file and wrong for the screen: the crop contains whatever the kitten
+ * brought with it. `travel` includes a cardboard plane that adds width, so at a
+ * given box width the cat inside comes out small. `waiting` is the cat alone,
+ * sitting upright, so the same box width draws it far bigger — 99px tall
+ * against travel's 69px, and on a phone it read as a different, larger cat.
+ *
+ * There is no measurement that fixes this, because "how big is the cat" is not
+ * recoverable from a bounding box that contains a plane. These are chosen by
+ * eye against the two clips that already looked right, and those two are left
+ * at 1 so they cannot drift.
+ */
+const DISPLAY_SCALE: Record<KittenState, number> = {
+  idle: 0.74,
+  waiting: 0.74,
+  // Same shape of problem: the cat sits alone, so its crop is nearly square and
+  // it outgrew everything else. Never seen next to the others — it replaces
+  // them on a failed transfer — but it sits on the same line at the same
+  // station, so it gets the same treatment.
+  sorry: 0.72,
+  play: 1,
+  travel: 1,
+  delivered: 1,
+};
+
 /** Which clip a transfer's status calls for. */
 export function kittenStateFor(status: TransferStatus): KittenState {
   switch (status) {
@@ -127,9 +155,13 @@ export function Kitten({
     };
   }, []);
 
+  // `width` is the box the caller offers; each clip takes the share of it that
+  // draws the kitten at a consistent size. See DISPLAY_SCALE.
+  const drawn = width * DISPLAY_SCALE[state];
+
   return (
     <View
-      style={[{ width, height: width / ratioOf(CLIPS[state]) }, style]}
+      style={[{ width: drawn, height: drawn / ratioOf(CLIPS[state]) }, style]}
       accessible={accessibilityLabel != null}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="image"

@@ -40,6 +40,36 @@ const KITTEN_BOX = 108;
 /** How far each station sits along its lane, as a fraction of the lane's run. */
 const STATION_T = [0.0, 0.62, 0.06, 0.79, 0.36, 1.0];
 
+/**
+ * The clip the kitten holds while the money sits at a station, one per station.
+ *
+ * Fixed per station rather than timed, and that is the point. The kitten used
+ * to arrive, play for 3.2 seconds, then swap to the sitting clip without
+ * moving — and because the clips are cropped to different shapes, it changed
+ * size on the spot. A transfer can sit at one stage for minutes; whatever it
+ * shows there has to be something it can hold indefinitely.
+ *
+ * Alternating gives the journey some variety without anything being random:
+ * the same stage always looks the same, on every transfer and every reopen, so
+ * there is no state to keep and nothing to resynchronise when a socket update
+ * arrives.
+ *
+ * `compliance_check` is not part of the alternation. A kitten batting a yarn
+ * ball while someone's money is held for review reads as the app not taking it
+ * seriously — the one station where the clip is a judgement, not a decoration.
+ *
+ * Indices follow STATUS_STEPS. `delivered` and the failure states never reach
+ * here; they have clips of their own.
+ */
+const STATIONARY_CLIP: KittenState[] = [
+  'idle', // initiated
+  'play', // payment_received
+  'waiting', // compliance_check — held, deliberately never playful
+  'play', // fx_converted
+  'idle', // payout_processing
+  'delivered', // delivered — overridden below, listed so the map stays total
+];
+
 type Pt = { x: number; y: number };
 
 type Seg =
@@ -224,29 +254,20 @@ export function JourneyPath({
    */
   const [travelled, setTravelled] = React.useState(0);
   const [walking, setWalking] = React.useState(false);
-  const [justArrived, setJustArrived] = React.useState(false);
   const frame = React.useRef<number | null>(null);
-  const arriveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!route) return;
     const to = route.stops[targetIndex];
     const from = travelled;
 
-    const settle = () => {
-      setWalking(false);
-      // Ordinary stations get a moment of play on arrival. Compliance does not:
-      // a kitten batting a yarn ball while someone's money is held for review
-      // reads as the app not taking it seriously.
-      const playful =
-        !failed &&
-        status !== 'delivered' &&
-        status !== 'compliance_check' &&
-        targetIndex > 0;
-      if (!playful) return;
-      setJustArrived(true);
-      arriveTimer.current = setTimeout(() => setJustArrived(false), 3200);
-    };
+    // Arriving used to start a 3.2-second burst of the play clip, which then
+    // swapped back to the sitting one in place. Two clips at one station, and
+    // the swap was visible: `play` and `waiting` are cropped to different
+    // shapes, so the kitten jumped size mid-stage and read as broken. A
+    // station now shows one clip for as long as the money sits there —
+    // see STATIONARY_CLIP.
+    const settle = () => setWalking(false);
 
     if (reduceMotion || Math.abs(to - from) < 0.5) {
       setTravelled(to);
@@ -255,7 +276,6 @@ export function JourneyPath({
     }
 
     setWalking(true);
-    setJustArrived(false);
     // Slow on purpose. The clips are ten-second loops, and hurrying between
     // stations showed a fraction of one — enough to read as a still image.
     const duration = 1100 + Math.abs(to - from) * 8;
@@ -277,7 +297,6 @@ export function JourneyPath({
 
     return () => {
       if (frame.current) cancelAnimationFrame(frame.current);
-      if (arriveTimer.current) clearTimeout(arriveTimer.current);
     };
     // `travelled` is deliberately not a dependency: it changes every frame and
     // would restart the walk on each one.
@@ -290,11 +309,7 @@ export function JourneyPath({
       ? 'travel'
       : status === 'delivered'
         ? 'delivered'
-        : status === 'compliance_check'
-          ? 'waiting'
-          : justArrived
-            ? 'play'
-            : 'idle';
+        : (STATIONARY_CLIP[targetIndex] ?? 'idle');
 
   if (!route) {
     return (
