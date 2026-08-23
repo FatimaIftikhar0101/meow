@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ const PRESETS = ['50', '100', '250', '500'];
 export default function FundWallet() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
@@ -25,6 +26,24 @@ export default function FundWallet() {
   // retry after a timeout cannot credit the wallet twice.
   const idempotencyKey = useRef(Crypto.randomUUID()).current;
   const [alreadyFunded, setAlreadyFunded] = useState(false);
+
+  /**
+   * Leaving this screen, back to wherever it was opened from.
+   *
+   * `router.back()` alone always landed on the Wallet screen, because that is
+   * this screen's parent in the wallet stack — so opening "Add money" from the
+   * Home dashboard and pressing back put you somewhere you had never been.
+   *
+   * The pop still happens first and unconditionally: it is what stops a funded
+   * screen being reachable again, and it is the call that was already here. The
+   * tab switch is a second, optional step, so if it ever fails the worst case
+   * is the Wallet screen — exactly today's behaviour — rather than being
+   * stranded on a form that has already taken money.
+   */
+  const leave = React.useCallback(() => {
+    router.back();
+    if (from === 'home') router.push('/(app)/home');
+  }, [router, from]);
 
   useEffect(() => {
     api
@@ -46,7 +65,7 @@ export default function FundWallet() {
         idempotencyKey,
       });
       setBalance(data);
-      router.back();
+      leave();
     } catch (err) {
       /*
        * A repeated idempotency key is a 409 here, not a replay of the original
@@ -74,7 +93,7 @@ export default function FundWallet() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
-      <BackBar title="Add money" />
+      <BackBar title="Add money" onBack={leave} />
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
         <View style={{ paddingHorizontal: 20, paddingTop: 6, gap: 14 }}>
           <View>
@@ -138,7 +157,7 @@ export default function FundWallet() {
               variant="primary"
               disabled={!alreadyFunded && !valid}
               loading={busy}
-              onPress={alreadyFunded ? () => router.back() : submit}
+              onPress={alreadyFunded ? leave : submit}
             />
           </View>
         </View>

@@ -32,6 +32,20 @@ export default function VerifyEmail() {
 
   const email = profile?.email ?? '';
 
+  /**
+   * Back means the profile, and it has to be said out loud.
+   *
+   * This screen is a tab route with no tab button, so `router.back()` asks the
+   * *tab* navigator to go back and it returns to the first tab — Home. A
+   * button labelled "Back to profile" was therefore taking people to the
+   * dashboard, and the arrow did the same. Same shape of bug as Wallet; the
+   * label here just made it visible.
+   */
+  const toProfile = React.useCallback(
+    () => router.replace('/(app)/profile'),
+    [router],
+  );
+
   const submit = async (value: string = code) => {
     if (value.length !== 6) return setError('Enter the six digits from the email.');
     setError('');
@@ -41,7 +55,7 @@ export default function VerifyEmail() {
       // The profile carries `emailVerified`, and the banner that sent us here
       // reads it — without this the screen behind would still say unverified.
       await refresh();
-      router.back();
+      toProfile();
     } catch (err) {
       setError(errorMessage(err, 'That code is not valid. Request a new one.'));
       setCode('');
@@ -66,12 +80,12 @@ export default function VerifyEmail() {
   if (profile?.emailVerified) {
     return (
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <BackBar title="Verify your email" />
+        <BackBar title="Verify your email" onBack={toProfile} />
         <Screen>
           <View style={{ gap: 18, paddingTop: 8 }}>
             <Title size={26}>Already verified.</Title>
             <Note tone="success">{email} is confirmed. Nothing more to do here.</Note>
-            <Button label="Back to profile" onPress={() => router.back()} />
+            <Button label="Back to profile" onPress={toProfile} />
           </View>
         </Screen>
       </SafeAreaView>
@@ -80,7 +94,7 @@ export default function VerifyEmail() {
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-      <BackBar title="Verify your email" />
+      <BackBar title="Verify your email" onBack={toProfile} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -78,9 +78,9 @@ function QuickActions() {
   const router = useRouter();
   const items = [
     { key: 'send', label: 'Send', icon: 'send' as const, hero: true, go: () => router.push('/(app)/send') },
-    { key: 'add', label: 'Add money', icon: 'add' as const, hero: false, go: () => router.push('/(app)/wallet/fund') },
+    { key: 'add', label: 'Add money', icon: 'add' as const, hero: false, go: () => router.push({ pathname: '/(app)/wallet/fund', params: { from: 'home' } }) },
     { key: 'people', label: 'People', icon: 'people' as const, hero: false, go: () => router.push('/(app)/recipients') },
-    { key: 'alerts', label: 'Activity', icon: 'bell' as const, hero: false, go: () => router.push('/(app)/notifications') },
+    { key: 'alerts', label: 'Activity', icon: 'bell' as const, hero: false, go: () => router.push({ pathname: '/(app)/notifications', params: { from: 'home' } }) },
   ];
   return (
     <View style={{ flexDirection: 'row', gap: 7 }}>
@@ -241,7 +241,7 @@ export default function Home() {
               </Title>
             </View>
             <Pressable
-              onPress={() => router.push('/(app)/notifications')}
+              onPress={() => router.push({ pathname: '/(app)/notifications', params: { from: 'home' } })}
               accessibilityRole="button"
               accessibilityLabel={
                 unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
@@ -396,7 +396,7 @@ export default function Home() {
               </Pressable>
             ))}
             <Pressable
-              onPress={() => router.push('/(app)/recipients/new')}
+              onPress={() => router.push({ pathname: '/(app)/recipients/new', params: { from: 'home' } })}
               accessibilityRole="button"
               accessibilityLabel="Add a recipient"
               style={({ pressed }) => ({

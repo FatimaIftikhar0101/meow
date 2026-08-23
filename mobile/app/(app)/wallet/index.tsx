@@ -43,7 +43,11 @@ export default function Wallet() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
-      <BackBar title="Wallet" />
+      {/* Named, not `router.back()`. Wallet is a tab route without a tab
+          button, so an unqualified back asks the tab navigator to go back and
+          it returns to the first tab — the Home dashboard. You is the only way
+          in, so You is where back belongs. */}
+      <BackBar title="Wallet" onBack={() => router.replace('/(app)/profile')} />
       <Screen
         refreshControl={
           <RefreshControl

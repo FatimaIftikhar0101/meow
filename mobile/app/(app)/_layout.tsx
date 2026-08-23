@@ -1,4 +1,9 @@
-import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
+import { Redirect, usePathname, useRouter } from 'expo-router';
+// SDK 57 deprecates the `Tabs` re-export from 'expo-router' itself. Both paths
+// resolve to the same module today — expo-router/js-tabs is
+// `require('./build/layouts/Tabs')`, which is what the deprecated name
+// re-exports — so this is a rename now and not a migration later.
+import { Tabs } from 'expo-router/js-tabs';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
@@ -147,6 +152,21 @@ export default function AppLayout() {
   return (
     <View style={{ flex: 1 }}>
     <Tabs
+      /*
+       * `backBehavior` is left at its default of `firstRoute`, deliberately.
+       *
+       * `history` looks like the fix for "back from Wallet lands on Home" and
+       * is a trap. Read TabRouter: under `history` every tab visit appends to
+       * `state.history`, and GO_BACK only stops — letting Android close the
+       * app — when that list has one entry. So after Home → Send → complete →
+       * "Back to home", history is [send, home], and back on the dashboard
+       * jumps *into* the send tab, which still holds the finished transfer.
+       * Under `firstRoute` history on Home is length 1 and back exits, which
+       * is what someone expects from a home screen.
+       *
+       * Back out of the pushed screens is fixed where the ambiguity actually
+       * lives instead — each one names its own destination. See BackBar.
+       */
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.ink,

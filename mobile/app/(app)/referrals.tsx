@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useState } from 'react';
 import { Pressable, Share, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { BackBar } from '../../components/BackBar';
 import { Body, Button, Card, Divider, Loader, Note, Row, Screen, Title } from '../../components/ui';
 import api, { errorMessage } from '../../lib/api';
@@ -20,6 +20,7 @@ const STATUS_COPY: Record<string, { label: string; tone: 'accent' | 'pending' | 
 
 export default function Referrals() {
   const { colors } = useTheme();
+  const router = useRouter();
   const [data, setData] = useState<ReferralDashboard | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -62,7 +63,9 @@ export default function Referrals() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
-      <BackBar title="Refer & earn" />
+      {/* Named for the same reason as Wallet: a tab route with no tab button
+          falls back to the first tab, which is Home. Only You opens this. */}
+      <BackBar title="Refer & earn" onBack={() => router.replace('/(app)/profile')} />
       <Screen>
         {error ? (
           <Note>{error}</Note>

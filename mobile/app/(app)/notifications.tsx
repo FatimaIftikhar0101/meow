@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useTheme } from '../../theme/tokens';
 export default function Notifications() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const { onNotification, refreshUnread, markAllRead } = useLive();
   const [list, setList] = useState<Notification[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,8 +50,15 @@ export default function Notifications() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
+      {/* The only one of these screens with two ways in — the Home dashboard
+          and You — so it is told which, rather than guessing. Anything other
+          than an explicit `profile` goes to Home, which is both the common
+          case and the safe one if the param is ever lost. */}
       <BackBar
         title="Notifications"
+        onBack={() =>
+          router.replace(from === 'profile' ? '/(app)/profile' : '/(app)/home')
+        }
         right={
           list && list.some((n) => !n.read) ? (
             <Pressable

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,25 @@ const COUNTRY_NAME: Record<string, string> = {
 export default function NewRecipient() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
+
+  /**
+   * Leaving, back to wherever this was opened from.
+   *
+   * This screen is mounted at two routes. Inside the send stack
+   * (`/send/new-recipient`) the pop alone is correct and lands on the picker.
+   * From the recipients list it is correct too, because that list is this
+   * screen's parent. Only the Home dashboard needs the extra step: nothing
+   * about "add someone" from Home makes the People tab a place you have been.
+   *
+   * The pop is unconditional and first — it is the call that was already here.
+   * The tab switch is optional, so a failure leaves you on the recipients list
+   * rather than stranded on a form for a recipient already saved.
+   */
+  const leave = React.useCallback(() => {
+    router.back();
+    if (from === 'home') router.push('/(app)/home');
+  }, [router, from]);
   const { corridors } = useCorridors();
 
   const [name, setName] = useState('');
@@ -52,7 +71,7 @@ export default function NewRecipient() {
         ...(bankName.trim() ? { bankName: bankName.trim() } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
       });
-      router.back();
+      leave();
     } catch (err) {
       setError(errorMessage(err, 'Could not save this recipient.'));
     } finally {
@@ -62,7 +81,7 @@ export default function NewRecipient() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
-      <BackBar title="New recipient" />
+      <BackBar title="New recipient" onBack={leave} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -66,7 +66,7 @@ export default function SendPickRecipient() {
               action={
                 <Button
                   label="Add a recipient"
-                  onPress={() => router.push('/(app)/recipients/new')}
+                  onPress={() => router.push('/(app)/send/new-recipient')}
                 />
               }
             />
@@ -109,7 +109,7 @@ export default function SendPickRecipient() {
               <Button
                 label="Add someone new"
                 variant="outline"
-                onPress={() => router.push('/(app)/recipients/new')}
+                onPress={() => router.push('/(app)/send/new-recipient')}
               />
             </View>
           )}

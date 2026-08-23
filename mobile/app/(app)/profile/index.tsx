@@ -214,7 +214,7 @@ export default function Profile() {
             <LinkRow
               label="Notifications"
               badge={unreadCount}
-              onPress={() => router.push('/(app)/notifications')}
+              onPress={() => router.push({ pathname: '/(app)/notifications', params: { from: 'profile' } })}
             />
             <Divider />
             <LinkRow
