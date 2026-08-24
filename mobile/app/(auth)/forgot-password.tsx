@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from '../../components/BackBar';
 import { Body, Button, Field, Note, Screen, Title } from '../../components/ui';
 import api, { errorMessage } from '../../lib/api';
+import { LIMITS } from '../../lib/limits';
 
 /**
  * Step one of two. Asks for the address, then hands straight over to the screen
@@ -57,6 +58,7 @@ export default function ForgotPassword() {
           {error ? <Note>{error}</Note> : null}
           <Field
             label="Email"
+              maxLength={LIMITS.email}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"

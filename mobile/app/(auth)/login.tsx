@@ -6,6 +6,7 @@ import { BackBar } from '../../components/BackBar';
 import { Body, Button, Field, Note, Screen, Title } from '../../components/ui';
 import { errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
+import { LIMITS } from '../../lib/limits';
 
 export default function Login() {
   const router = useRouter();
@@ -56,6 +57,7 @@ export default function Login() {
 
             <Field
               label="Email"
+              maxLength={LIMITS.email}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -66,6 +68,7 @@ export default function Login() {
             />
             <Field
               label="Password"
+              maxLength={LIMITS.password}
               value={password}
               onChangeText={setPassword}
               secureTextEntry

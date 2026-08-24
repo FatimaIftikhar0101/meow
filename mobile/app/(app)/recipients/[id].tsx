@@ -20,6 +20,7 @@ import api, { errorMessage } from '../../../lib/api';
 import { countryFlag } from '../../../lib/money';
 import type { Recipient } from '../../../lib/types';
 import { useTheme } from '../../../theme/tokens';
+import { LIMITS } from '../../../lib/limits';
 
 export default function RecipientDetail() {
   const { colors } = useTheme();
@@ -145,9 +146,26 @@ export default function RecipientDetail() {
             </Body>
           </Card>
 
-          <Field label="Name" value={name} onChangeText={setName} autoCapitalize="words" />
-          <Field label="Bank name" value={bankName} onChangeText={setBankName} />
-          <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <Field
+            label="Name"
+            maxLength={LIMITS.recipientName}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+          />
+          <Field
+            label="Bank name"
+            maxLength={LIMITS.bankName}
+            value={bankName}
+            onChangeText={setBankName}
+          />
+          <Field
+            label="Phone"
+            maxLength={LIMITS.phone}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
 
           <Button label="Save changes" onPress={save} loading={busy} />
           <Button label="Remove recipient" variant="danger" onPress={remove} />

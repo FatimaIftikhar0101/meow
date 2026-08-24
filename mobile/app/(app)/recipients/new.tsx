@@ -8,6 +8,7 @@ import api, { errorMessage } from '../../../lib/api';
 import { destinationCountries, useCorridors } from '../../../lib/corridors';
 import { countryFlag } from '../../../lib/money';
 import { radius, useTheme } from '../../../theme/tokens';
+import { LIMITS } from '../../../lib/limits';
 
 const COUNTRY_NAME: Record<string, string> = {
   PK: 'Pakistan',
@@ -99,6 +100,7 @@ export default function NewRecipient() {
 
             <Field
               label="Full name"
+              maxLength={LIMITS.recipientName}
               value={name}
               onChangeText={setName}
               placeholder="Ayesha Khan"
@@ -140,6 +142,7 @@ export default function NewRecipient() {
 
             <Field
               label="Account number / IBAN"
+              maxLength={LIMITS.bankAccount}
               value={bankAccount}
               onChangeText={setBankAccount}
               placeholder="PK36SCBL0000001123456702"
@@ -148,12 +151,14 @@ export default function NewRecipient() {
             />
             <Field
               label="Bank name (optional)"
+              maxLength={LIMITS.bankName}
               value={bankName}
               onChangeText={setBankName}
               placeholder="Habib Bank Limited"
             />
             <Field
               label="Phone (optional)"
+              maxLength={LIMITS.phone}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"

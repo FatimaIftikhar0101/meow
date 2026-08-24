@@ -16,6 +16,7 @@ import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { unmetRules } from '../../lib/password';
 import { radius, useTheme } from '../../theme/tokens';
+import { LIMITS } from '../../lib/limits';
 
 export default function Register() {
   const { colors } = useTheme();
@@ -113,6 +114,7 @@ export default function Register() {
 
             <Field
               label="Full name"
+              maxLength={LIMITS.fullName}
               value={fullName}
               onChangeText={setFullName}
               placeholder="Ayesha Khan"
@@ -121,6 +123,7 @@ export default function Register() {
             />
             <Field
               label="Email"
+              maxLength={LIMITS.email}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -131,6 +134,7 @@ export default function Register() {
             />
             <Field
               label="Password"
+              maxLength={LIMITS.password}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -145,7 +149,7 @@ export default function Register() {
               label="Country"
               value={country}
               onChangeText={(t) => setCountry(t.toUpperCase())}
-              maxLength={2}
+              maxLength={LIMITS.country}
               autoCapitalize="characters"
               hint="Two-letter code. Determines your wallet currency — CA gives you CAD."
             />
@@ -154,7 +158,7 @@ export default function Register() {
               value={referralCode}
               onChangeText={(t) => setReferralCode(t.toUpperCase())}
               autoCapitalize="characters"
-              maxLength={20}
+              maxLength={LIMITS.referralCode}
               placeholder="MEOW1234"
               error={refValid === false ? 'That code is not valid.' : undefined}
             />

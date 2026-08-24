@@ -16,6 +16,7 @@ import {
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { unmetRules } from '../../lib/password';
+import { LIMITS } from '../../lib/limits';
 
 /**
  * Where a password reset code is actually spent.
@@ -105,6 +106,7 @@ export default function ResetPassword() {
                 the previous screen is otherwise a dead end with no explanation. */}
             <Field
               label="Email"
+              maxLength={LIMITS.email}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -128,6 +130,7 @@ export default function ResetPassword() {
 
             <Field
               label="New password"
+              maxLength={LIMITS.password}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -139,6 +142,7 @@ export default function ResetPassword() {
 
             <Field
               label="Confirm new password"
+              maxLength={LIMITS.password}
               value={confirm}
               onChangeText={setConfirm}
               secureTextEntry

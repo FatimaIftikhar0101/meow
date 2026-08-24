@@ -16,6 +16,7 @@ import api, { errorMessage } from '../../../lib/api';
 import { setToken } from '../../../lib/auth-store';
 import { unmetRules } from '../../../lib/password';
 import { useTheme } from '../../../theme/tokens';
+import { LIMITS } from '../../../lib/limits';
 
 export default function ChangePassword() {
   const { colors } = useTheme();
@@ -68,6 +69,7 @@ export default function ChangePassword() {
 
             <Field
               label="Current password"
+              maxLength={LIMITS.password}
               value={currentPassword}
               onChangeText={setCurrent}
               secureTextEntry
@@ -75,6 +77,7 @@ export default function ChangePassword() {
             />
             <Field
               label="New password"
+              maxLength={LIMITS.password}
               value={newPassword}
               onChangeText={setNext}
               secureTextEntry
