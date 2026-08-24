@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import QRCode from 'react-qr-code';
 import { useState, type FormEvent } from 'react';
-import { Alert, Button, Card, Field } from '../components/ui';
+import { AuthLayout } from '../components/AuthLayout';
+import { Alert, Button, Field } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { LIMITS } from '../lib/limits';
 
 interface Enrolment {
   secret: string;
@@ -168,6 +170,7 @@ export default function MfaEnrolment() {
           label="Code from the app"
           value={code}
           onChange={(e) => setCode(e.target.value)}
+          maxLength={LIMITS.mfaCode}
           inputMode="numeric"
           autoComplete="one-time-code"
           placeholder="123456"
@@ -183,11 +186,14 @@ export default function MfaEnrolment() {
   );
 }
 
+/**
+ * Enrolment shares the sign-in frame. It is the third screen a new colleague
+ * sees and the second one they see before they have an account they can use,
+ * so it should not look like it belongs to a different product.
+ */
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-full items-center justify-center bg-inset px-4">
-      <Card className="w-full max-w-sm p-8">{children}</Card>
-    </div>
+    <AuthLayout>{children}</AuthLayout>
   );
 }
 

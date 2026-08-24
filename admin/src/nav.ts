@@ -10,6 +10,16 @@ import type { Permission } from './lib/permissions';
  * This is presentation, not enforcement. `PermissionsGuard` on the server is
  * what actually stops a request; hiding a link stops a colleague wasting time
  * on a door that will not open. Both are needed and only one is security.
+ *
+ * The entries are grouped because the people using this do different jobs. An
+ * operations agent lives in Transfers and never opens the blocklist; a
+ * compliance officer does the reverse. A flat list of eight made every person
+ * read all eight to find their two, and — worse — made Ledger and Audit log
+ * look like the same kind of thing when one is the books and the other is who
+ * touched them.
+ *
+ * A group with nothing visible in it renders as nothing at all, so a support
+ * agent does not see an empty "Administration" heading.
  */
 export interface NavItem {
   path: string;
@@ -18,17 +28,53 @@ export interface NavItem {
   permission?: Permission;
 }
 
-export const NAV: NavItem[] = [
-  { path: '/transfers', label: 'Transfers', permission: 'transfer.read' },
-  { path: '/customers', label: 'Customers', permission: 'customer.read' },
-  { path: '/kyc', label: 'Identity', permission: 'kyc.read' },
-  { path: '/ledger', label: 'Ledger', permission: 'ledger.read' },
-  { path: '/compliance', label: 'Compliance', permission: 'alert.read' },
-  { path: '/approvals', label: 'Approvals', permission: 'approval.request' },
-  { path: '/audit', label: 'Audit log', permission: 'audit.read' },
-  { path: '/staff', label: 'Staff & roles', permission: 'staff.read' },
+export interface NavGroup {
+  /** Null for the entries that sit above the first heading. */
+  label: string | null;
+  items: NavItem[];
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: null,
+    items: [{ path: '/overview', label: 'Today' }],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { path: '/transfers', label: 'Transfers', permission: 'transfer.read' },
+      { path: '/customers', label: 'Customers', permission: 'customer.read' },
+      { path: '/approvals', label: 'Approvals', permission: 'approval.request' },
+    ],
+  },
+  {
+    label: 'Compliance',
+    items: [
+      { path: '/kyc', label: 'Identity', permission: 'kyc.read' },
+      { path: '/compliance', label: 'Alerts & cases', permission: 'alert.read' },
+      { path: '/ledger', label: 'Ledger', permission: 'ledger.read' },
+    ],
+  },
+  {
+    label: 'Administration',
+    items: [
+      { path: '/staff', label: 'Staff & roles', permission: 'staff.read' },
+      { path: '/audit', label: 'Audit log', permission: 'audit.read' },
+    ],
+  },
 ];
+
+/** Flat, for route registration and for anything that needs every path. */
+export const NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 export function visibleNav(can: (p: Permission) => boolean): NavItem[] {
   return NAV.filter((item) => !item.permission || can(item.permission));
+}
+
+/** The same filter, keeping the grouping, with empty groups dropped. */
+export function visibleNavGroups(can: (p: Permission) => boolean): NavGroup[] {
+  return NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !i.permission || can(i.permission)),
+  })).filter((g) => g.items.length > 0);
 }

@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
+import { AuthLayout } from '../components/AuthLayout';
 import { Alert, Button, Field } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { LIMITS } from '../lib/limits';
 
 /**
  * Turn a six-digit code into an account you can sign in to.
@@ -82,21 +84,11 @@ export default function ClaimAccount({
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-inset px-4 py-10">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-xl border border-line bg-card p-8"
-      >
-        <div className="mb-6">
-          <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-roundel">
-            <span className="font-display text-lg text-gold">M</span>
-          </div>
-          <h1 className="font-display text-xl text-ink">Set up your account</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Use the six-digit code an administrator gave you, or the one sent to
-            your email address.
-          </p>
-        </div>
+    <AuthLayout
+      title="Set up your account"
+      subtitle="Use the six-digit code an administrator gave you, or the one sent to your email address."
+    >
+      <form onSubmit={onSubmit}>
 
         {notice && !error && (
           <div className="mb-4">
@@ -116,6 +108,7 @@ export default function ClaimAccount({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            maxLength={LIMITS.email}
             autoComplete="username"
             autoFocus
             required
@@ -124,6 +117,7 @@ export default function ClaimAccount({
             label="Setup code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
+            maxLength={LIMITS.setupCode}
             inputMode="numeric"
             autoComplete="one-time-code"
             placeholder="123456"
@@ -134,6 +128,8 @@ export default function ClaimAccount({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            maxLength={LIMITS.newPassword}
+            minLength={10}
             autoComplete="new-password"
             hint="At least 10 characters, with an upper case letter, a lower case letter and a digit."
             required
@@ -143,6 +139,7 @@ export default function ClaimAccount({
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
+            maxLength={LIMITS.newPassword}
             autoComplete="new-password"
             required
           />
@@ -158,6 +155,6 @@ export default function ClaimAccount({
           </button>
         </div>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

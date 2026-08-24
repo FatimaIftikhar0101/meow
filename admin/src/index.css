@@ -51,6 +51,13 @@
   --color-ink-faint: #6a7377;
   --color-on-slab: #ffffff;
   --color-on-slab-muted: #e7ecef;
+  /* A divider drawn ON the slab, which `line` cannot do — that hairline is
+     tuned for white surfaces and vanishes against a dark one. No contrast
+     floor applies: 1.4.11 is about the boundary of a control, and this
+     separates two lines of text. It is a named role anyway, because the
+     alternative is an inline alpha on some other colour, and a value that
+     lives in a class name is a value no audit of this palette can see. */
+  --color-slab-line: #6d7c84;
   /* Danger on a slab. The slab is dark in BOTH schemes while `danger` is a
      mid-tone in both, so the ordinary brick measures 1.02:1 there — an
      invisible control, not a near miss. This is a light brick in both. */
@@ -83,6 +90,22 @@
   --color-gold-deep: #9a6d18;
 
   --font-display: Georgia, 'Times New Roman', serif;
+
+  /**
+   * The third role: identifiers and money.
+   *
+   * This panel is mostly reference numbers, account codes and decimal amounts —
+   * strings that get read aloud down a phone, compared against a bank
+   * statement, and pasted into a ticket. Proportional digits make that work
+   * harder than it needs to be: `1` and `7` sit at different widths, `0` and
+   * `O` are a judgement call, and two amounts in adjacent rows do not line up.
+   *
+   * System faces only, and that is not laziness. The panel ships as a desktop
+   * binary that has to open on a laptop with no connection, so a typeface that
+   * arrives over the network is a typeface that is sometimes missing.
+   */
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
 }
 
 /**
@@ -128,6 +151,8 @@
   --color-ink-faint: #8c979b;
   --color-on-slab: #ffffff;
   --color-on-slab-muted: #afc0c7;
+  /* The slab is darker here, so the divider comes down with it. */
+  --color-slab-line: #465158;
   /* Same value as light: the ground is dark either way. */
   --color-on-slab-danger: #f6e3de;
 

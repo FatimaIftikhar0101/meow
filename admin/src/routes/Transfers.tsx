@@ -1,12 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Card, Empty, PageHeader, Pill } from '../components/ui';
+import { Link, useSearchParams } from 'react-router-dom';
+import { StageRail } from '../components/StageRail';
+import {
+  Card,
+  Empty,
+  Mono,
+  PageHeader,
+  Table,
+  Td,
+  Th,
+  Toolbar,
+  Tr,
+} from '../components/ui';
 import api from '../lib/api';
+import { LIMITS } from '../lib/limits';
 import {
   STATUS_LABEL,
   formatAge,
-  toneFor,
+  stageIndexOf,
   type TransferStatus,
 } from '../lib/transfers';
 
@@ -48,8 +60,12 @@ interface Page {
  * the phone.
  */
 export default function Transfers() {
+  // Today's worklist links straight to the overdue view, so the filter has to
+  // be expressible in the URL — a link that lands on the unfiltered queue and
+  // makes you re-apply the filter is a link that did not arrive.
+  const [params] = useSearchParams();
   const [status, setStatus] = useState<TransferStatus | ''>('');
-  const [aging, setAging] = useState(false);
+  const [aging, setAging] = useState(params.get('aging') === '1');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
 
@@ -94,53 +110,53 @@ export default function Transfers() {
               ? `${data.total} total`
               : 'Every transfer, newest first.'
         }
-        action={
-          <div className="flex items-center gap-2">
-            <select
-              value={status}
-              onChange={(e) =>
-                reset(() => setStatus(e.target.value as TransferStatus | ''))
-              }
-              className="rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink"
-            >
-              <option value="">All statuses</option>
-              {(Object.keys(STATUS_LABEL) as TransferStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              aria-pressed={aging}
-              onClick={() => reset(() => setAging((v) => !v))}
-              className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                aging
-                  ? 'border-danger bg-danger text-on-danger'
-                  : 'border-field-border bg-card text-ink hover:bg-inset'
-              }`}
-            >
-              Overdue only
-            </button>
-          </div>
-        }
       />
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          reset(() => setSubmittedQ(q.trim()));
-        }}
-        className="mb-4"
-      >
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Sender email, beneficiary name, or the start of a transfer id"
-          aria-label="Search transfers"
-          className="w-full rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-        />
-      </form>
+      <Toolbar>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            reset(() => setSubmittedQ(q.trim()));
+          }}
+          className="min-w-64 flex-1"
+        >
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            maxLength={LIMITS.search}
+            placeholder="Sender email, beneficiary name, or the start of a transfer id"
+            aria-label="Search transfers"
+            className="w-full rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+          />
+        </form>
+        <select
+          value={status}
+          onChange={(e) =>
+            reset(() => setStatus(e.target.value as TransferStatus | ''))
+          }
+          aria-label="Filter by status"
+          className="rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink"
+        >
+          <option value="">All statuses</option>
+          {(Object.keys(STATUS_LABEL) as TransferStatus[]).map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          aria-pressed={aging}
+          onClick={() => reset(() => setAging((v) => !v))}
+          className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+            aging
+              ? 'border-danger bg-danger text-on-danger'
+              : 'border-field-border bg-card text-ink hover:bg-inset'
+          }`}
+        >
+          Overdue only
+        </button>
+      </Toolbar>
 
       <Card>
         {isLoading ? (
@@ -154,66 +170,81 @@ export default function Transfers() {
               : 'Nothing here.'}
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-ink-muted">
-                  <th className="px-4 py-3 font-medium">Sender</th>
-                  <th className="px-4 py-3 font-medium">Recipient</th>
-                  <th className="px-4 py-3 text-right font-medium">Sent</th>
-                  <th className="px-4 py-3 text-right font-medium">Received</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 text-right font-medium">Age</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-line last:border-0 hover:bg-inset"
-                  >
-                    <td className="px-4 py-3">
-                      {/* The whole row is the target, but the link carries the
-                          text — a div with an onClick is not reachable by
-                          keyboard and this panel is used by people who type. */}
-                      <Link
-                        to={`/transfers/${t.id}`}
-                        className="text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink"
-                      >
-                        {t.userEmail}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-ink">
-                      {t.recipient.name}
-                      <span className="ml-1.5 text-xs text-ink-faint">
-                        {t.recipient.country}
-                      </span>
-                    </td>
-                    <td className="tabular px-4 py-3 text-right text-ink">
+          <Table>
+            <thead>
+              <tr>
+                <Th>Sender</Th>
+                <Th>Recipient</Th>
+                <Th align="right">Sent</Th>
+                <Th align="right">Received</Th>
+                <Th>Stage</Th>
+                <Th align="right">Age</Th>
+                <Th>Created</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((t) => (
+                <Tr key={t.id} flagged={t.overdue}>
+                  <Td>
+                    {/* The link carries the text rather than the row carrying
+                        an onClick: a div that navigates is unreachable by
+                        keyboard, and this panel is used by people who type. */}
+                    <Link
+                      to={`/transfers/${t.id}`}
+                      className="text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      {t.userEmail}
+                    </Link>
+                    <Mono className="mt-0.5 block text-ink-faint">
+                      {t.id.slice(0, 8).toUpperCase()}
+                    </Mono>
+                  </Td>
+                  <Td className="text-ink">
+                    {t.recipient.name}
+                    <span className="ml-1.5 text-xs text-ink-faint">
+                      {t.recipient.country}
+                    </span>
+                  </Td>
+                  <Td align="right" className="text-ink">
+                    <Mono>
                       {t.sendAmount} {t.sendCurrency}
-                    </td>
-                    <td className="tabular px-4 py-3 text-right text-ink-muted">
+                    </Mono>
+                  </Td>
+                  <Td align="right" className="text-ink-muted">
+                    <Mono>
                       {t.receiveAmount
                         ? `${t.receiveAmount} ${t.receiveCurrency ?? ''}`
                         : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Pill tone={toneFor(t.status)}>
+                    </Mono>
+                  </Td>
+                  <Td>
+                    {/* Rail first, label second. The shape is what gets scanned
+                        down the column; the words are for the row you stop on. */}
+                    <span className="flex flex-col gap-1">
+                      <StageRail
+                        status={t.status}
+                        reachedIndex={stageIndexOf(t.status)}
+                        overdue={t.overdue}
+                      />
+                      <span className="text-xs text-ink-muted">
                         {STATUS_LABEL[t.status]}
-                      </Pill>
-                    </td>
-                    <td className="tabular px-4 py-3 text-right">
+                      </span>
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    <Mono>
                       <AgeCell row={t} />
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted">
+                    </Mono>
+                  </Td>
+                  <Td className="text-ink-muted">
+                    <Mono className="text-ink-muted">
                       {new Date(t.createdAt).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </Mono>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
       </Card>
 

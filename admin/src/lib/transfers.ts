@@ -19,6 +19,31 @@ export type TransferStatus =
 
 export const TERMINAL: TransferStatus[] = ['delivered', 'failed', 'cancelled'];
 
+/**
+ * The running order of the six real stages.
+ *
+ * `failed` and `cancelled` are outcomes, not places — a transfer that fails
+ * does so *at* a stage, which is why they are absent here and why the rail
+ * needs telling where a broken one stopped.
+ *
+ * This lives beside the labels for the reason the file exists: the queue, the
+ * detail page and the rail all have to agree about the order, and two copies
+ * of an ordering are two chances to disagree about where `fx_converted` sits.
+ */
+export const STAGES: TransferStatus[] = [
+  'initiated',
+  'payment_received',
+  'compliance_check',
+  'fx_converted',
+  'payout_processing',
+  'delivered',
+];
+
+/** Position in STAGES, or -1 for the outcomes that are not stages. */
+export function stageIndexOf(status: TransferStatus): number {
+  return STAGES.indexOf(status);
+}
+
 export const STATUS_LABEL: Record<TransferStatus, string> = {
   initiated: 'Initiated',
   payment_received: 'Payment received',

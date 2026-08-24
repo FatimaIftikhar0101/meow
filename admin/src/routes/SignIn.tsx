@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
+import { AuthLayout } from '../components/AuthLayout';
 import { Alert, Button, Field } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import ClaimAccount from './ClaimAccount';
+import { LIMITS } from '../lib/limits';
 
 /**
  * Sign-in, in its two halves.
@@ -82,24 +84,15 @@ export default function SignIn() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-inset px-4">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-xl border border-line bg-card p-8"
-      >
-        <div className="mb-6">
-          <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-roundel">
-            <span className="font-display text-lg text-gold">M</span>
-          </div>
-          <h1 className="font-display text-xl text-ink">
-            {awaitingCode ? 'Two-factor code' : 'Meow back office'}
-          </h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            {awaitingCode
-              ? 'Enter the six-digit code from your authenticator app, or one of your recovery codes.'
-              : 'Staff access only.'}
-          </p>
-        </div>
+    <AuthLayout
+      title={awaitingCode ? 'Two-factor code' : 'Back office'}
+      subtitle={
+        awaitingCode
+          ? 'Enter the six-digit code from your authenticator app, or one of your recovery codes.'
+          : 'Sign in with your staff account.'
+      }
+    >
+      <form onSubmit={onSubmit}>
 
         {signOutWarning && !error && (
           <div className="mb-4">
@@ -119,6 +112,7 @@ export default function SignIn() {
               label="Code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              maxLength={LIMITS.mfaCode}
               inputMode="text"
               autoComplete="one-time-code"
               autoFocus
@@ -143,6 +137,7 @@ export default function SignIn() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              maxLength={LIMITS.email}
               autoComplete="username"
               autoFocus
               required
@@ -152,6 +147,7 @@ export default function SignIn() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              maxLength={LIMITS.password}
               autoComplete="current-password"
               required
             />
@@ -177,6 +173,6 @@ export default function SignIn() {
           </div>
         )}
       </form>
-    </div>
+    </AuthLayout>
   );
 }
