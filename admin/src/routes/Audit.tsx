@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Card, Empty, PageHeader } from '../components/ui';
 import api from '../lib/api';
+import { LIMITS } from '../lib/limits';
 
 interface AuditRow {
   id: string;
@@ -47,6 +48,7 @@ export default function Audit() {
           <input
             value={action}
             onChange={(e) => setAction(e.target.value)}
+            maxLength={LIMITS.search}
             placeholder="Filter by action, e.g. staff.role.assign"
             className="w-72 rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
           />

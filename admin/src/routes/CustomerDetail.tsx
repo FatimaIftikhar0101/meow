@@ -5,6 +5,8 @@ import { Alert, Button, Card, Empty, PageHeader, Pill } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { STATUS_LABEL, formatAge, toneFor, type TransferStatus } from '../lib/transfers';
+import { useAskReason } from '../components/ReasonDialog';
+import { LIMITS } from '../lib/limits';
 
 interface CustomerOverview {
   profile: {
@@ -132,6 +134,7 @@ export default function CustomerDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { can } = useAuth();
+  const askReason = useAskReason();
   const [error, setError] = useState<string | null>(null);
   const [noteBody, setNoteBody] = useState('');
   // Keyed by the entity revealed, so two reveals on one page do not overwrite
@@ -199,21 +202,25 @@ export default function CustomerDetail() {
     [profile.firstName, profile.lastName].filter(Boolean).join(' ') || null;
   const latestKyc = data.kyc[0];
 
-  function onReveal(transferId: string) {
-    const reason = window.prompt(
-      'Why do you need the full account number? Recorded in the audit log against this transfer.',
-    );
+  async function onReveal(transferId: string) {
+    const reason = await askReason({
+      question:
+        'Why do you need the full account number? Recorded in the audit log against this transfer.',
+      confirmLabel: 'Reveal',
+    });
     if (!reason) return;
     setError(null);
     reveal.mutate({ transferId, reason });
   }
 
-  function onSuspend(next: boolean) {
-    const reason = window.prompt(
-      next
+  async function onSuspend(next: boolean) {
+    const reason = await askReason({
+      question: next
         ? 'Why are you suspending this account? They will not be able to send money.'
         : 'Why are you restoring this account?',
-    );
+      confirmLabel: next ? 'Suspend' : 'Restore',
+      destructive: next,
+    });
     if (!reason) return;
     setError(null);
     suspend.mutate({ suspend: next, reason });
@@ -236,14 +243,14 @@ export default function CustomerDetail() {
             {!profile.suspended && can('customer.suspend') && (
               <Button
                 variant="danger"
-                onClick={() => onSuspend(true)}
+                onClick={() => void onSuspend(true)}
                 busy={suspend.isPending}
               >
                 Suspend
               </Button>
             )}
             {profile.suspended && can('customer.unsuspend') && (
-              <Button onClick={() => onSuspend(false)} busy={suspend.isPending}>
+              <Button onClick={() => void onSuspend(false)} busy={suspend.isPending}>
                 Restore
               </Button>
             )}
@@ -398,7 +405,7 @@ export default function CustomerDetail() {
                         {t.recipientBankAccountMasked}
                         {can('customer.pii_full') && (
                           <button
-                            onClick={() => onReveal(t.id)}
+                            onClick={() => void onReveal(t.id)}
                             disabled={reveal.isPending}
                             className="ml-2 text-xs underline hover:text-ink disabled:opacity-50"
                           >
@@ -441,7 +448,7 @@ export default function CustomerDetail() {
                 value={noteBody}
                 onChange={(e) => setNoteBody(e.target.value)}
                 rows={3}
-                maxLength={2000}
+                maxLength={LIMITS.note}
                 placeholder="What happened on this contact?"
                 className="w-full rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
               />

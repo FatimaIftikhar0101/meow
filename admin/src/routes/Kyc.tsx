@@ -5,6 +5,7 @@ import { Alert, Button, Card, Empty, PageHeader, Pill } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatAge } from '../lib/transfers';
+import { useAskReason } from '../components/ReasonDialog';
 
 type KycStatus = 'pending' | 'passed' | 'failed';
 
@@ -57,6 +58,7 @@ const TONE: Record<KycStatus, 'success' | 'pending' | 'danger'> = {
  */
 export default function Kyc() {
   const qc = useQueryClient();
+  const askReason = useAskReason();
   const { can } = useAuth();
   const [status, setStatus] = useState<KycStatus | 'all'>('pending');
   const [error, setError] = useState<string | null>(null);
@@ -90,15 +92,17 @@ export default function Kyc() {
     onError: (e) => setError(errorMessage(e, 'That decision did not go through.')),
   });
 
-  function decide(row: KycRow, next: 'passed' | 'failed') {
+  async function decide(row: KycRow, next: 'passed' | 'failed') {
     const settled = row.status !== 'pending';
-    const reason = window.prompt(
-      settled
+    const reason = await askReason({
+      question: settled
         ? `This case was already ${row.status}. Overturning it is an override and is recorded as one. Why?`
         : next === 'passed'
           ? 'Why are you passing this customer? Recorded against your name.'
           : 'Why are you failing this check? The customer cannot send money.',
-    );
+      confirmLabel: next === 'passed' ? 'Pass' : 'Fail',
+      destructive: next === 'failed',
+    });
     if (!reason) return;
     act.mutate({
       userId: row.userId,
@@ -220,12 +224,12 @@ export default function Kyc() {
                     <div className="flex shrink-0 items-center gap-2">
                       {row.status === 'pending' && can('kyc.decide') && (
                         <>
-                          <Button onClick={() => decide(row, 'passed')} busy={act.isPending}>
+                          <Button onClick={() => void decide(row, 'passed')} busy={act.isPending}>
                             Pass
                           </Button>
                           <Button
                             variant="danger"
-                            onClick={() => decide(row, 'failed')}
+                            onClick={() => void decide(row, 'failed')}
                             busy={act.isPending}
                           >
                             Fail

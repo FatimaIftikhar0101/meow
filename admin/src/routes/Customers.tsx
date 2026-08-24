@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Empty, PageHeader, Pill } from '../components/ui';
 import api from '../lib/api';
+import { LIMITS } from '../lib/limits';
 
 interface CustomerRow {
   id: string;
@@ -41,6 +42,7 @@ export default function Customers() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            maxLength={LIMITS.search}
             placeholder="Search by email"
             className="w-64 rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
           />

@@ -4,6 +4,8 @@ import { Alert, Button, Card, Empty, Field, PageHeader, Pill } from '../componen
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { ROLE_LABEL, type StaffRole } from '../lib/permissions';
+import { useAskReason } from '../components/ReasonDialog';
+import { LIMITS } from '../lib/limits';
 
 interface StaffMember {
   id: string;
@@ -28,6 +30,7 @@ const ROLES: StaffRole[] = ['support', 'operations', 'compliance', 'admin'];
  */
 export default function Staff() {
   const qc = useQueryClient();
+  const askReason = useAskReason();
   const { profile, can } = useAuth();
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,18 +58,23 @@ export default function Staff() {
     onError: (e) => setError(errorMessage(e, 'Could not change that account.')),
   });
 
-  function onChangeRole(member: StaffMember, role: StaffRole) {
-    const reason = window.prompt(
-      `Why is ${member.email} becoming ${ROLE_LABEL[role]}?`,
-    );
+  async function onChangeRole(member: StaffMember, role: StaffRole) {
+    const reason = await askReason({
+      question: `Why is ${member.email} becoming ${ROLE_LABEL[role]}?`,
+      confirmLabel: 'Change role',
+    });
     if (!reason) return;
     setError(null);
     assignRole.mutate({ id: member.id, role, reason });
   }
 
-  function onToggleActive(member: StaffMember) {
+  async function onToggleActive(member: StaffMember) {
     const verb = member.suspended ? 'reactivating' : 'deactivating';
-    const reason = window.prompt(`Why are you ${verb} ${member.email}?`);
+    const reason = await askReason({
+      question: `Why are you ${verb} ${member.email}?`,
+      confirmLabel: member.suspended ? 'Reactivate' : 'Deactivate',
+      destructive: !member.suspended,
+    });
     if (!reason) return;
     setError(null);
     setActive.mutate({ id: member.id, active: member.suspended, reason });
@@ -157,7 +165,7 @@ export default function Staff() {
                     <td className="px-4 py-3 text-right">
                       {can('staff.write') && !isSelf && (
                         <button
-                          onClick={() => onToggleActive(m)}
+                          onClick={() => void onToggleActive(m)}
                           className="text-xs text-ink-muted underline hover:text-ink"
                         >
                           {m.suspended ? 'Reactivate' : 'Deactivate'}
@@ -237,6 +245,7 @@ function InviteForm({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            maxLength={LIMITS.email}
             required
           />
           <label className="block">
@@ -259,7 +268,8 @@ function InviteForm({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           hint="Recorded in the audit log. Whoever reviews it will not accept “they asked”."
-          minLength={3}
+          minLength={LIMITS.reasonMin}
+          maxLength={LIMITS.reason}
           required
         />
         <label className="flex items-start gap-3">

@@ -5,6 +5,7 @@ import { Alert, Button, Card, Empty, PageHeader, Pill } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatAge } from '../lib/transfers';
+import { useAskReason } from '../components/ReasonDialog';
 
 type ApprovalStatus =
   | 'pending'
@@ -56,6 +57,7 @@ const ACTION_LABEL: Record<string, string> = {
  */
 export default function Approvals() {
   const qc = useQueryClient();
+  const askReason = useAskReason();
   const { can, profile } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [onlyPending, setOnlyPending] = useState(true);
@@ -86,14 +88,23 @@ export default function Approvals() {
     onError: (e) => setError(errorMessage(e, 'That decision did not go through.')),
   });
 
-  function act(row: ApprovalRow, verb: 'approve' | 'reject' | 'cancel') {
-    const prompts: Record<typeof verb, string> = {
+  async function act(row: ApprovalRow, verb: 'approve' | 'reject' | 'cancel') {
+    const questions: Record<typeof verb, string> = {
       approve:
         'Why are you approving this? The action runs immediately and is recorded against your name.',
       reject: 'Why are you rejecting this? The person who asked will read it.',
       cancel: 'Why are you withdrawing your request?',
     };
-    const reason = window.prompt(prompts[verb]);
+    const labels: Record<typeof verb, string> = {
+      approve: 'Approve',
+      reject: 'Reject',
+      cancel: 'Withdraw',
+    };
+    const reason = await askReason({
+      question: questions[verb],
+      confirmLabel: labels[verb],
+      destructive: verb === 'reject',
+    });
     if (!reason) return;
     decide.mutate({ id: row.id, verb, reason });
   }
@@ -191,14 +202,14 @@ export default function Approvals() {
                         {can('approval.decide') && !mine && (
                           <>
                             <Button
-                              onClick={() => act(row, 'approve')}
+                              onClick={() => void act(row, 'approve')}
                               busy={decide.isPending}
                             >
                               Approve
                             </Button>
                             <Button
                               variant="secondary"
-                              onClick={() => act(row, 'reject')}
+                              onClick={() => void act(row, 'reject')}
                               busy={decide.isPending}
                             >
                               Reject
@@ -208,7 +219,7 @@ export default function Approvals() {
                         {mine && (
                           <Button
                             variant="secondary"
-                            onClick={() => act(row, 'cancel')}
+                            onClick={() => void act(row, 'cancel')}
                             busy={decide.isPending}
                           >
                             Withdraw

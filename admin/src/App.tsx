@@ -2,10 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Shell from './Shell';
+import { ReasonDialogProvider } from './components/ReasonDialog';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import type { Permission } from './lib/permissions';
 import Approvals from './routes/Approvals';
+import Overview from './routes/Overview';
 import Audit from './routes/Audit';
 import Kyc from './routes/Kyc';
 import Ledger from './routes/Ledger';
@@ -36,7 +38,12 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <Router>
           <AuthProvider>
-            <Gate />
+            {/* Inside AuthProvider so the dialog is available to every signed-in
+                screen, and outside the router so a reason survives a navigation
+                that happens while it is open. */}
+            <ReasonDialogProvider>
+              <Gate />
+            </ReasonDialogProvider>
           </AuthProvider>
         </Router>
       </QueryClientProvider>
@@ -72,8 +79,12 @@ function Gate() {
   const routes: Array<{
     path: string;
     element: ReactElement;
-    permission: Permission;
+    /** Omitted for the pages every staff member can reach. */
+    permission?: Permission;
   }> = [
+    // First, and so the default landing page: whatever else a person's role
+    // opens, the question they arrive with is what needs them today.
+    { path: '/overview', element: <Overview /> },
     { path: '/transfers', element: <Transfers />, permission: 'transfer.read' },
     // Same permission as the list it is reached from. Registered separately
     // rather than nested, because the detail page is a full screen and not a
@@ -104,7 +115,7 @@ function Gate() {
     { path: '/audit', element: <Audit />, permission: 'audit.read' },
     { path: '/staff', element: <Staff />, permission: 'staff.read' },
   ];
-  const allowed = routes.filter((r) => can(r.permission));
+  const allowed = routes.filter((r) => !r.permission || can(r.permission));
   // The fallback has to be a path that can actually be navigated to. `allowed`
   // now contains a parameterised route, and redirecting to "/transfers/:id"
   // literally is a 404 that looks like a bug in the router.

@@ -5,6 +5,8 @@ import { Alert, Button, Card, Empty, PageHeader, Pill } from '../components/ui';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatAge } from '../lib/transfers';
+import { useAskReason } from '../components/ReasonDialog';
+import { LIMITS } from '../lib/limits';
 
 type AlertSeverity = 'low' | 'medium' | 'high';
 type AlertStatus = 'open' | 'cleared' | 'escalated';
@@ -135,6 +137,7 @@ export default function Compliance() {
 
 function Alerts({ onError }: { onError: (m: string | null) => void }) {
   const qc = useQueryClient();
+  const askReason = useAskReason();
   const { can } = useAuth();
   const [openOnly, setOpenOnly] = useState(true);
 
@@ -163,12 +166,16 @@ function Alerts({ onError }: { onError: (m: string | null) => void }) {
     onError: (e) => onError(errorMessage(e, 'That decision did not go through.')),
   });
 
-  function act(row: AlertRow, status: 'cleared' | 'escalated') {
-    const reason = window.prompt(
+  async function act(row: AlertRow, status: 'cleared' | 'escalated') {
+    const reason = await askReason({
+      question:
       status === 'cleared'
         ? 'What satisfied you that this is fine? Recorded against your name — an alert cleared without a reason records only that it disappeared.'
         : 'Why are you escalating this?',
-    );
+      confirmLabel: status === 'cleared' ? 'Clear alert' : 'Escalate',
+      destructive: status === 'escalated',
+      maxLength: LIMITS.reasonLong,
+    });
     if (!reason) return;
     adjudicate.mutate({ id: row.id, status, reason });
   }
@@ -262,14 +269,14 @@ function Alerts({ onError }: { onError: (m: string | null) => void }) {
                   <div className="flex shrink-0 items-center gap-2">
                     <Button
                       variant="secondary"
-                      onClick={() => act(row, 'cleared')}
+                      onClick={() => void act(row, 'cleared')}
                       busy={adjudicate.isPending}
                     >
                       Clear
                     </Button>
                     <Button
                       variant="danger"
-                      onClick={() => act(row, 'escalated')}
+                      onClick={() => void act(row, 'escalated')}
                       busy={adjudicate.isPending}
                     >
                       Escalate
@@ -287,6 +294,7 @@ function Alerts({ onError }: { onError: (m: string | null) => void }) {
 
 function Cases({ onError }: { onError: (m: string | null) => void }) {
   const qc = useQueryClient();
+  const askReason = useAskReason();
   const { data, isLoading } = useQuery({
     queryKey: ['cases'],
     queryFn: async () =>
@@ -351,11 +359,16 @@ function Cases({ onError }: { onError: (m: string | null) => void }) {
                     variant="secondary"
                     busy={close.isPending}
                     onClick={() => {
-                      const reason = window.prompt(
-                        'How was this case resolved? Every alert attached to it must be adjudicated first.',
-                      );
-                      if (!reason) return;
-                      close.mutate({ id: c.id, reason });
+                      void (async () => {
+                        const reason = await askReason({
+                          question:
+                            'How was this case resolved? Every alert attached to it must be adjudicated first.',
+                          confirmLabel: 'Close case',
+                          maxLength: LIMITS.reasonLong,
+                        });
+                        if (!reason) return;
+                        close.mutate({ id: c.id, reason });
+                      })();
                     }}
                   >
                     Close
@@ -372,6 +385,7 @@ function Cases({ onError }: { onError: (m: string | null) => void }) {
 
 function Blocklist({ onError }: { onError: (m: string | null) => void }) {
   const qc = useQueryClient();
+  const askReason = useAskReason();
   const { can } = useAuth();
   const [showInactive, setShowInactive] = useState(false);
   const [kind, setKind] = useState<BlocklistKind>('name');
@@ -433,6 +447,7 @@ function Blocklist({ onError }: { onError: (m: string | null) => void }) {
           <input
             value={display}
             onChange={(e) => setDisplay(e.target.value)}
+            maxLength={LIMITS.blocklistValue}
             placeholder="Value to block"
             className="w-64 rounded-lg border border-field-border bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
           />
@@ -440,9 +455,16 @@ function Blocklist({ onError }: { onError: (m: string | null) => void }) {
             busy={add.isPending}
             disabled={!display.trim()}
             onClick={() => {
-              const reason = window.prompt('Why is this being blocked?');
-              if (!reason) return;
-              add.mutate({ kind, display: display.trim(), reason });
+              void (async () => {
+                const reason = await askReason({
+                  question: 'Why is this being blocked?',
+                  confirmLabel: 'Block',
+                  destructive: true,
+                  maxLength: LIMITS.reasonLong,
+                });
+                if (!reason) return;
+                add.mutate({ kind, display: display.trim(), reason });
+              })();
             }}
           >
             Add
@@ -487,11 +509,16 @@ function Blocklist({ onError }: { onError: (m: string | null) => void }) {
                   variant="secondary"
                   busy={remove.isPending}
                   onClick={() => {
-                    const reason = window.prompt(
-                      'Why is this being taken off the list? Somebody other than whoever added it must do this.',
-                    );
-                    if (!reason) return;
-                    remove.mutate({ id: b.id, reason });
+                    void (async () => {
+                      const reason = await askReason({
+                        question:
+                          'Why is this being taken off the list? Somebody other than whoever added it must do this.',
+                        confirmLabel: 'Remove',
+                        maxLength: LIMITS.reasonLong,
+                      });
+                      if (!reason) return;
+                      remove.mutate({ id: b.id, reason });
+                    })();
                   }}
                 >
                   Remove
