@@ -153,16 +153,34 @@ export default function AppLayout() {
     <View style={{ flex: 1 }}>
     <Tabs
       /*
-       * `backBehavior` is left at its default of `firstRoute`, deliberately.
+       * Back from any tab goes Home; back from Home closes the app.
        *
-       * `history` looks like the fix for "back from Wallet lands on Home" and
-       * is a trap. Read TabRouter: under `history` every tab visit appends to
+       * Named, not positional. The default `firstRoute` means "whichever tab
+       * the router happened to put first", and expo-router orders tab routes by
+       * the *length of their filename* — so `home.tsx` leads only by accident of
+       * being short, and adding a shorter route would silently move the back
+       * target. It also left the Activity tab closing the app on back rather
+       * than returning Home.
+       *
+       * `initialRoute` looks the target up by name, so the answer is written
+       * down instead of inferred. Screens that know better still override it:
+       * BackBar's `onBack` handles the press and returns true, so the tab
+       * navigator never sees it.
+       */
+      initialRouteName="home"
+      backBehavior="initialRoute"
+      /*
+       * Not `history`, deliberately.
+       *
+       * It looks like the fix for "back from Wallet lands on Home" and is a
+       * trap. Read TabRouter: under `history` every tab visit appends to
        * `state.history`, and GO_BACK only stops — letting Android close the
        * app — when that list has one entry. So after Home → Send → complete →
        * "Back to home", history is [send, home], and back on the dashboard
        * jumps *into* the send tab, which still holds the finished transfer.
-       * Under `firstRoute` history on Home is length 1 and back exits, which
-       * is what someone expects from a home screen.
+       * Under `initialRoute` history on Home is length 1 and back exits, which
+       * is what someone expects from a home screen, and every other tab has
+       * exactly one entry behind it: Home.
        *
        * Back out of the pushed screens is fixed where the ambiguity actually
        * lives instead — each one names its own destination. See BackBar.

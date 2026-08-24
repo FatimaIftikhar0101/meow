@@ -100,7 +100,27 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
 export default function TransferDetailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+
+  /**
+   * Back, to wherever this was opened from.
+   *
+   * A transfer is reachable from four places — the Activity list, the Home
+   * dashboard, a notification, and the screen shown the moment a transfer is
+   * sent. It used to return to the Activity list from all four, so finishing a
+   * transfer and tapping Track left you in a list you had never opened, two
+   * presses from where you started.
+   *
+   * The send flow is the case that matters: by the time this screen is
+   * reached the flow behind it has been torn down deliberately, so there is
+   * nothing to pop and Home is the only honest destination.
+   */
+  const backTo = React.useCallback(() => {
+    if (from === 'home' || from === 'send') return router.replace('/(app)/home');
+    if (from === 'notifications')
+      return router.replace('/(app)/notifications');
+    return router.replace('/(app)/activity');
+  }, [router, from]);
   const [transfer, setTransfer] = useState<TransferDetail | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -167,7 +187,7 @@ export default function TransferDetailScreen() {
   if (!transfer) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
-        <BackBar title="Transfer" onBack={() => router.replace('/(app)/activity')} />
+        <BackBar title="Transfer" onBack={backTo} />
         {error ? (
           <View style={{ padding: 16 }}>
             <Note>{error}</Note>
@@ -183,7 +203,7 @@ export default function TransferDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
       <BackBar
         title={`To ${transfer.recipient.name}`}
-        onBack={() => (router.canGoBack() ? router.back() : router.replace('/(app)/activity'))}
+        onBack={backTo}
       />
       <Screen>
         <View style={{ gap: 16 }}>

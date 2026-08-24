@@ -318,7 +318,7 @@ export default function Home() {
               <Pressable
                 key={t.id}
                 onPress={() =>
-                  router.push({ pathname: '/(app)/activity/[id]', params: { id: t.id } })
+                  router.push({ pathname: '/(app)/activity/[id]', params: { id: t.id, from: 'home' } })
                 }
               >
                 <Card padded={false} style={{ padding: 12 }}>

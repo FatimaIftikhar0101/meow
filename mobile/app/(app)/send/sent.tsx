@@ -126,7 +126,10 @@ export default function Sent() {
             variant="primary"
             onPress={() =>
               leave(() =>
-                router.replace({ pathname: '/(app)/activity/[id]', params: { id: id! } }),
+                router.replace({
+                  pathname: '/(app)/activity/[id]',
+                  params: { id: id!, from: 'send' },
+                }),
               )
             }
           />

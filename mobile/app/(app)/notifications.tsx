@@ -44,7 +44,10 @@ export default function Notifications() {
     void api.post(`/notifications/${n.id}/read`).then(refreshUnread).catch(() => {});
     setList((cur) => cur?.map((x) => (x.id === n.id ? { ...x, read: true } : x)) ?? cur);
     if (typeof transferId === 'string') {
-      router.push({ pathname: '/(app)/activity/[id]', params: { id: transferId } });
+      router.push({
+        pathname: '/(app)/activity/[id]',
+        params: { id: transferId, from: 'notifications' },
+      });
     }
   };
 
@@ -56,9 +59,7 @@ export default function Notifications() {
           case and the safe one if the param is ever lost. */}
       <BackBar
         title="Notifications"
-        onBack={() =>
-          router.replace(from === 'profile' ? '/(app)/profile' : '/(app)/home')
-        }
+        onBack={() => router.replace(from === 'profile' ? '/(app)/profile' : '/(app)/home')}
         right={
           list && list.some((n) => !n.read) ? (
             <Pressable
