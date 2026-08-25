@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { StaffGuard } from '../auth/guards/staff.guard';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { InviteStaffDto } from './dto/invite-staff.dto';
+import { ReissueInviteDto } from './dto/reissue-invite.dto';
 import { StaffReasonDto } from './dto/staff-reason.dto';
 import { StaffService } from './staff.service';
 
@@ -45,6 +46,23 @@ export class StaffController {
   @RequirePermission('staff.write')
   invite(@CurrentUser() actor: AuthUser, @Body() dto: InviteStaffDto) {
     return this.staff.invite(actor, dto);
+  }
+
+  /**
+   * A second setup code for an invitation nobody claimed.
+   *
+   * `staff.write` rather than a permission of its own: it hands out the same
+   * credential `invite` does, to the same account, so anyone who could create
+   * the invitation can replace its code and nobody else can.
+   */
+  @Post(':id/reissue')
+  @RequirePermission('staff.write')
+  reissue(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReissueInviteDto,
+  ) {
+    return this.staff.reissueInvite(actor, id, dto);
   }
 
   @Patch(':id/role')

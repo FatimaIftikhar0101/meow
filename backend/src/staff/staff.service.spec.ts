@@ -335,4 +335,153 @@ describe('StaffService', () => {
       expect(out[0].permissions).not.toContain('role.assign');
     });
   });
+
+  describe('reissueInvite', () => {
+    const PENDING = {
+      id: 'u-9',
+      email: 'new.analyst@meow.test',
+      role: 'compliance',
+      passwordHash: null,
+      suspended: false,
+    };
+    const input = { reason: 'Missed the two-hour window yesterday' };
+
+    it('issues a fresh code for an invitation nobody claimed', async () => {
+      prisma.user.findUnique.mockResolvedValue(PENDING);
+
+      const result = await service.reissueInvite(ADMIN, 'u-9', input);
+
+      expect(result.setupCode).toMatch(/^\d{6}$/);
+      expect(result.pending).toBe(true);
+      const data = prisma.user.update.mock.calls[0][0].data;
+      expect(data.pwResetExpires.getTime()).toBeGreaterThan(Date.now());
+      // The account itself is untouched — this replaces a credential, it does
+      // not edit who the invitation is for.
+      expect(data.email).toBeUndefined();
+      expect(data.role).toBeUndefined();
+    });
+
+    it('stores only a hash of the new code', async () => {
+      prisma.user.findUnique.mockResolvedValue(PENDING);
+
+      const result = await service.reissueInvite(ADMIN, 'u-9', input);
+      const stored = prisma.user.update.mock.calls[0][0].data.pwResetToken;
+
+      expect(stored).toMatch(/^\$2[aby]\$/);
+      expect(stored).not.toContain(result.setupCode);
+      await expect(
+        require('bcrypt').compare(result.setupCode, stored),
+      ).resolves.toBe(true);
+    });
+
+    it('replaces the old code rather than leaving both valid', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...PENDING,
+        pwResetToken: 'the-old-hash',
+      });
+
+      const result = await service.reissueInvite(ADMIN, 'u-9', input);
+      const stored = prisma.user.update.mock.calls[0][0].data.pwResetToken;
+
+      expect(stored).not.toBe('the-old-hash');
+      await expect(
+        require('bcrypt').compare(result.setupCode, 'the-old-hash'),
+      ).resolves.toBe(false);
+    });
+
+    it('clears the failed-attempt budget so a fumbled code does not poison the new one', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...PENDING,
+        pwResetAttempts: 5,
+      });
+
+      await service.reissueInvite(ADMIN, 'u-9', input);
+
+      expect(prisma.user.update.mock.calls[0][0].data.pwResetAttempts).toBe(0);
+    });
+
+    it('refuses an account that has already been claimed', async () => {
+      // The guard that stops this being a way to seize a working colleague's
+      // account. Taking over a live account stays a password reset, which
+      // only their own inbox can complete.
+      prisma.user.findUnique.mockResolvedValue({
+        ...PENDING,
+        passwordHash: '$2b$10$something',
+      });
+
+      await expect(
+        service.reissueInvite(ADMIN, 'u-9', input),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses a deactivated invitation', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...PENDING, suspended: true });
+
+      await expect(
+        service.reissueInvite(ADMIN, 'u-9', input),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses an account that is not staff', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...PENDING,
+        role: 'customer',
+      });
+
+      await expect(
+        service.reissueInvite(ADMIN, 'u-9', input),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses an id that does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.reissueInvite(ADMIN, 'u-9', input),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('records who reissued it and why', async () => {
+      prisma.user.findUnique.mockResolvedValue(PENDING);
+
+      await service.reissueInvite(ADMIN, 'u-9', input);
+
+      const audit = prisma.auditLog.create.mock.calls[0][0].data;
+      expect(audit.action).toBe('staff.invite.reissue');
+      expect(audit.actorEmail).toBe(ADMIN.email);
+      expect(audit.reason).toBe('Missed the two-hour window yesterday');
+    });
+
+    it('does not email the code unless asked', async () => {
+      prisma.user.findUnique.mockResolvedValue(PENDING);
+
+      await service.reissueInvite(ADMIN, 'u-9', input);
+      expect(mail.sendStaffSetupEmail).not.toHaveBeenCalled();
+
+      await service.reissueInvite(ADMIN, 'u-9', { ...input, sendEmail: true });
+      expect(mail.sendStaffSetupEmail).toHaveBeenCalledWith(
+        PENDING.email,
+        expect.stringMatching(/^\d{6}$/),
+        120,
+      );
+    });
+
+    it('still succeeds when the optional email fails', async () => {
+      prisma.user.findUnique.mockResolvedValue(PENDING);
+      mail.sendStaffSetupEmail.mockRejectedValue(new Error('smtp down'));
+
+      const result = await service.reissueInvite(ADMIN, 'u-9', {
+        ...input,
+        sendEmail: true,
+      });
+
+      // The code is valid and on screen; only the second copy of it failed.
+      expect(result.setupCode).toMatch(/^\d{6}$/);
+      expect(result.emailed).toBe(false);
+      expect(result.emailError).toBe('smtp down');
+    });
+  });
 });

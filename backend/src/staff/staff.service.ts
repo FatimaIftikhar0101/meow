@@ -169,6 +169,120 @@ export class StaffService {
     };
   }
 
+  /**
+   * Issue a fresh setup code for an invitation nobody claimed.
+   *
+   * Without this an unclaimed invitation was a dead end. The code lives for two
+   * hours and is stored as a bcrypt hash, so once it expires there is nothing
+   * to read back and nothing to resend; `invite` refuses the address because an
+   * account already holds it; and the invitee cannot rescue themselves either,
+   * because `forgotPassword` returns early for an account with no password
+   * hash. A colleague who missed the window that afternoon had an account that
+   * could never be claimed by any route short of deleting the row.
+   *
+   * The expiry itself is worth keeping — the code is read out to somebody you
+   * are already talking to, and a grant that lingers for days is a worse
+   * trade. What was wrong was having no way to issue a second one.
+   *
+   * The guard that makes this safe is `passwordHash === null`. A reissue is
+   * only ever possible against an account that has never been used, so this
+   * can never be pointed at a working colleague to seize it: the moment a
+   * password exists the route refuses, and taking over a live account stays
+   * what it should be — a password reset that only the account holder's own
+   * inbox can complete.
+   */
+  async reissueInvite(
+    actor: AuthUser,
+    targetId: string,
+    input: { reason: string; sendEmail?: boolean },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: targetId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (!isStaff(user.role)) {
+      throw new BadRequestException('That account is not a staff account');
+    }
+
+    if (user.passwordHash !== null) {
+      throw new ConflictException(
+        'That invitation has already been claimed — send a password reset instead',
+      );
+    }
+
+    // A deactivated invitation is not a delivery problem, and handing out a
+    // code that the sign-in would then refuse only wastes somebody's morning.
+    if (user.suspended) {
+      throw new ConflictException(
+        'That account is deactivated — reactivate it before issuing a new code',
+      );
+    }
+
+    const setupCode = generateCode();
+    const codeHash = await hashCode(setupCode);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          pwResetToken: codeHash,
+          pwResetExpires: new Date(Date.now() + INVITE_TTL_MS),
+          // The old code's failed attempts do not count against the new one,
+          // for the same reason `forgotPassword` clears them: somebody who
+          // fumbled the last code five times could otherwise never use a
+          // fresh one either.
+          pwResetAttempts: 0,
+        },
+      });
+      await writeStaffAudit(tx, {
+        actor: { id: actor.id, email: actor.email },
+        action: 'staff.invite.reissue',
+        entityType: 'user',
+        entityId: user.id,
+        // The account did not change — only the credential behind it did. The
+        // pairing records that the target was, and still is, an unclaimed
+        // invitation, which is the fact that made this permissible.
+        before: { email: user.email, role: user.role, pending: true },
+        after: { email: user.email, role: user.role, pending: true },
+        reason: input.reason,
+      });
+    });
+
+    const expiresInMinutes = INVITE_TTL_MS / 60000;
+
+    // Outside the transaction and never rethrown, same as `invite`: the code is
+    // already valid and already in the response, so a mail failure is a failed
+    // second copy, not a failed reissue.
+    let emailed = false;
+    let emailError: string | null = null;
+    if (input.sendEmail) {
+      try {
+        await this.mail.sendStaffSetupEmail(
+          user.email,
+          setupCode,
+          expiresInMinutes,
+        );
+        emailed = true;
+      } catch (err) {
+        emailError =
+          err instanceof Error ? err.message : 'The email could not be sent.';
+        this.logger.warn(
+          `Setup code email to ${user.email} failed: ${emailError}`,
+        );
+      }
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      pending: true,
+      setupCode,
+      expiresInMinutes,
+      emailed,
+      emailError,
+    };
+  }
+
   async assignRole(
     actor: AuthUser,
     targetId: string,

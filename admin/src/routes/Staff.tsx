@@ -4,7 +4,10 @@ import { Alert, Button, Card, Empty, Field, PageHeader, Pill } from '../componen
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { ROLE_LABEL, type StaffRole } from '../lib/permissions';
-import { useAskReason } from '../components/ReasonDialog';
+import {
+  useAskReason,
+  useAskReasonWithOption,
+} from '../components/ReasonDialog';
 import { LIMITS } from '../lib/limits';
 
 interface StaffMember {
@@ -31,6 +34,7 @@ const ROLES: StaffRole[] = ['support', 'operations', 'compliance', 'admin'];
 export default function Staff() {
   const qc = useQueryClient();
   const askReason = useAskReason();
+  const askReasonWithOption = useAskReasonWithOption();
   const { profile, can } = useAuth();
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +61,50 @@ export default function Staff() {
     onSuccess: invalidate,
     onError: (e) => setError(errorMessage(e, 'Could not change that account.')),
   });
+
+  /**
+   * A reissued code lands in the same card the invitation used, above the
+   * list. It is shown once and cannot be looked up again, so it must not be
+   * something a stray click dismisses — hence a panel the admin closes by
+   * saying they have passed it on, rather than a toast.
+   */
+  const [reissued, setReissued] = useState<InviteResult | null>(null);
+
+  const reissue = useMutation({
+    mutationFn: async (v: { id: string; reason: string; sendEmail: boolean }) =>
+      (
+        await api.post<InviteResult>(`/staff/${v.id}/reissue`, {
+          reason: v.reason,
+          sendEmail: v.sendEmail,
+        })
+      ).data,
+    onSuccess: (result) => {
+      setReissued(result);
+      invalidate();
+    },
+    onError: (e) =>
+      setError(errorMessage(e, 'Could not issue a new setup code.')),
+  });
+
+  async function onReissue(member: StaffMember) {
+    const answer = await askReasonWithOption({
+      question: `Why does ${member.email} need a new setup code? The old one stops working immediately.`,
+      confirmLabel: 'Issue new code',
+      // Defaulted on, unlike the invitation. An invite is usually created with
+      // the new colleague in the room; a reissue almost never is — the reason
+      // there is a second code at all is that the first one did not reach
+      // somebody in time.
+      checkbox: { label: 'Email a copy as well', defaultChecked: true },
+    });
+    if (!answer) return;
+    setError(null);
+    setReissued(null);
+    reissue.mutate({
+      id: member.id,
+      reason: answer.reason,
+      sendEmail: answer.checked,
+    });
+  }
 
   async function onChangeRole(member: StaffMember, role: StaffRole) {
     const reason = await askReason({
@@ -102,6 +150,14 @@ export default function Staff() {
 
       {inviting && (
         <InviteForm onInvited={invalidate} onClose={() => setInviting(false)} />
+      )}
+
+      {reissued && (
+        <InviteCode
+          result={reissued}
+          reissue
+          onClose={() => setReissued(null)}
+        />
       )}
 
       <Card>
@@ -163,14 +219,30 @@ export default function Staff() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {can('staff.write') && !isSelf && (
-                        <button
-                          onClick={() => void onToggleActive(m)}
-                          className="text-xs text-ink-muted underline hover:text-ink"
-                        >
-                          {m.suspended ? 'Reactivate' : 'Deactivate'}
-                        </button>
-                      )}
+                      <div className="flex justify-end gap-3">
+                        {/* Only where it can do anything. A claimed account has
+                            a password, so the server refuses — offering the
+                            button anyway would just be an error waiting to
+                            happen. Suspended accounts must be reactivated
+                            first, for the same reason. */}
+                        {can('staff.write') && m.pending && !m.suspended && (
+                          <button
+                            onClick={() => void onReissue(m)}
+                            disabled={reissue.isPending}
+                            className="text-xs text-accent underline hover:text-accent-deep disabled:opacity-50"
+                          >
+                            Resend setup code
+                          </button>
+                        )}
+                        {can('staff.write') && !isSelf && (
+                          <button
+                            onClick={() => void onToggleActive(m)}
+                            className="text-xs text-ink-muted underline hover:text-ink"
+                          >
+                            {m.suspended ? 'Reactivate' : 'Deactivate'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -308,9 +380,12 @@ function InviteForm({
 function InviteCode({
   result,
   onClose,
+  reissue = false,
 }: {
   result: InviteResult;
   onClose: () => void;
+  /** Same card, different first sentence: nothing was created this time. */
+  reissue?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -327,10 +402,13 @@ function InviteCode({
   return (
     <Card className="mb-5 p-5">
       <h3 className="font-display text-lg text-ink">
-        Account created for {result.email}
+        {reissue
+          ? `New setup code for ${result.email}`
+          : `Account created for ${result.email}`}
       </h3>
       <p className="mt-1 text-sm text-ink-muted">
         Give them this code. It is shown once and cannot be looked up again.
+        {reissue && ' Any code issued earlier has stopped working.'}
       </p>
 
       <div className="my-5 flex items-center gap-4">

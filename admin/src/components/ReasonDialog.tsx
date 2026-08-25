@@ -59,13 +59,28 @@ interface AskOptions {
    * server's silently costs someone the end of their sentence.
    */
   maxLength?: number;
+  /**
+   * One extra yes/no the action needs, asked in the same breath as the reason.
+   *
+   * Deliberately at most one, and deliberately a checkbox. This is a reason
+   * dialog that tolerates a single rider — "and email them a copy" — not a
+   * general form builder. An action needing more than that has outgrown this
+   * component and should have a screen.
+   */
+  checkbox?: { label: string; defaultChecked?: boolean };
 }
 
-type Ask = (options: AskOptions) => Promise<string | null>;
+interface Answer {
+  reason: string;
+  /** The checkbox's final state, or false when none was offered. */
+  checked: boolean;
+}
 
-const ReasonContext = createContext<Ask | null>(null);
+type AskFull = (options: AskOptions) => Promise<Answer | null>;
 
-export function useAskReason(): Ask {
+const ReasonContext = createContext<AskFull | null>(null);
+
+function useAsk(): AskFull {
   const ask = useContext(ReasonContext);
   if (!ask) {
     throw new Error('useAskReason must be used inside <ReasonDialogProvider>');
@@ -73,19 +88,41 @@ export function useAskReason(): Ask {
   return ask;
 }
 
+/**
+ * The common case: just the reason, resolving to the text or null.
+ *
+ * Kept as its own hook so the nine call sites that ask nothing else are not
+ * made to unwrap an object for a field they will never read.
+ */
+export function useAskReason(): (
+  options: AskOptions,
+) => Promise<string | null> {
+  const ask = useAsk();
+  return useCallback(
+    async (options) => (await ask(options))?.reason ?? null,
+    [ask],
+  );
+}
+
+/** For the one action that also needs the rider answered. */
+export function useAskReasonWithOption(): AskFull {
+  return useAsk();
+}
+
 export function ReasonDialogProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState<AskOptions | null>(null);
   const [text, setText] = useState('');
+  const [checked, setChecked] = useState(false);
   /**
    * The other half of the promise, parked until the person answers.
    *
    * A ref rather than state: resolving must not depend on a re-render having
    * happened, and replacing this value should never itself schedule one.
    */
-  const resolver = useRef<((value: string | null) => void) | null>(null);
+  const resolver = useRef<((value: Answer | null) => void) | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const ask = useCallback<Ask>((options) => {
+  const ask = useCallback<AskFull>((options) => {
     return new Promise((resolve) => {
       // Two dialogs at once should be impossible — every call site awaits —
       // but if one ever happened, the first caller must not be left hanging
@@ -93,15 +130,17 @@ export function ReasonDialogProvider({ children }: { children: ReactNode }) {
       resolver.current?.(null);
       resolver.current = resolve;
       setText('');
+      setChecked(options.checkbox?.defaultChecked ?? false);
       setOpen(options);
     });
   }, []);
 
-  const settle = useCallback((value: string | null) => {
+  const settle = useCallback((value: Answer | null) => {
     const resolve = resolver.current;
     resolver.current = null;
     setOpen(null);
     setText('');
+    setChecked(false);
     resolve?.(value);
   }, []);
 
@@ -149,7 +188,7 @@ export function ReasonDialogProvider({ children }: { children: ReactNode }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (valid) settle(trimmed);
+                if (valid) settle({ reason: trimmed, checked });
               }}
             >
               <textarea
@@ -162,7 +201,7 @@ export function ReasonDialogProvider({ children }: { children: ReactNode }) {
                   // two — but the common case is one line and a keypress.
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (valid) settle(trimmed);
+                    if (valid) settle({ reason: trimmed, checked });
                   }
                 }}
                 rows={3}
@@ -186,6 +225,18 @@ export function ReasonDialogProvider({ children }: { children: ReactNode }) {
                   </span>
                 )}
               </div>
+
+              {open.checkbox && (
+                <label className="mt-4 flex items-start gap-2.5 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => setChecked(e.target.checked)}
+                    className="mt-0.5 size-4 accent-accent"
+                  />
+                  {open.checkbox.label}
+                </label>
+              )}
 
               <div className="mt-4 flex justify-end gap-2">
                 <Button
