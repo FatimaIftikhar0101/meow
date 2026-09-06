@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { logout, setToken } from '@/lib/auth';
 import { BrandWordmark, BackLink } from '@/app/_components/Brand';
 import { ThemeToggleFull } from '@/app/_components/ThemeToggle';
+import { LIMITS } from '@/lib/limits';
 
 interface Profile {
   userId: string;
@@ -242,6 +243,7 @@ export default function ProfilePage() {
               <input
                 type="password"
                 required
+                maxLength={LIMITS.password}
                 value={pwForm.currentPassword}
                 onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })}
                 className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
@@ -253,6 +255,7 @@ export default function ProfilePage() {
                 type="password"
                 required
                 minLength={10}
+                maxLength={LIMITS.newPassword}
                 value={pwForm.newPassword}
                 onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })}
                 placeholder="Min 10 chars, with upper, lower, digit"

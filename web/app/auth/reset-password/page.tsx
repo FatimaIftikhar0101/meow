@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { BrandWordmark } from '@/app/_components/Brand';
+import { LIMITS } from '@/lib/limits';
 
 function ResetPasswordInner() {
   const params = useSearchParams();
@@ -107,6 +108,7 @@ function ResetPasswordInner() {
               type="password"
               required
               minLength={10}
+              maxLength={LIMITS.newPassword}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"

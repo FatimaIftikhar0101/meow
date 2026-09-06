@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { BrandWordmark } from '@/app/_components/Brand';
+import { LIMITS } from '@/lib/limits';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -78,6 +79,7 @@ export default function ForgotPasswordPage() {
                 <input
                   type="email"
                   required
+                  maxLength={LIMITS.email}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"

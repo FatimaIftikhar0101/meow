@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { BrandWordmark, BackLink } from '@/app/_components/Brand';
+import { LIMITS } from '@/lib/limits';
 
 interface Recipient {
   id: string;
@@ -162,6 +163,7 @@ export default function RecipientsPage() {
               <Field label="Full name">
                 <input
                   required
+                  maxLength={LIMITS.recipientName}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="John Doe"
@@ -194,6 +196,7 @@ export default function RecipientsPage() {
               </Field>
               <Field label="Bank name" optional>
                 <input
+                  maxLength={LIMITS.bankName}
                   value={form.bankName}
                   onChange={(e) => setForm({ ...form, bankName: e.target.value })}
                   placeholder="HBL, ICICI, BPI, …"
@@ -203,6 +206,7 @@ export default function RecipientsPage() {
               <Field label="Email" optional>
                 <input
                   type="email"
+                  maxLength={LIMITS.email}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="recipient@example.com"
@@ -211,6 +215,7 @@ export default function RecipientsPage() {
               </Field>
               <Field label="Phone" optional>
                 <input
+                  maxLength={LIMITS.phone}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+92 300 1234567"

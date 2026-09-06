@@ -7,6 +7,7 @@ import { GOOGLE_ENABLED, GOOGLE_AUTH_URL } from '@/lib/google';
 import { setToken } from '@/lib/auth';
 import { BrandWordmark } from '@/app/_components/Brand';
 import { WorldMap } from '@/app/_components/WorldMap';
+import { LIMITS } from '@/lib/limits';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -100,6 +101,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 required
+                maxLength={LIMITS.email}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
@@ -110,6 +112,7 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
+                maxLength={LIMITS.password}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-sm font-medium text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
