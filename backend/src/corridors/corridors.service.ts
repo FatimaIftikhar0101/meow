@@ -32,6 +32,25 @@ export class CorridorsService {
     return corridor;
   }
 
+  /**
+   * ── [LICENSED-INTEGRATION] Live FX rates ──────────────────────────────────
+   *
+   * The arithmetic here is production arithmetic: a base rate, a margin in
+   * basis points, a flat fee and a percentage fee, all in decimal so nothing
+   * rounds through a float. What is not production is where `baseRate` comes
+   * from — a column an administrator types into, which was last correct
+   * whenever they last typed it.
+   *
+   * Under a licence the rate comes from the payout partner or an FX feed, and
+   * gains two properties it does not have now: it expires, and it is quoted
+   * before it is used. A customer who is shown a rate must get that rate, so a
+   * quote has to be stored with a timestamp and honoured for a stated window
+   * even if the market moves — which means `Quote` becomes a row rather than a
+   * value computed twice, once for the screen and once at submission.
+   *
+   * `marginBps` stays exactly as it is. That is the business's spread and is
+   * nobody else's number.
+   */
   computeQuote(corridor: Corridor, sendAmount: Prisma.Decimal): AppliedQuote {
     if (
       sendAmount.lt(corridor.minSendAmount) ||

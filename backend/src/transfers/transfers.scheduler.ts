@@ -16,6 +16,30 @@ import { TransfersService } from './transfers.service';
  * concurrency, never let background work starve the API — outlives that
  * replacement, which is why it is worth getting right now.
  *
+ * ── [LICENSED-INTEGRATION] Payout partner ────────────────────────────────────
+ *
+ * This is where money actually leaves the business, and today nothing does: a
+ * timer moves a row through `sent -> in_transit -> delivered` on its own. Under
+ * a licence the tick stops driving transfers at all. It is replaced by
+ *
+ *   1. an outbound call to the partner when a transfer reaches `sent`, taking
+ *      the beneficiary details and returning the partner's own reference, and
+ *   2. a signed webhook from the partner that calls `advance()` when *they*
+ *      settle it.
+ *
+ * `advance()` and its compare-and-set on the current status stay exactly as
+ * they are — that is what makes a webhook safe to receive twice, which every
+ * partner will do. What must be added alongside the webhook route is signature
+ * verification, replay rejection, and a stored partner reference on Transfer so
+ * a payout can be reconciled against their statement.
+ *
+ * The timer does not disappear entirely. It becomes the reaper for transfers
+ * the partner never called back about, which is what `?aging=true` in the back
+ * office already surfaces.
+ *
+ * Candidates for Canada -> PK/IN: Wise Platform, Thunes, Nium, Terrapay. All of
+ * them require the licence below before they will issue production credentials.
+ *
  * ── The ceiling this used to have ────────────────────────────────────────────
  *
  * The batch was hardcoded at 50 and processed strictly one at a time, awaiting

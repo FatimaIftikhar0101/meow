@@ -25,6 +25,32 @@ export class ComplianceService {
     };
   }
 
+  /**
+   * ── [LICENSED-INTEGRATION] Identity verification (KYC) ────────────────────
+   *
+   * Today this decides on one field: it passes anybody whose country is not on
+   * `HIGH_RISK_COUNTRIES` and fails everybody else, instantly, with no document
+   * and no human. That is why every record it writes is stamped
+   * `provider: 'mock'` — so nothing in the database can later be mistaken for a
+   * verification that actually happened.
+   *
+   * Under a licence this becomes a call to an IDV provider (Onfido, Sumsub,
+   * Persona, Trulioo) and stops being synchronous. The real sequence is: create
+   * a verification session, hand the customer to the provider's SDK to
+   * photograph a document and their face, then wait for a signed webhook with
+   * the decision. `status` and `requirePassed` already treat KYC as a stored
+   * state to be looked up rather than a check to be run, so they do not change.
+   *
+   * The `KycRecord` schema is already shaped for this: `provider` and
+   * `providerRef` exist precisely so a real decision can be traced back to the
+   * provider's own case file during an audit. What must be added is the
+   * `pending` state actually meaning "waiting on the provider" rather than
+   * "nobody has pressed the button", document retention against the retention
+   * policy, and re-verification when a document expires.
+   *
+   * `adminOverride` below is already the licensed-world shape: a human can
+   * overturn the provider, and it is recorded as an override with a reason.
+   */
   async verify(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');

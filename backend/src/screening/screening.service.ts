@@ -103,6 +103,28 @@ export class ScreeningService {
    * refusing to record the movement because a heuristic query timed out would
    * be strictly worse than the missing alert.
    */
+  /**
+   * ── [LICENSED-INTEGRATION] Sanctions and PEP screening ────────────────────
+   *
+   * What runs here is rules over our own data: velocity, structuring, unusual
+   * destinations, and a blocklist this business maintains by hand. Those rules
+   * are real and stay. What is absent is the part a licence makes mandatory —
+   * matching every sender and beneficiary against the published sanctions and
+   * politically-exposed-person lists (OFAC SDN, the UN Consolidated List, the
+   * Canadian SEMA and Justice lists, and PEP data from a vendor such as
+   * ComplyAdvantage, Refinitiv World-Check or Dow Jones).
+   *
+   * That is not a rule we can write. It needs a licensed data feed, fuzzy name
+   * matching that tolerates transliteration between Urdu, Hindi and Latin
+   * script, and a documented false-positive procedure — a name match is an
+   * alert for a human, never an automatic block.
+   *
+   * The seam is `evaluate()` below: a list-match becomes another alert source
+   * feeding the same `ComplianceAlert` table and the same adjudication queue
+   * the back office already has. Screening must also move from transfer time to
+   * onboarding *and* transfer time, and re-run when the lists change, since
+   * somebody who was clear last month may not be today.
+   */
   async screenTransfer(transfer: {
     id: string;
     userId: string;
