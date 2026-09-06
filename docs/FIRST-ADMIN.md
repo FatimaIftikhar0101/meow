@@ -152,10 +152,15 @@ organisation locks itself out of its own back office.
 sign-in screen. A code is emailed. This is the one staff flow that does use
 email, because at that point there may be nobody available to hand a code over.
 
-**No access to the mailbox either:** another administrator cannot currently
-re-issue a setup code — that is a known gap (backlog #32). Until it is built,
-the recovery path is the `--force` flag on the bootstrap command, run by whoever
-manages the deployment.
+**No access to the mailbox either:** any administrator can issue a fresh setup
+code. Open **Staff & roles**, find the row marked *Invite not claimed*, and
+choose **Resend setup code**. It asks for a reason, records the reissue against
+your name, and offers to email a copy as well as showing the code on screen.
+The old code stops working immediately.
+
+This works only on an invitation nobody has claimed yet. Once an account has a
+password, the way back in is **Forgot password**, which only that person's own
+mailbox can complete.
 
 **Two-factor device lost:** the recovery codes shown once at enrolment. They are
 meant to be printed or put in a password manager, not left on the phone that is
