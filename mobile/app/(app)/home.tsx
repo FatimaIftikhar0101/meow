@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { CatMark } from '../../components/CatMark';
+import { Logo } from '../../components/Logo';
 import { CorridorCard } from '../../components/CorridorCard';
 import { Avatar, StatusPill } from '../../components/StatusPill';
 import { UpdateBanner } from '../../components/UpdateNotice';
@@ -233,7 +233,7 @@ export default function Home() {
             the thing people open the app for — is above the fold. */}
         <View style={{ paddingHorizontal: 16 }}>
           <Row gap={11}>
-            <CatMark size={34} eyesClosed={part === 'night'} />
+            <Logo size={34} />
             <View style={{ flex: 1 }}>
               <Kicker>{GREETING[part]}</Kicker>
               <Title size={19} numberOfLines={1} style={{ marginTop: 2 }}>

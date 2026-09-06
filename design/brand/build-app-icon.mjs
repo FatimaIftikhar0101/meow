@@ -183,6 +183,26 @@ const targets = [
     make: () => place(1024, 0.86, { ground: GROUND }),
     note: 'source for `npx tauri icon`',
   },
+
+  // ── The mark as it appears *inside* the products ────────────────────────
+  // Transparent and full-bleed, because these sit on whatever ground the
+  // screen already has — a white plate baked into the file would show as a
+  // square against the dark theme.
+  {
+    file: 'mobile/assets/logo.png',
+    make: () => place(512, 1),
+    note: 'in-app mark (welcome, greeting, home header)',
+  },
+  {
+    file: 'admin/public/logo.png',
+    make: () => place(256, 1),
+    note: 'back-office sidebar and sign-in',
+  },
+  {
+    file: 'admin/public/favicon.png',
+    make: () => place(64, 1, { ground: GROUND }),
+    note: 'panel browser tab',
+  },
 ];
 
 for (const t of targets) {

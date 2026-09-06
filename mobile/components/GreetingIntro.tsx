@@ -4,7 +4,7 @@ import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, View } from
 import Svg, { Circle, Defs, G, Mask, Path, Rect } from 'react-native-svg';
 import { GREETING, dayPartFor } from '../lib/format';
 import { fonts, scenesFor, useTheme, type DayPart } from '../theme/tokens';
-import { CatMark } from './CatMark';
+import { Logo } from './Logo';
 import { Body, Title } from './ui';
 
 /**
@@ -185,7 +185,7 @@ export function GreetingIntro({ name }: { name: string }) {
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20 }}
       >
         <Animated.View style={{ transform: [{ translateY: rise }] }}>
-          <CatMark size={76} eyesClosed={part === 'night'} />
+          <Logo size={76} />
         </Animated.View>
 
         <Animated.View style={{ alignItems: 'center', transform: [{ translateY: rise }] }}>

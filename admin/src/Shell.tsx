@@ -29,9 +29,10 @@ export default function Shell() {
     <div className="flex h-full">
       <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-inset">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="flex size-8 items-center justify-center rounded-full bg-roundel">
-            <span className="font-display text-sm text-gold">M</span>
-          </span>
+          {/* The product's own mark. No `bg-roundel` disc behind it any more:
+              the artwork carries its own ring, and a second disc under it read
+              as a badge stuck on a badge. */}
+          <img src="/logo.png" alt="" width={32} height={32} className="size-8 shrink-0" />
           <span className="font-display text-base text-ink">Back office</span>
         </div>
 

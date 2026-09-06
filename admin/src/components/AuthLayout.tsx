@@ -72,9 +72,7 @@ export function AuthLayout({
               mark moves into the form panel and the colour steps aside. */}
           <div className="relative hidden bg-gradient-to-b from-slab to-slab-deep p-10 md:flex md:flex-col md:justify-between md:rounded-r-[3.5rem] lg:rounded-r-[4.5rem]">
             <div className="flex items-center gap-2.5">
-              <span className="flex size-9 items-center justify-center rounded-full bg-roundel">
-                <span className="font-display text-base text-gold">M</span>
-              </span>
+              <img src="/logo.png" alt="" width={36} height={36} className="size-9 shrink-0" />
               <span className="font-display text-base text-on-slab">Meow</span>
             </div>
 
@@ -108,9 +106,13 @@ export function AuthLayout({
           {/* ── The form ─────────────────────────────────────────────────── */}
           <div className="flex flex-col justify-center p-8 sm:p-12">
             {/* Only when the slab is not there to carry it. */}
-            <div className="mb-6 flex size-10 items-center justify-center rounded-full bg-roundel md:hidden">
-              <span className="font-display text-lg text-gold">M</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt=""
+              width={40}
+              height={40}
+              className="mb-6 size-10 md:hidden"
+            />
 
             {title && (
               <header className="mb-6">

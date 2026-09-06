@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
-import { BrandLockup, CatMark } from '../../components/CatMark';
+import { BrandLockup } from '../../components/CatMark';
+import { Logo } from '../../components/Logo';
 import { Body, Button, Title } from '../../components/ui';
 import { errorMessage } from '../../lib/api';
 import { googleEnabled, useAuth } from '../../lib/AuthContext';
@@ -77,7 +78,7 @@ function CorridorArc() {
         }}
         pointerEvents="none"
       >
-        <CatMark size={MARK} />
+        <Logo size={MARK} accessibilityLabel="Meow" />
       </View>
     </View>
   );
