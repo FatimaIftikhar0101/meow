@@ -51,6 +51,10 @@ export const PERMISSIONS = [
 
   'approval.request',
   'approval.decide',
+
+  'support.ticket.manage',
+  'faq.draft',
+  'faq.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

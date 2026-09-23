@@ -154,6 +154,67 @@ export interface Notification {
   createdAt: string;
 }
 
+/* ── Customer support ─────────────────────────────────────────────────── */
+
+export type SupportTicketStatus = 'open' | 'in_progress' | 'resolved';
+
+export interface SupportFaq {
+  id: string;
+  question: string;
+  answer: string;
+  sortOrder: number;
+  updatedAt: string;
+}
+
+export interface SupportCategory {
+  id: string;
+  name: string;
+  description: string;
+  sortOrder?: number;
+  faqs: SupportFaq[];
+}
+
+export interface SupportTransferLink {
+  id: string;
+  recipientName: string;
+  recipientCountry: string;
+  sendAmount: string;
+  sendCurrency: string;
+  receiveAmount: string | null;
+  receiveCurrency: string;
+  status: TransferStatus;
+  createdAt: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  sender: 'customer' | 'staff';
+  body: string;
+  createdAt: string;
+}
+
+export interface SupportTicketEvent {
+  id: string;
+  kind: 'created' | 'claimed' | 'unclaimed' | 'resolved' | 'reopened';
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  status: SupportTicketStatus;
+  lastActivityAt: string;
+  lastCustomerActivityAt: string;
+  resolvedAt: string | null;
+  createdAt: string;
+  category: { id: string; name: string; description: string };
+  transfer: SupportTransferLink | null;
+  assignee: { id: string; email: string } | null;
+  latestMessage?: SupportMessage | null;
+  messages?: SupportMessage[];
+  events?: SupportTicketEvent[];
+}
+
 /**
  * Mirrors AuthService.listSessions exactly. Note there is no `expiresAt` —
  * the column exists on the model but the serialiser does not expose it, so the

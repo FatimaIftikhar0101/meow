@@ -73,7 +73,6 @@ function Journey({ transfer }: { transfer: TransferDetail }) {
           aspect={MAP_ASPECT}
           markSize={26}
           showMark={!failed}
-          eyesClosed={delivered}
         />
       </View>
 

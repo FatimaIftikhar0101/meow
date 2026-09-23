@@ -145,6 +145,7 @@ export default function AppLayout() {
     /^\/activity\/[^/]+$/.test(pathname) ||
     pathname.startsWith('/wallet/fund') ||
     pathname.startsWith('/recipients/') ||
+    pathname.startsWith('/profile/support/') ||
     // A six-digit code is a single task with a back arrow; leaving the tabs up
     // invites wandering off halfway through one that expires in 15 minutes.
     pathname.startsWith('/verify-email');

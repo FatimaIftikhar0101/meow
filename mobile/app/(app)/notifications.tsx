@@ -41,12 +41,18 @@ export default function Notifications() {
 
   const openTarget = (n: Notification) => {
     const transferId = n.metadata?.transferId;
+    const supportTicketId = n.metadata?.supportTicketId;
     void api.post(`/notifications/${n.id}/read`).then(refreshUnread).catch(() => {});
     setList((cur) => cur?.map((x) => (x.id === n.id ? { ...x, read: true } : x)) ?? cur);
     if (typeof transferId === 'string') {
       router.push({
         pathname: '/(app)/activity/[id]',
         params: { id: transferId, from: 'notifications' },
+      });
+    } else if (typeof supportTicketId === 'string') {
+      router.push({
+        pathname: '/(app)/profile/support/[id]',
+        params: { id: supportTicketId, from: 'notifications' },
       });
     }
   };

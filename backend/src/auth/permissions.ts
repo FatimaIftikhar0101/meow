@@ -65,16 +65,29 @@ export const PERMISSIONS = [
   // Four-eyes
   'approval.request',
   'approval.decide',
+
+  // Customer support and the published Help Centre. Support agents can work
+  // conversations and draft guidance; publishing customer-facing content is
+  // intentionally an administrator responsibility.
+  'support.ticket.manage',
+  'faq.draft',
+  'faq.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-const SUPPORT: Permission[] = [
+const SUPPORT_BASE: Permission[] = [
   'customer.read',
   'customer.note',
   'kyc.read',
   'transfer.read',
   'audit.read',
+];
+
+const SUPPORT: Permission[] = [
+  ...SUPPORT_BASE,
+  'support.ticket.manage',
+  'faq.draft',
 ];
 
 /**
@@ -83,7 +96,7 @@ const SUPPORT: Permission[] = [
  * which they do not have.
  */
 const OPERATIONS: Permission[] = [
-  ...SUPPORT,
+  ...SUPPORT_BASE,
   'transfer.retry',
   'transfer.cancel',
   'ledger.read',
@@ -91,7 +104,7 @@ const OPERATIONS: Permission[] = [
 ];
 
 const COMPLIANCE: Permission[] = [
-  ...SUPPORT,
+  ...SUPPORT_BASE,
   'customer.pii_full',
   'customer.suspend',
   'kyc.decide',

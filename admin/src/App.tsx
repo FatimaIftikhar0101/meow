@@ -19,6 +19,9 @@ import SignIn from './routes/SignIn';
 import Staff from './routes/Staff';
 import TransferDetail from './routes/TransferDetail';
 import Transfers from './routes/Transfers';
+import Support from './routes/Support';
+import SupportDetail from './routes/SupportDetail';
+import HelpCentre from './routes/HelpCentre';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +115,13 @@ function Gate() {
       element: <Approvals />,
       permission: 'approval.request',
     },
+    { path: '/support', element: <Support />, permission: 'support.ticket.manage' },
+    {
+      path: '/support/:id',
+      element: <SupportDetail />,
+      permission: 'support.ticket.manage',
+    },
+    { path: '/help-centre', element: <HelpCentre />, permission: 'faq.draft' },
     { path: '/audit', element: <Audit />, permission: 'audit.read' },
     { path: '/staff', element: <Staff />, permission: 'staff.read' },
   ];

@@ -53,6 +53,11 @@ async function seedLegacy(db: PGlite) {
     VALUES ('u-1','a@meow.test','x',NOW(),NOW());
     INSERT INTO "Wallet" ("id","userId","currency","createdAt")
     VALUES ('w-1','u-1','CAD',NOW());
+    -- A pre-existing customer note is deliberately present when the later
+    -- support migration runs. New help tables must not disturb evidence staff
+    -- already recorded against an account.
+    INSERT INTO "CustomerNote" ("id","customerId","authorId","body","createdAt")
+    VALUES ('note-1','u-1','u-1','Existing customer context',NOW());
     INSERT INTO "Corridor"
       ("id","fromCurrency","toCurrency","fromCountry","toCountry",
        "baseRate","minSendAmount","maxSendAmount")
@@ -102,6 +107,23 @@ describe('double-entry migration', () => {
     });
     afterAll(async () => {
       await db.close();
+    });
+
+    it('adds Help Centre data without disturbing existing customer notes', async () => {
+      const [notes, categories, faqs] = await Promise.all([
+        db.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM "CustomerNote" WHERE "id"='note-1'`,
+        ),
+        db.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM "SupportCategory" WHERE "active"=true`,
+        ),
+        db.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM "SupportFaq" WHERE "status"='published'`,
+        ),
+      ]);
+      expect(notes.rows[0].n).toBe(1);
+      expect(categories.rows[0].n).toBe(6);
+      expect(faqs.rows[0].n).toBeGreaterThanOrEqual(12);
     });
 
     it('keeps the wallet id, so no entry has to be rewritten', async () => {

@@ -4,21 +4,14 @@ import React from 'react';
 /**
  * The Meow mark, as supplied by the client.
  *
- * This replaces `CatMark` — the drawn gold cat — everywhere the mark stands in
- * for the brand: the welcome screen, the greeting, and the home header. The
- * artwork is a photograph, so unlike the vector it cannot be redrawn per size;
- * it is one 512px source scaled down, which covers a 76pt placement at 3x
- * density with room to spare.
+ * This replaces `CatMark` — the drawn gold cat — wherever the photographic
+ * brand mark is wanted: the welcome screen, greeting, home header, and map
+ * transfer marker. The artwork is a photograph, so unlike the vector it cannot
+ * be redrawn per size; it is one 512px source scaled down, which covers a 76pt
+ * placement at 3x density with room to spare.
  *
- * `CatMark` has deliberately not been deleted. It still draws the marker that
- * rides the corridor arc in `WorldMap`, at 22pt, where this artwork would be an
- * orange smudge — and where the mark is doing a map pin's job rather than a
- * logo's. Two marks in one app is normally a mistake; this is the case where
- * the small one is a different instrument, not a smaller copy of the same one.
- *
- * What is lost in the swap is `eyesClosed`: the drawn cat shut its eyes after
- * dark, on the home header and in the greeting. A photograph cannot, so the
- * night state is now carried by the copy and the scheme alone.
+ * `CatMark` remains available for legacy lockups, but map markers now use this
+ * exact asset so the brand has one recognisable cat across the client.
  */
 export function Logo({
   size,

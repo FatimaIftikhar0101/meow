@@ -83,6 +83,12 @@ model User {
   casesAbout         ComplianceCase[]  @relation("CasesAbout")
   casesOpened        ComplianceCase[]  @relation("CasesOpened")
   casesClosed        ComplianceCase[]  @relation("CasesClosed")
+  supportTickets     SupportTicket[]   @relation("SupportTicketsByCustomer")
+  assignedTickets    SupportTicket[]   @relation("SupportTicketsAssigned")
+  supportMessages    SupportMessage[]  @relation("SupportMessagesByAuthor")
+  supportEvents      SupportTicketEvent[] @relation("SupportEventsByActor")
+  faqDrafts          SupportFaq[]      @relation("FaqDraftedBy")
+  faqPublications    SupportFaq[]      @relation("FaqPublishedBy")
 }
 
 /// What support learned that no other table records.
@@ -273,6 +279,125 @@ model CustomerNote {
   /// The note list is always "this customer, newest first" — one index serves
   /// the only query there is.
   @@index([customerId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Customer support — published help plus authenticated conversations
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SupportCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  faqs    SupportFaq[]
+  tickets SupportTicket[]
+
+  @@index([active, sortOrder])
+}
+
+model SupportFaq {
+  id            String           @id @default(uuid())
+  categoryId    String
+  question      String
+  answer        String
+  sortOrder     Int              @default(0)
+  status        SupportFaqStatus @default(draft)
+  createdById   String?
+  publishedById String?
+  publishedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  category    SupportCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy   User?           @relation("FaqDraftedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy User?           @relation("FaqPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  @@index([categoryId, status, sortOrder])
+}
+
+enum SupportFaqStatus {
+  draft
+  published
+  archived
+}
+
+model SupportTicket {
+  id             String              @id @default(uuid())
+  customerId     String
+  categoryId     String
+  transferId     String?
+  subject        String
+  status         SupportTicketStatus @default(open)
+  assigneeId     String?
+  lastCustomerActivityAt DateTime    @default(now())
+  lastActivityAt DateTime            @default(now())
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  customer User            @relation("SupportTicketsByCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  category SupportCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transfer Transfer?       @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  assignee User?           @relation("SupportTicketsAssigned", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages SupportMessage[]
+  events   SupportTicketEvent[]
+
+  @@index([customerId, lastActivityAt])
+  @@index([status, assigneeId, lastCustomerActivityAt])
+  @@index([categoryId, lastActivityAt])
+  @@index([transferId])
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress
+  resolved
+}
+
+model SupportMessage {
+  id        String               @id @default(uuid())
+  ticketId  String
+  authorId  String
+  sender    SupportMessageSender
+  body      String
+  createdAt DateTime             @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  author User          @relation("SupportMessagesByAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+}
+
+enum SupportMessageSender {
+  customer
+  staff
+}
+
+model SupportTicketEvent {
+  id        String                 @id @default(uuid())
+  ticketId  String
+  actorId   String?
+  kind      SupportTicketEventKind
+  createdAt DateTime               @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor  User?         @relation("SupportEventsByActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+}
+
+enum SupportTicketEventKind {
+  created
+  claimed
+  unclaimed
+  resolved
+  reopened
 }
 
 enum UserRole {
@@ -470,6 +595,7 @@ model Transfer {
   timeline       TransferEvent[]
   ledgerEntries  LedgerEntry[]
   ledgerPostings LedgerPosting[]
+  supportTickets SupportTicket[]
 
   @@index([userId])
   @@index([recipientId])

@@ -1,9 +1,18 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import Svg, { Circle, G, Path } from 'react-native-svg';
+import Svg, { Circle, G, Image as SvgImage, Path, Rect } from 'react-native-svg';
 import { useTheme } from '../theme/tokens';
-import { CatMark } from './CatMark';
-import { COUNTRY_PATH, LAND_PATH, MAP_H, MAP_W } from './worldLand.data';
+import { Logo } from './Logo';
+import { COUNTRY_PATH, MAP_H, MAP_W } from './worldLand.data';
+
+/**
+ * Natural Earth I with Shaded Relief and Water, bundled at 2000×1000.
+ *
+ * It shares the equirectangular 2:1 geography of the vector coordinates below,
+ * so cropping the route does not move the physical basemap underneath its pins.
+ * See assets/maps/README.md for source and licence details.
+ */
+const PHYSICAL_BASEMAP = require('../assets/maps/natural-earth-50m.jpg');
 
 /**
  * The corridor drawn on the real world.
@@ -124,7 +133,6 @@ export function WorldMap({
   aspect = 3.4,
   showMark = true,
   markSize = 22,
-  eyesClosed = false,
   onSlab = true,
 }: {
   fromCountry?: string;
@@ -136,7 +144,6 @@ export function WorldMap({
   aspect?: number;
   showMark?: boolean;
   markSize?: number;
-  eyesClosed?: boolean;
   /** Drawn on a dark slab (washes of white) rather than on the white canvas. */
   onSlab?: boolean;
 }) {
@@ -198,12 +205,13 @@ export function WorldMap({
 
   const t = Math.max(0, Math.min(1, progress));
 
-  const landFill = onSlab ? 'rgba(255,255,255,0.10)' : colors.inset;
-  const landEdge = onSlab ? 'rgba(255,255,255,0.16)' : colors.line;
-  const hiFill = onSlab ? 'rgba(255,255,255,0.26)' : colors.lineStrong;
+  const endpointFill = onSlab ? 'rgba(255,255,255,0.10)' : colors.accentSoft;
+  const endpointEdge = onSlab ? 'rgba(255,255,255,0.48)' : colors.accent;
   const route = onSlab ? 'rgba(255,255,255,0.30)' : colors.lineStrong;
   const flown = onSlab ? colors.onSlab : colors.accent;
   const pin = onSlab ? colors.onSlab : colors.accent;
+  const mapShade = onSlab ? colors.slabDeep : colors.card;
+  const mapShadeOpacity = onSlab ? 0.46 : 0.16;
 
   /** Whole world, centred, when we cannot honestly draw a route. */
   if (!view) {
@@ -215,7 +223,23 @@ export function WorldMap({
           viewBox={`0 0 ${MAP_W} ${MAP_H}`}
           preserveAspectRatio="xMidYMid slice"
         >
-          <Path d={LAND_PATH} fill={landFill} stroke={landEdge} strokeWidth={0.5} />
+          <Rect x={0} y={0} width={MAP_W} height={MAP_H} fill={mapShade} />
+          <SvgImage
+            href={PHYSICAL_BASEMAP}
+            x={0}
+            y={0}
+            width={MAP_W}
+            height={MAP_H}
+            preserveAspectRatio="none"
+          />
+          <Rect
+            x={0}
+            y={0}
+            width={MAP_W}
+            height={MAP_H}
+            fill={mapShade}
+            opacity={mapShadeOpacity}
+          />
         </Svg>
       </View>
     );
@@ -226,13 +250,46 @@ export function WorldMap({
   return (
     <View style={{ width: '100%', aspectRatio: aspect }}>
       <Svg width="100%" height="100%" viewBox={`${minX} ${minY} ${w} ${h}`}>
-        {/* Every landmass, merged — one path, no internal borders to read as
-            noise at this size. */}
-        <Path d={LAND_PATH} fill={landFill} stroke={landEdge} strokeWidth={0.5} />
+        {/* The packaged physical map keeps the route view fully offline. Its
+            2:1 equirectangular frame is deliberately the same 1000×500 space
+            used by project(), so the dynamically cropped texture, pins, and
+            curve remain locked together. */}
+        <Rect x={0} y={0} width={MAP_W} height={MAP_H} fill={mapShade} />
+        <SvgImage
+          href={PHYSICAL_BASEMAP}
+          x={0}
+          y={0}
+          width={MAP_W}
+          height={MAP_H}
+          preserveAspectRatio="none"
+        />
+        <Rect
+          x={0}
+          y={0}
+          width={MAP_W}
+          height={MAP_H}
+          fill={mapShade}
+          opacity={mapShadeOpacity}
+        />
 
-        {/* The two countries this corridor actually joins, picked out. */}
-        {COUNTRY_PATH[fromCode] && <Path d={COUNTRY_PATH[fromCode]} fill={hiFill} />}
-        {COUNTRY_PATH[toCode] && <Path d={COUNTRY_PATH[toCode]} fill={hiFill} />}
+        {/* The two countries this corridor actually joins, picked out without
+            washing out the land-cover detail underneath. */}
+        {COUNTRY_PATH[fromCode] && (
+          <Path
+            d={COUNTRY_PATH[fromCode]}
+            fill={endpointFill}
+            stroke={endpointEdge}
+            strokeWidth={0.7}
+          />
+        )}
+        {COUNTRY_PATH[toCode] && (
+          <Path
+            d={COUNTRY_PATH[toCode]}
+            fill={endpointFill}
+            stroke={endpointEdge}
+            strokeWidth={0.7}
+          />
+        )}
 
         {/* The whole route, then the portion already flown drawn by dashing the
             same path so the two cannot diverge. */}
@@ -275,7 +332,7 @@ export function WorldMap({
           }}
           pointerEvents="none"
         >
-          <CatMark size={markSize} eyesClosed={eyesClosed} roundel />
+          <Logo size={markSize} accessibilityLabel="Meow transfer marker" />
         </View>
       )}
     </View>

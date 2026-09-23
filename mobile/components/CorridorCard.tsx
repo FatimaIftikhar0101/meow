@@ -57,13 +57,20 @@ export function CorridorCard({
   balance,
   balanceCurrency,
   live = true,
+  mapFromCountry,
+  mapToCountry,
 }: {
   corridor: Corridor | null;
   balance: string | null;
   balanceCurrency: string;
   live?: boolean;
+  /** The route the map should depict; pricing remains bound to `corridor`. */
+  mapFromCountry?: string;
+  mapToCountry?: string;
 }) {
   const { colors } = useTheme();
+  const fromCountry = mapFromCountry ?? corridor?.fromCountry ?? 'CA';
+  const toCountry = mapToCountry ?? corridor?.toCountry ?? 'PK';
   /**
    * The displayed rate is the *applied* rate, not the corridor's base rate:
    * base × (10000 − marginBps) / 10000, exactly as CorridorsService.computeQuote
@@ -106,14 +113,14 @@ export function CorridorCard({
           route itself. */}
       <View style={{ marginTop: 10 }}>
         <WorldMap
-          fromCountry={corridor?.fromCountry ?? 'CA'}
-          toCountry={corridor?.toCountry ?? 'PK'}
+          fromCountry={fromCountry}
+          toCountry={toCountry}
           progress={0.5}
           aspect={MAP_ASPECT}
           markSize={24}
         />
-        <EndLabel code={corridor?.fromCountry ?? 'CA'} align="left" />
-        <EndLabel code={corridor?.toCountry ?? 'PK'} align="right" />
+        <EndLabel code={fromCountry} align="left" />
+        <EndLabel code={toCountry} align="right" />
       </View>
 
       <View style={{ alignItems: 'center', marginTop: 10 }}>

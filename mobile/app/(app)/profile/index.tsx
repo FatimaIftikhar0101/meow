@@ -222,6 +222,12 @@ export default function Profile() {
               hint="Earn when a friend's first transfer lands"
               onPress={() => router.push('/(app)/referrals')}
             />
+            <Divider />
+            <LinkRow
+              label="Help & support"
+              hint="Find answers or contact our support team"
+              onPress={() => router.push('/(app)/profile/support')}
+            />
           </Card>
 
           <Card padded={false} style={{ paddingHorizontal: 16 }}>

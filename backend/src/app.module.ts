@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { WalletModule } from './wallet/wallet.module';
+import { SupportModule } from './support/support.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { WalletModule } from './wallet/wallet.module';
     ApprovalsModule,
     ScreeningModule,
     StaffModule,
+    SupportModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

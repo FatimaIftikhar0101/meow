@@ -56,6 +56,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Support',
+    items: [
+      { path: '/support', label: 'Requests', permission: 'support.ticket.manage' },
+      { path: '/help-centre', label: 'Help centre', permission: 'faq.draft' },
+    ],
+  },
+  {
     label: 'Administration',
     items: [
       { path: '/staff', label: 'Staff & roles', permission: 'staff.read' },

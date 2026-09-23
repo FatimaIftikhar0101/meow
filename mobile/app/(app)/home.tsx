@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Logo } from '../../components/Logo';
 import { CorridorCard } from '../../components/CorridorCard';
+import { countryForCurrency } from '../../components/WorldMap';
 import { Avatar, StatusPill } from '../../components/StatusPill';
 import { UpdateBanner } from '../../components/UpdateNotice';
 import { Body, Card, Kicker, Note, Row, SectionHeader, Title } from '../../components/ui';
@@ -183,6 +184,31 @@ export default function Home() {
     );
   }, [corridors, balance, transfers]);
 
+  /**
+   * The API deliberately returns transfers newest first. The corridor card's
+   * rate still represents the active route, but its map tells the more useful
+   * story: where this person's latest transfer actually went.
+   */
+  const mapRoute = useMemo(() => {
+    const latest = transfers[0];
+    if (!latest) {
+      return {
+        fromCountry: corridor?.fromCountry ?? 'CA',
+        toCountry: corridor?.toCountry ?? 'PK',
+      };
+    }
+
+    const matchingCorridor = corridorFor(
+      corridors,
+      latest.sendCurrency,
+      latest.receiveCurrency,
+    );
+    return {
+      fromCountry: matchingCorridor?.fromCountry ?? countryForCurrency(latest.sendCurrency),
+      toCountry: latest.recipient.country,
+    };
+  }, [corridor, corridors, transfers]);
+
   const kycPending = kyc != null && kyc.status !== 'passed';
 
   /**
@@ -299,6 +325,8 @@ export default function Home() {
             corridor={corridor}
             balance={balance?.balance ?? null}
             balanceCurrency={balance?.currency ?? 'CAD'}
+            mapFromCountry={mapRoute.fromCountry}
+            mapToCountry={mapRoute.toCountry}
           />
         </View>
 

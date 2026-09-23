@@ -12,6 +12,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { PASSWORD_RULES, unmetRules } from '../lib/password';
 import { radius, shadow, space, useTheme, type Scheme } from '../theme/tokens';
 
@@ -345,6 +346,23 @@ export function Button({
 
 /* ── Form field ────────────────────────────────────────────────────────── */
 
+function EyeIcon({ visible, color }: { visible: boolean; color: string }) {
+  const stroke = {
+    stroke: color,
+    strokeWidth: 1.8,
+    fill: 'none',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" accessible={false}>
+      <Path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" {...stroke} />
+      <Circle cx={12} cy={12} r={2.8} {...stroke} />
+      {!visible && <Path d="m4 4 16 16" {...stroke} />}
+    </Svg>
+  );
+}
+
 export function Field({
   label,
   hint,
@@ -354,36 +372,64 @@ export function Field({
 }: TextInputProps & { label: string; hint?: string; error?: string }) {
   const { colors } = useTheme();
   const [focused, setFocused] = React.useState(false);
+  const [passwordVisible, setPasswordVisible] = React.useState(false);
+  const isPassword = input.secureTextEntry === true;
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ fontSize: 12, fontWeight: '600', color: colors.ink }}>{label}</Text>
-      <TextInput
-        placeholderTextColor={colors.inkFaint}
-        {...input}
-        onFocus={(e) => {
-          setFocused(true);
-          input.onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setFocused(false);
-          input.onBlur?.(e);
-        }}
-        style={[
-          {
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            // fieldBorder, not the hairline: this outline is the only thing
-            // marking where the field is, since its ground matches the page.
-            borderColor: error ? colors.danger : focused ? colors.accent : colors.fieldBorder,
-            borderRadius: radius.md,
-            paddingHorizontal: 14,
-            paddingVertical: 13,
-            fontSize: 15,
-            color: colors.ink,
-          },
-          style,
-        ]}
-      />
+      <View style={{ position: 'relative' }}>
+        <TextInput
+          placeholderTextColor={colors.inkFaint}
+          {...input}
+          secureTextEntry={isPassword ? !passwordVisible : input.secureTextEntry}
+          onFocus={(e) => {
+            setFocused(true);
+            input.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            input.onBlur?.(e);
+          }}
+          style={[
+            {
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              // fieldBorder, not the hairline: this outline is the only thing
+              // marking where the field is, since its ground matches the page.
+              borderColor: error ? colors.danger : focused ? colors.accent : colors.fieldBorder,
+              borderRadius: radius.md,
+              paddingHorizontal: 14,
+              paddingRight: isPassword ? 56 : 14,
+              paddingVertical: 13,
+              fontSize: 15,
+              color: colors.ink,
+            },
+            style,
+          ]}
+        />
+        {isPassword ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+            accessibilityState={{ selected: passwordVisible }}
+            onPress={() => setPasswordVisible((visible) => !visible)}
+            hitSlop={4}
+            style={({ pressed }) => ({
+              position: 'absolute',
+              top: 1,
+              right: 1,
+              width: 44,
+              height: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: radius.sm,
+              opacity: pressed ? 0.62 : 1,
+            })}
+          >
+            <EyeIcon visible={passwordVisible} color={colors.inkMuted} />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? (
         <Body size={12} tone="danger">
           {error}
